@@ -1,0 +1,150 @@
+<style>
+.scenario_info { display: none }
+.scenario_info.show { display: block }
+input:disabled ~ span { color: silver; }
+.hide { display: none; }
+label { display: block; text-indent: -50px; margin-left: 50px; }
+</style>
+
+<div class="scenario_info show" id="Annus Mirabilis">
+<p>Tournament Scenario (1757-59)
+<p><i>
+The British called 1759 the “Year of Miracles” (in Latin, Annus Mirabilis)
+because the victory bells in London that year seemed never to cease ringing.
+The British in 1759 captured French forts Carillon, St-Frédéric, and Niagara.
+In Germany, they and their Hanoverian allies defeated a French army at the
+Battle of Minden. Most importantly, General Wolfe took Québec while Admiral
+Hawke broke the French fleet at Quiberon Bay—these last events all but sealing
+the fate of Canada.
+</i>
+<p>
+This scenario focuses in on the period of transition (historically) from French
+to British ascendancy. It begins at the British low-point in the war, 1757, and
+continues through the end of 1759, when (historically) British victory was all
+but ensured. <p>
+This scenario involves just six hands of cards and can be completed in two to
+three hours.
+
+<!-- <a href="http://talk.consimworld.com/WebX?14@@.ee6e285/11766"></a> -->
+<p><i>
+NOTE:
+For  balance this scenario has been modified to start VP at French 2.
+</i>
+
+</div>
+
+<div class="scenario_info" id="Early War Campaign">
+<p>Intermediate Scenario One (1755-59)
+<p>
+This scenario uses the same victory conditions as Annus Mirabilis but begins
+with the landing at Alexandria of two British regiments from Ireland and the
+arrival of six French army battalions at Louisbourg and Québec. These regular
+reinforcements signalled the onset in 1755 of direct conflict in America
+between British and French crown.
+<p>
+The formal, European war has not yet begun and fewer forces are available than
+in the 1757 scenarios. Montcalm has yet to arrive, for example, and
+Pennsylvania and Virginia have not yet constructed their border defenses.
+<p>
+It should take (at most) five hours to complete.
+</div>
+
+<div class="scenario_info" id="Late War Campaign">
+<p>Intermediate Scenario Two (1757-62)
+<p>
+This scenario begins with the North American conflict in full gear (as in Annus
+Mirabilis), but allows play to extend beyond the date of Canada’s historical
+surrender (late 1760). The presumption is that—without Britain’s spectacular
+victories in 1759 and 1760— fighting could have continued until a European
+peace came within sight in late 1762.
+<p>
+This scenario could take as long as five hours to complete if it goes all the
+way to 1762.
+</div>
+
+<div class="scenario_info" id="The Full Campaign">
+<p>Extended Scenario (1755-62)
+<p>
+This scenario covers the full period of general conflict in North America.
+<p>
+If it goes the full distance, it may take as long as eight hours.
+</div>
+
+<div class="not_am">
+<p>
+Optional rules:
+
+<label class="only1755">
+<input type="checkbox" value="true" name="pitt_dip_rev">
+14.1
+If one of the cards <i>William Pitt</i> or <i>Diplomatic Revolution</i>
+has been played as an event and the other is in the discard pile,
+the side that could play the unplayed event automatically receives that card as part of its next deal.
+</label>
+
+<label>
+<input disabled type="checkbox" value="true" name="raid_militia">
+14.2 An enemy raid marker placed within a Department immediately causes a step loss to one militia unit in that Department (owner's choice).
+</label>
+
+<label class="only1755">
+<input type="checkbox" value="true" name="regulars_vp">
+14.3 Whenever a side plays a <i>British Regulars</i> or <i>French Regulars</i> event in 1755 and 1756, it suffers -1 VP.
+</label>
+
+<label>
+<input disabled type="checkbox" value="true" name="surrender">
+14.4 Either the sieging or besieged side may play <i>Surrender!</i>
+</label>
+
+<label class="only1755">
+<input type="checkbox" value="true" name="acadians">
+14.5 Either side may play <i>Acadians Expelled</i> (the effects are the same).
+</label>
+
+<label>
+<input type="checkbox" value="true" name="regulars_from_discard">
+14.6 Each turn after 1756, immediately after dealing and examining cards,
+the British player may randomly discard a card to add any one <i>British Regulars</i> or <i>Highlanders</i> card in the discard pile to his hand.
+</label>
+
+</div>
+
+<p>
+House rules:
+
+<label>
+<input type="checkbox" value="true" name="retroactive">Play <i>Foul Weather</i> card retroactively
+</label>
+
+<label>
+<input type="checkbox" value="true" name="no_foul_weather">Remove <i>Foul Weather</i> card</span>
+</label>
+
+<script>
+let scenario = document.querySelector("select[name='scenario']");
+scenario.onchange = function (evt) {
+	document.querySelectorAll(".scenario_info").forEach(e=>e.classList.remove("show"));
+	document.getElementById(scenario.value).classList.add("show");
+	switch (scenario.value) {
+	case "Annus Mirabilis":
+		document.querySelector(".not_am").classList.add("hide");
+		document.querySelector(".not_am").querySelectorAll("input").forEach(input => input.checked = false);
+		break;
+	case "Late War Campaign":
+		document.querySelector(".not_am").classList.remove("hide");
+		document.querySelectorAll(".only1755").forEach(label => {
+			label.classList.add("hide");
+			label.querySelector("input").checked = false;
+		});
+		break;
+	default:
+		document.querySelector(".not_am").classList.remove("hide");
+		document.querySelectorAll(".only1755").forEach(label => {
+			label.classList.remove("hide");
+		});
+		break;
+	}
+}
+scenario.onchange();
+</script>

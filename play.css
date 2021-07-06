@@ -1,0 +1,582 @@
+main { background-color: slategray; }
+aside { background-color: darkgray; }
+header { background-color: gainsboro; }
+body.France header.your_turn { background-color: lightskyblue; }
+body.Britain header.your_turn { background-color: salmon; }
+#role_France, #log .h2.france { background-color: #bdf; }
+#role_Britain, #log .h2.britain { background-color: #fcb; }
+aside { width: 220px; }
+
+/* Z-indexes:
+	1-99 	normal stacks
+	100	focus window backdrop
+	101-299 focused stack
+	200	highlighted spaces
+	300	tooltips
+*/
+
+/* LOG */
+
+.checked::before { content: "\2714  " }
+.unchecked::before { content: "\2714  "; color:transparent; }
+
+#log { background-color: floralwhite; }
+#log .h1 { background-color: tan; font-weight: bold; padding-top:2px; padding-bottom:2px; text-align: center; }
+#log .h2 { background-color: wheat; padding-top:2px; padding-bottom:2px; text-align: center; }
+#log .h3 { background-color: antiquewhite; padding-top:2px; padding-bottom:2px; text-align: center; }
+
+#log .tip { color: blue; }
+#log .tip:hover { text-decoration: dotted underline; }
+
+#log .indent {
+	padding-left: 12px;
+	text-indent: -12px;
+}
+
+/* CARDS */
+
+.card {
+	width: 240px;
+	height: 336px;
+	border-radius: 16px;
+	box-shadow: 1px 1px 5px rgba(0,0,0,0.5);
+	transition: transform 100ms;
+	background-color: #f1ead0;
+	background-size: cover;
+	background-repeat: no-repeat;
+	outline: 1px solid #655c4d;
+
+}
+
+.card.enabled:hover, .card.selected {
+	transform: translateY(-10px);
+}
+
+.hand .card { display: none; }
+.hand .card.show { display: block; }
+
+.card_info {
+	border-bottom: 1px solid black;
+	padding: 15px 0;
+}
+
+.card_info .card {
+	width: 120px;
+	height: 168px;
+	border-radius: 8px;
+	margin: 0 auto;
+}
+
+.card.highlight {
+	box-shadow: 0 0 0 3px yellow;
+}
+
+#tooltip {
+	display: none;
+	position: fixed;
+	z-index: 300;
+	right: 240px;
+	top: 60px;
+}
+
+#tooltip.show {
+	display: block;
+}
+
+/* CARD LIST DIALOGS */
+
+.card_list_dialog {
+	position: absolute;
+	width: 300px;
+	border: 1px solid black;
+	box-shadow: 0px 5px 10px 0px rgba(0,0,0,0.5);
+	user-select: none;
+}
+.card_list_header {
+	cursor: move;
+	border-bottom: 1px solid black;
+	background-color: tan;
+	padding: 5px 10px;
+}
+.card_list_x {
+	cursor: pointer;
+	float: right;
+	padding: 0px 2px;
+	margin: 5px 5px;
+}
+.card_list_x:hover {
+	background-color: black;
+	color: white;
+}
+.card_list_body {
+	padding: 5px 10px;
+	background-color: floralwhite;
+	overflow-y: scroll;
+	max-height: 500px;
+}
+.card_list_body div {
+	text-indent: -30px;
+	margin-left: 30px;
+}
+
+#removed { top: 100px; left: 100px; z-index: 98; }
+#discard { top: 100px; left: 425px; z-index: 99; }
+
+/* CARD MENU */
+
+#popup {
+	position: fixed;
+	user-select: none;
+	background-color: white;
+	left: 10px;
+	top: 100px;
+	box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.3);
+	z-index: 300;
+	min-width: 20ex;
+	white-space: nowrap;
+	display: none;
+	border: 1px solid black;
+}
+#popup div { padding: 3pt 8pt; color: gray; display: none; }
+#popup div.enabled { color: black; display: block; }
+#popup div.enabled:hover { background-color: black; color: white; }
+#popup div.always { display: block; }
+
+/* MAP */
+
+#mapwrap:not(.fit) ~ .hand {
+	width: 2550px;
+	margin: 15px auto;
+}
+
+#mapwrap {
+	position: relative;
+	box-shadow: 0px 1px 10px rgba(0,0,0,0.5);
+	width: 2550px;
+	height: 1650px;
+}
+
+#map {
+	position: absolute;
+	width: 2550px;
+	height: 1650px;
+	background-color: #ffedb3;
+	background-size: cover;
+	background-repeat: no-repeat;
+}
+
+#map.hide_pieces #pieces { display: none; }
+#map.hide_markers #markers { display: none; }
+
+#events {
+	position: absolute;
+	display: flex;
+	top: 230px;
+	left: 190px;
+}
+
+.event {
+	border: 1px solid black;
+	margin: 3px;
+	background-color: white;
+}
+
+#focus {
+	position: absolute;
+	background-color: black;
+	opacity: 50%;
+	box-shadow: 0 0 5px black;
+	z-index: 100;
+}
+
+.offmap { display: none; }
+
+.highlight {
+	cursor: pointer;
+	z-index: 200;
+}
+
+/* SPACES */
+
+.leader-box { background-repeat: no-repeat; background-size: 32px; }
+.leader-box.french { background-position: center bottom 35px; }
+.leader-box.british { background-position: center bottom 30px; }
+.leader-box.dead { background-image: url('/images/hasty-grave.svg'); opacity: 60%; }
+.leader-box.pool { background-image: url('/images/swap-bag.svg');  opacity: 40%;}
+.leader-box.unavailable { background-image: url('/images/swap-bag.svg'); opacity: 20%; }
+
+.wilderness, .cultivated, .box, .militia-box, .leader-box {
+	position: absolute;
+	border: 5px solid transparent;
+}
+.wilderness {
+	border-radius: 50%;
+}
+
+.mountain {
+	position: absolute;
+	border-radius: 66% 34% 0 0;
+	background-size: cover;
+	background-repeat: no-repeat;
+}
+.mountain.highlight {
+	background-image: url('mountain-highlight.svg');
+}
+.mountain.selected {
+	background-image: url('mountain-selected.svg');
+}
+
+.cultivated.highlight, .box.highlight, .militia-box.highlight {
+	border-color: white;
+	box-shadow: 0 0 5px white;
+}
+.wilderness.highlight {
+	border-color: white;
+}
+.wilderness.selected, .cultivated.selected, .box.selected, .militia-box.selected {
+	border-color: crimson;
+}
+
+.wilderness.french_supply, .cultivated.french_supply, .box.french_supply {
+	border-top-color: #0092d5;
+	border-left-color: #0092d5;
+}
+
+.wilderness.british_supply, .cultivated.british_supply, .box.british_supply {
+	border-bottom-color: #f0594e;
+	border-right-color: #f0594e;
+}
+
+/* COUNTERS */
+
+.leader, .unit, .marker {
+	transition: left 200ms, top 200ms;
+	position: absolute;
+	background-color: white;
+	background-size: auto 100%;
+	background-repeat: no-repeat;
+}
+
+.leader.activated, .unit.activated {
+	transform: rotate(20deg);
+}
+
+.unit.french {
+	background-color: #aae0fa;
+}
+
+.unit.british {
+	background-color: #eac99e;
+}
+
+.leader.inside, .unit.inside {
+	filter: grayscale(50%);
+}
+
+/* FLAT STYLE */
+
+body.flat .leader,
+body.flat .unit,
+body.flat .marker,
+body.flat .event {
+	border-width: 1px;
+	border-style: solid;
+	border-color: #444;
+}
+
+body.flat .leader.highlight,
+body.flat .unit.highlight {
+	outline: 2px solid yellow;
+}
+
+body.flat .leader.selected,
+body.flat .unit.selected {
+	outline: 2px solid crimson;
+}
+
+/* BEVEL STYLE ( top right bottom left ) */
+
+body.bevel .leader,
+body.bevel .unit,
+body.bevel .marker,
+body.bevel .event {
+	border-width: 2px;
+	border-style: solid;
+	border-color: #666;
+	outline: 1px solid #666;
+}
+
+body.bevel .leader.highlight,
+body.bevel .unit.highlight {
+	box-shadow: 0 0 0 3px yellow;
+}
+
+body.bevel .leader.selected,
+body.bevel .unit.selected {
+	box-shadow: 0 0 0 3px crimson;
+}
+
+body.bevel .leader,
+body.bevel .event {
+	border-color: #f0f0f0 #b9b9b9 #b9b9b9 #f0f0f0
+}
+
+body.bevel .marker.british_allied,
+body.bevel .marker.french_allied {
+	border-color: #ffecc8 #b79550 #b79550 #ffecc8
+}
+
+body.bevel .marker.british_stockade,
+body.bevel .marker.french_stockade {
+	border-color: #f3f1e2 #a29d82 #a29d82 #f3f1e2
+}
+
+body.bevel .marker.siege_0,
+body.bevel .marker.siege_1,
+body.bevel .marker.siege_2 {
+	border-color: #fffab0 #b5ae09 #b5ae09 #fffab0
+}
+
+body.bevel .marker.fieldworks {
+	border-color: #f1efeb #9e9b92 #9e9b92 #f1efeb
+}
+
+body.bevel .unit.british {
+	border-color: #f5e4cf #a4865e #a4865e #f5e4cf
+}
+
+body.bevel .marker.british_fort {
+	border-color: #f7a39f #a00007 #a00007 #f7a39f
+}
+
+body.bevel .marker.british_fort_uc {
+	border-color: #f8ada7 #a30018 #a30018 #f8ada7
+}
+
+body.bevel .unit.french {
+	border-color: #d5f0fd #669bb4 #669bb4 #d5f0fd
+}
+
+body.bevel .marker.french_fort {
+	border-color: #63c7ff #004282 #004282 #63c7ff
+}
+
+body.bevel .marker.french_fort_uc {
+	border-color: #6bd1ff #005491 #005491 #6bd1ff
+}
+
+body.bevel .marker.season_french_first {
+	border-color: #5ec0ff #003778 #003778 #5ec0ff
+}
+
+body.bevel .marker.season_british_first {
+	border-color: #ee8f93 #8b0000 #8b0000 #ee8f93
+}
+
+body.bevel .marker.provincial_assemblies {
+	border-color: #49a3ff #001352 #001352 #49a3ff
+}
+
+body.bevel .marker.vps {
+	border-color: #ddc49b #6f4b00 #6f4b00 #ddc49b
+}
+
+/* TRACKS */
+
+#bpa_reluctant {
+	position: absolute;
+	top: 1228px;
+	left: 48px;
+	width: 93px;
+	height: 128px;
+}
+
+#bpa_supportive {
+	position: absolute;
+	top: 1356px;
+	left: 48px;
+	width: 93px;
+	height: 128px;
+}
+
+#bpa_enthusiastic {
+	position: absolute;
+	top: 1484px;
+	left: 48px;
+	width: 93px;
+	height: 128px;
+}
+
+#season_marker.early { top: 104px; }
+#season_marker.late { top: 160px; }
+#season_marker.year_1755 { left: 220px; }
+#season_marker.year_1756 { left: 304px; }
+#season_marker.year_1757 { left: 388px; }
+#season_marker.year_1758 { left: 472px; }
+#season_marker.year_1759 { left: 556px; }
+#season_marker.year_1760 { left: 640px; }
+#season_marker.year_1761 { left: 725px; }
+#season_marker.year_1762 { left: 809px; }
+
+#vp_marker { left: 76px; top: 39px; }
+#vp_marker.french_vp_10 { top: 40px; }
+#vp_marker.french_vp_9 { top: 95px; }
+#vp_marker.french_vp_8 { top: 150px; left: 82px; }
+#vp_marker.french_vp_7 { top: 205px; }
+#vp_marker.french_vp_6 { top: 260px; }
+#vp_marker.french_vp_5 { top: 315px; left: 82px; }
+#vp_marker.french_vp_4 { top: 371px; }
+#vp_marker.french_vp_3 { top: 426px; }
+#vp_marker.french_vp_2 { top: 481px; }
+#vp_marker.french_vp_1 { top: 537px; left: 82px; }
+#vp_marker.vp_0 { top: 592px; } /* 0 */
+#vp_marker.british_vp_1 { top: 647px; }
+#vp_marker.british_vp_2 { top: 702px; }
+#vp_marker.british_vp_3 { top: 757px; }
+#vp_marker.british_vp_4 { top: 812px; }
+#vp_marker.british_vp_5 { top: 867px; left: 82px; }
+#vp_marker.british_vp_6 { top: 923px; }
+#vp_marker.british_vp_7 { top: 978px; }
+#vp_marker.british_vp_8 { top: 1033px; }
+#vp_marker.british_vp_9 { top: 1089px; }
+#vp_marker.british_vp_10 { top: 1144px; }
+
+#pa_marker { left: 70px; }
+#pa_marker.reluctant { top: 1270px; }
+#pa_marker.supportive { top: 1398px; }
+#pa_marker.enthusiastic { top: 1526px; }
+
+/* MARKERS */
+
+.marker{width:45px;height:45px;background-size:cover}
+.marker.small{width:36px;height:36px}
+
+.event{width:54px;height:54px;background-size:cover;display:none}
+.event.show{display:block}
+
+.m1s{width:45px;height:45px;background-position:-0px 0}
+.m1{width:45px;height:45px;background-position:-0px 0}
+.m1.reduced{background-position:-45px 0}
+.m2s{width:45px;height:45px;background-position:-45px 0}
+.m2{width:45px;height:45px;background-position:-90px 0}
+.m2.reduced{background-position:-135px 0}
+.m3s{width:45px;height:45px;background-position:-90px 0}
+.m3{width:45px;height:45px;background-position:-180px 0}
+.m3.reduced{background-position:-225px 0}
+.m4s{width:45px;height:45px;background-position:-135px 0}
+.m4{width:45px;height:45px;background-position:-270px 0}
+.m4.reduced{background-position:-315px 0}
+.m5s{width:45px;height:45px;background-position:-180px 0}
+.m5{width:45px;height:45px;background-position:-360px 0}
+.m5.reduced{background-position:-405px 0}
+.m6s{width:45px;height:45px;background-position:-225px 0}
+.m6{width:45px;height:45px;background-position:-450px 0}
+.m6.reduced{background-position:-495px 0}
+.m7s{width:45px;height:45px;background-position:-270px 0}
+.m7{width:45px;height:45px;background-position:-540px 0}
+.m7.reduced{background-position:-585px 0}
+.m8s{width:45px;height:45px;background-position:-315px 0}
+.m8{width:45px;height:45px;background-position:-630px 0}
+.m8.reduced{background-position:-675px 0}
+.m9s{width:45px;height:45px;background-position:-360px 0}
+.m9{width:45px;height:45px;background-position:-720px 0}
+.m9.reduced{background-position:-765px 0}
+.m10s{width:45px;height:45px;background-position:-405px 0}
+.m10{width:45px;height:45px;background-position:-810px 0}
+.m10.reduced{background-position:-855px 0}
+.m11s{width:45px;height:45px;background-position:-450px 0}
+.m11{width:45px;height:45px;background-position:-900px 0}
+.m11.reduced{background-position:-945px 0}
+.m12s{width:45px;height:45px;background-position:-495px 0}
+.m12{width:45px;height:45px;background-position:-990px 0}
+.m12.reduced{background-position:-1035px 0}
+.m13s{width:45px;height:45px;background-position:-540px 0}
+.m13{width:45px;height:45px;background-position:-1080px 0}
+.m13.reduced{background-position:-1125px 0}
+.m14s{width:45px;height:45px;background-position:-585px 0}
+.m14{width:45px;height:45px;background-position:-1170px 0}
+.m14.reduced{background-position:-1215px 0}
+.m15s{width:45px;height:45px;background-position:-630px 0}
+.m15{width:45px;height:45px;background-position:-1260px 0}
+.m15.reduced{background-position:-1305px 0}
+.m16s{width:45px;height:45px;background-position:-675px 0}
+.m16{width:45px;height:45px;background-position:-1350px 0}
+.m16.reduced{background-position:-1395px 0}
+.m17s{width:45px;height:45px;background-position:-720px 0}
+.m17{width:45px;height:45px;background-position:-1440px 0}
+.m17.reduced{background-position:-1485px 0}
+.t1s{width:54px;height:117px;background-position:-0px 0}
+.t2s{width:54px;height:117px;background-position:-54px 0}
+.t3s{width:54px;height:117px;background-position:-108px 0}
+.t4s{width:54px;height:117px;background-position:-162px 0}
+.t5s{width:54px;height:117px;background-position:-216px 0}
+.t6s{width:54px;height:117px;background-position:-270px 0}
+.t7s{width:54px;height:117px;background-position:-324px 0}
+.t8s{width:54px;height:117px;background-position:-378px 0}
+.t9s{width:54px;height:117px;background-position:-432px 0}
+.t10s{width:54px;height:117px;background-position:-486px 0}
+.c1{border-radius:50%;width:48px;height:48px;background-position:-0px 0}
+.c1.reduced{background-position:-48px 0}
+.c2{border-radius:50%;width:48px;height:48px;background-position:-96px 0}
+.c2.reduced{background-position:-144px 0}
+.c3{border-radius:50%;width:48px;height:48px;background-position:-192px 0}
+.c3.reduced{background-position:-240px 0}
+.c4{border-radius:50%;width:48px;height:48px;background-position:-288px 0}
+.c4.reduced{background-position:-336px 0}
+.c5{border-radius:50%;width:48px;height:48px;background-position:-384px 0}
+.c5.reduced{background-position:-432px 0}
+.c6{border-radius:50%;width:48px;height:48px;background-position:-480px 0}
+.c6.reduced{background-position:-528px 0}
+.c7{border-radius:50%;width:48px;height:48px;background-position:-576px 0}
+.c7.reduced{background-position:-624px 0}
+.c8{border-radius:50%;width:48px;height:48px;background-position:-672px 0}
+.c8.reduced{background-position:-720px 0}
+
+/* COLORS */
+
+body.bevel .leader{background-color:#f0f0f0;outline-color:#707070;border-color:#f5f5f5 #d8d8d8 #d8d8d8 #f5f5f5}
+body.flat .leader{background-color:#f0f0f0;border-color:#707070}
+body.bevel .event{background-color:#f0f0f0;outline-color:#707070;border-color:#f5f5f5 #d8d8d8 #d8d8d8 #f5f5f5}
+body.flat .event{background-color:#f0f0f0;border-color:#707070}
+body.bevel .marker.amphib{background-color:#f0f0f0;outline-color:#707070;border-color:#f5f5f5 #d8d8d8 #d8d8d8 #f5f5f5}
+body.flat .marker.amphib{background-color:#f0f0f0;border-color:#707070}
+body.bevel .marker.british_allied{background-color:#ffd990;outline-color:#7f580f;border-color:#fff8af #dfb86f #dfb86f #fff8af}
+body.flat .marker.british_allied{background-color:#ffd990;border-color:#7f580f}
+body.bevel .marker.french_allied{background-color:#ffd990;outline-color:#7f580f;border-color:#fff8af #dfb86f #dfb86f #fff8af}
+body.flat .marker.french_allied{background-color:#ffd990;border-color:#7f580f}
+body.bevel .marker.british_stockade{background-color:#e7e2c5;outline-color:#676244;border-color:#ffffe3 #c7c2a4 #c7c2a4 #ffffe3}
+body.flat .marker.british_stockade{background-color:#e7e2c5;border-color:#676244}
+body.bevel .marker.french_stockade{background-color:#e7e2c5;outline-color:#676244;border-color:#ffffe3 #c7c2a4 #c7c2a4 #ffffe3}
+body.flat .marker.french_stockade{background-color:#e7e2c5;border-color:#676244}
+body.bevel .marker.british_raided{background-color:#f78b33;outline-color:#770a00;border-color:#ffaa52 #d76a12 #d76a12 #ffaa52}
+body.flat .marker.british_raided{background-color:#f78b33;border-color:#770a00}
+body.bevel .marker.french_raided{background-color:#f78b33;outline-color:#770a00;border-color:#ffaa52 #d76a12 #d76a12 #ffaa52}
+body.flat .marker.french_raided{background-color:#f78b33;border-color:#770a00}
+body.bevel .marker.siege_0{background-color:#fff460;outline-color:#7f7400;border-color:#ffff78 #dfd43f #dfd43f #ffff78}
+body.flat .marker.siege_0{background-color:#fff460;border-color:#7f7400}
+body.bevel .marker.siege_1{background-color:#fff460;outline-color:#7f7400;border-color:#ffff78 #dfd43f #dfd43f #ffff78}
+body.flat .marker.siege_1{background-color:#fff460;border-color:#7f7400}
+body.bevel .marker.siege_2{background-color:#fff460;outline-color:#7f7400;border-color:#ffff78 #dfd43f #dfd43f #ffff78}
+body.flat .marker.siege_2{background-color:#fff460;border-color:#7f7400}
+body.bevel .marker.fieldworks{background-color:#e3dfd6;outline-color:#635e55;border-color:#fffef5 #c3beb5 #c3beb5 #fffef5}
+body.flat .marker.fieldworks{background-color:#e3dfd6;border-color:#635e55}
+body.bevel .unit.british{background-color:#eac99e;outline-color:#6a481d;border-color:#ffe8bd #caa87d #caa87d #ffe8bd}
+body.flat .unit.british{background-color:#eac99e;border-color:#6a481d}
+body.bevel .marker.british_fort{background-color:#ef473e;outline-color:#770000;border-color:#ff665d #cf261d #cf261d #ff665d}
+body.flat .marker.british_fort{background-color:#ef473e;border-color:#770000}
+body.bevel .marker.british_fort_uc{background-color:#f15a4f;outline-color:#710000;border-color:#ff796e #d1392e #d1392e #ff796e}
+body.flat .marker.british_fort_uc{background-color:#f15a4f;border-color:#710000}
+body.bevel .unit.french{background-color:#aae0fa;outline-color:#29607a;border-color:#c9ffff #89c0da #89c0da #c9ffff}
+body.flat .unit.french{background-color:#aae0fa;border-color:#29607a}
+body.bevel .marker.french_fort{background-color:#007ec5;outline-color:#001d64;border-color:#1f9ee5 #005ea5 #005ea5 #1f9ee5}
+body.flat .marker.french_fort{background-color:#007ec5;border-color:#001d64}
+body.bevel .marker.french_fort_uc{background-color:#0093d6;outline-color:#002467;border-color:#1fb3f6 #0073b6 #0073b6 #1fb3f6}
+body.flat .marker.french_fort_uc{background-color:#0093d6;border-color:#002467}
+body.bevel .marker.season_french_first{background-color:#0072bb;outline-color:#001963;border-color:#1f92db #00529b #00529b #1f92db}
+body.flat .marker.season_french_first{background-color:#0072bb;border-color:#001963}
+body.bevel .marker.season_british_first{background-color:#da2127;outline-color:#810000;border-color:#fa4046 #ba0006 #ba0006 #fa4046}
+body.flat .marker.season_british_first{background-color:#da2127;border-color:#810000}
+body.bevel .marker.provincial_assemblies{background-color:#004892;outline-color:#000d57;border-color:#1f68b2 #002872 #002872 #1f68b2}
+body.flat .marker.provincial_assemblies{background-color:#004892;border-color:#000d57}
+body.bevel .marker.vps{background-color:#b4883d;outline-color:#340700;border-color:#d4a75c #94671c #94671c #d4a75c}
+body.flat .marker.vps{background-color:#b4883d;border-color:#340700}

@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, height=device-height, initial-scale=1">
+<meta charset="utf-8">
+<title>WILDERNESS WAR</title>
+<link rel="icon" href="logo.png">
+<link rel="stylesheet" href="/fonts/fonts.css">
+<link rel="stylesheet" href="/common/play.css">
+<link rel="stylesheet" href="play.css">
+<link rel="stylesheet" href="images.css">
+<script defer src="/common/play.js"></script>
+<script defer src="data.js"></script>
+<script defer src="play.js"></script>
+</head>
+<body class="bevel">
+
+<div id="tooltip"></div>
+
+<div id="popup" onmouseleave="hide_popup_menu()">
+<div id="menu_play_event" class="always" onclick="on_play_event()">Play Event</div>
+<div id="menu_activate_force" class="always" onclick="on_activate_force()">Activate force</div>
+<div id="menu_activate_individually" class="always" onclick="on_activate_individually()">Activate individually</div>
+<div id="menu_construct_stockades" class="always" onclick="on_construct_stockades()">Construct stockades</div>
+<div id="menu_construct_forts" class="always" onclick="on_construct_forts()">Construct forts</div>
+<div id="menu_discard" class="always" onclick="on_discard()">Discard</div>
+</div>
+
+<div id="removed" class="card_list_dialog hide">
+	<div id="removed_x" class="card_list_x" onclick="hide_card_list('removed')">&#x274c;</div>
+	<div id="removed_header" class="card_list_header">Removed</div>
+	<div id="removed_body" class="card_list_body"></div>
+</div>
+
+<div id="discard" class="card_list_dialog hide">
+	<div id="discard_x" class="card_list_x" onclick="hide_card_list('discard')">&#x274c;</div>
+	<div id="discard_header" class="card_list_header">Discard</div>
+	<div id="discard_body" class="card_list_body"></div>
+</div>
+
+<header>
+	<div class="menu">
+		<div class="menu_title"><img src="/images/cog.svg"></div>
+		<div class="menu_popup">
+			<div class="menu_item" onclick="toggle_fullscreen()">Fullscreen</div>
+			<div class="menu_separator"></div>
+			<div class="menu_item" onclick="window.open('info/rulebook.html', '_blank')">Rulebook</div>
+			<div class="menu_item" onclick="window.open('info/playbook.html', '_blank')">Playbook</div>
+			<div class="menu_item" onclick="window.open('info/charts.html', '_blank')">Charts &amp; Tables</div>
+			<div class="menu_item" onclick="window.open('info/cards.html', '_blank')">Cards</div>
+			<div class="menu_separator"></div>
+			<div class="menu_item" onclick="confirm_resign()">Resign</div>
+			<div class="debug menu_separator"></div>
+			<div class="debug menu_item" onclick="send_save()">&#x1F41E; Save</div>
+			<div class="debug menu_item" onclick="send_restore()">&#x1F41E; Restore</div>
+			<div class="debug menu_separator"></div>
+			<div class="debug menu_item" onclick="send_restart('Annus Mirabilis')">&#x26a0; Restart 1757</div>
+			<div class="debug menu_item" onclick="send_restart('The Full Campaign')">&#x26a0; Restart 1755</div>
+		</div>
+	</div>
+	<div id="stacking_menu" class="menu">
+		<div class="menu_title"><img src="/images/stack.svg"></div>
+		<div class="menu_popup">
+			<div id="stack_v" class="menu_item unchecked" onclick="set_layout(0)">Vertical</div>
+			<div id="stack_h" class="menu_item unchecked" onclick="set_layout(1)">Horizontal</div>
+			<div id="stack_d" class="menu_item unchecked" onclick="set_layout(2)">Diagonal</div>
+			<div class="menu_separator"></div>
+			<div id="mouse_focus" class="menu_item unchecked" onclick="set_mouse_focus()">Mouse-focus</div>
+			<div class="menu_separator"></div>
+			<div id="style_bevel" class="menu_item unchecked" onclick="set_style('bevel')">Beveled</div>
+			<div id="style_flat" class="menu_item unchecked" onclick="set_style('flat')">Flat</div>
+		</div>
+	</div>
+	<div id="stacking_menu" class="menu">
+		<div class="menu_title"><img src="/images/wooden-sign.svg"></div>
+		<div class="menu_popup">
+			<div class="menu_item" onclick="send_query('supply')">Supply lines</div>
+			<div class="menu_item" onclick="send_query('removed')">Removed</div>
+			<div class="menu_item" onclick="send_query('discard')">Discard</div>
+		</div>
+	</div>
+	<div class="icon_button" onclick="toggle_counters()"><img src="/images/earth-america.svg"></div>
+	<div class="icon_button" onclick="toggle_zoom()"><img src="/images/magnifying-glass.svg"></div>
+	<div class="icon_button" onclick="toggle_log()"><img src="/images/scroll-quill.svg"></div>
+	<div id="demolish_menu" class="menu hide">
+		<div class="menu_title"><img src="/images/dig-dug.svg"></div>
+		<div class="menu_popup">
+			<div id="demolish_fort" class="menu_item" onclick="send_action('demolish_fort')">Demolish fort</div>
+			<div id="demolish_stockade" class="menu_item" onclick="send_action('demolish_stockade')">Demolish stockade</div>
+			<div id="demolish_fieldworks" class="menu_item" onclick="send_action('demolish_fieldworks')">Demolish fieldworks</div>
+		</div>
+	</div>
+	<div id="prompt"></div>
+	<div id="actions"></div>
+</header>
+
+<aside>
+	<div id="roles">
+		<div class="role" id="role_France">
+			<div class="role_name">
+				France
+				<div id="french_hand" class="role_vp">?</div>
+				<div class="role_user"></div>
+			</div>
+		</div>
+		<div class="role" id="role_Britain">
+			<div class="role_name">
+				Britain
+				<div id="british_hand" class="role_vp">?</div>
+				<div class="role_user"></div>
+			</div>
+		</div>
+		<div class="card_info"><div id="last_card" class="card show card_back"></div></div>
+	</div>
+	<div id="log"></div>
+</aside>
+
+<main>
+	<div id="mapwrap">
+		<div id="map">
+			<div id="events">
+				<div class="event" id="event_pitt"></div>
+				<div class="event" id="event_diplo"></div>
+				<div class="event" id="event_quiberon"></div>
+				<div class="event" id="british_card_held"></div>
+				<div class="event" id="french_card_held"></div>
+				<div class="event" id="event_no_fr_naval"></div>
+				<div class="event" id="event_no_amphib"></div>
+				<div class="event" id="event_cherokees"></div>
+				<div class="event" id="event_cherokee_uprising"></div>
+				<div class="event" id="event_british_blockhouses"></div>
+				<div class="event" id="event_french_blockhouses"></div>
+			</div>
+			<div id="bpa_reluctant" onmouseenter="on_focus_bpa(0)" onmouseleave="on_blur_bpa()"></div>
+			<div id="bpa_supportive" onmouseenter="on_focus_bpa(1)" onmouseleave="on_blur_bpa()"></div>
+			<div id="bpa_enthusiastic" onmouseenter="on_focus_bpa(2)" onmouseleave="on_blur_bpa()"></div>
+			<div id="spaces"></div>
+			<div id="markers">
+				<div class="marker vps vp_0" id="vp_marker"></div>
+				<div class="marker provincial_assemblies supportive" id="pa_marker" onmouseenter="on_focus_pa_marker()" onmouseleave="on_blur_bpa()"></div>
+				<div class="marker season_french_first early year_1755" id="season_marker"></div>
+			</div>
+			<div id="pieces">
+				<div id="focus" class="hide"></div>
+			</div>
+		</div>
+	</div>
+	<div id="cards" class="hand"></div>
+</main>
+
+<footer id="status"></footer>
+
+</body>
