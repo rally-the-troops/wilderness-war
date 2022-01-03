@@ -3452,9 +3452,9 @@ states.pick_raid = {
 
 function goto_raid_militia() {
 	let where = game.raid.where;
-	if (enemy_department_has_at_least_n_militia(where, 1)) {
+	if (has_enemy_stockade(where) && enemy_department_has_at_least_n_militia(where, 1)) {
 		console.log("MILITIA AGAINST RAID", space_name(where), space_name(game.raid.battle));
-		if (where === game.raid.battle && has_enemy_stockade(where)) {
+		if (where === game.raid.battle) {
 			console.log("BATTLED AGAINST STOCKADE, NO MILITIA ALLOWED", space_name(game.raid.battle));
 			resolve_raid();
 		} else {
