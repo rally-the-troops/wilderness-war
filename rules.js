@@ -13,7 +13,9 @@
 // TODO: rename node/space -> location/space or raw_space/space or box/space?
 // TODO: replace piece[p].type lookups with index range checks
 
-const { spaces, pieces, cards } = require('./data');
+// TODO: lift sieges/remove amphib after move/turn end
+
+const { spaces, pieces, cards } = require("./data");
 
 const BRITAIN = 'Britain';
 const FRANCE = 'France';
@@ -90,10 +92,6 @@ let last_enemy_unit;
 let last_friendly_leader;
 let last_friendly_piece;
 let last_friendly_unit;
-
-function DEBUG() {
-	console.log("WW("+game.state+","+game.active+"):\n\t" + JSON.stringify(game, (k,v) => (k!=='undo'&&k!=='log')?v:undefined));
-}
 
 function random(n) {
 	return ((game.seed = game.seed * 69621 % 0x7fffffff) / 0x7fffffff) * n | 0;
@@ -354,12 +352,23 @@ define_indian_settlement("Pays d'en Haut", "Ottawa");
 define_indian_settlement("Pays d'en Haut", "Potawatomi");
 define_indian_settlement("Pays d'en Haut", "Huron");
 
-const JOHNSON = find_leader('Johnson');
-const HALIFAX = find_space('Halifax');
-const LOUISBOURG = find_space('Louisbourg');
-const ST_LAWRENCE_CANADIAN_MILITIAS = find_space('St. Lawrence Canadian Militias');
-const NORTHERN_COLONIAL_MILITIAS = find_space('Northern Colonial Militias');
-const SOUTHERN_COLONIAL_MILITIAS = find_space('Southern Colonial Militias');
+const JOHNSON = find_leader("Johnson");
+const HALIFAX = find_space("Halifax");
+const LOUISBOURG = find_space("Louisbourg");
+const BAIE_ST_PAUL = find_space("Baie-St-Paul");
+const RIVIERE_OUELLE = find_space("Rivière-Ouelle");
+const ILE_D_ORLEANS = find_space("Île d'Orléans");
+
+const ST_LAWRENCE_CANADIAN_MILITIAS = find_space("St. Lawrence Canadian Militias");
+const NORTHERN_COLONIAL_MILITIAS = find_space("Northern Colonial Militias");
+const SOUTHERN_COLONIAL_MILITIAS = find_space("Southern Colonial Militias");
+
+const first_amphib_card = 17;
+const last_amphib_card = 20;
+
+function has_amphibious_arrow(space) {
+	return space === HALIFAX || space === LOUISBOURG;
+}
 
 // Map spaces except militia boxes and leader boxes.
 const first_space = 1;
@@ -1936,7 +1945,6 @@ states.pick_move = {
 
 states.define_force = {
 	prompt() {
-		DEBUG();
 		let main_leader = game.force.leader;
 		let selected = game.force.selected;
 		let space = piece_space(main_leader);
@@ -2165,6 +2173,11 @@ states.move = {
 				// TODO: check valid destinations too
 				if (may_naval_move(who))
 					gen_action_x('naval_move', game.move.type !== 'naval');
+				if (game.active === BRITAIN && has_amphibious_arrow(from)) {
+					for (let card = first_amphib_card; card <= last_amphib_card; ++card)
+						if (player.hand.includes(card))
+							gen_action('play_event', card);
+				}
 			}
 		}
 		gen_action_next();
@@ -2181,6 +2194,11 @@ states.move = {
 					gen_action_piece(p);
 			});
 		}
+	},
+	play_event(card) {
+		push_undo();
+		play_card(card);
+		game.state = 'amphibious_landing';
 	},
 	boat_move() {
 		game.move.type = 'boat';
@@ -2222,6 +2240,34 @@ states.move = {
 	next() {
 		// TODO
 		end_move();
+	},
+}
+
+states.amphibious_landing = {
+	prompt() {
+		let who = moving_piece();
+		let from = piece_space(who);
+		view.prompt = "Place amphibious landing marker.";
+		view.who = who;
+		if (from === HALIFAX) {
+			gen_action_space(LOUISBOURG);
+		}
+		if (from === LOUISBOURG) {
+			gen_action_space(BAIE_ST_PAUL);
+			gen_action_space(RIVIERE_OUELLE);
+			gen_action_space(ILE_D_ORLEANS);
+		}
+	},
+	space(to) {
+		push_undo();
+		game.Britain.amphib.push(to);
+		let who = moving_piece();
+		let from = piece_space(who);
+		game.move.path[to] = from;
+		game.move.start_cost = 1;
+		move_piece_to(who, to);
+		game.state = 'move';
+		goto_intercept();
 	},
 }
 
@@ -3231,12 +3277,12 @@ function goto_retreat_defender() {
 }
 
 function can_defender_retreat_from_to(p, from, to) {
-	console.log("RETREAT QUERY", piece_name(p), space_name(from), space_name(to));
+	console.log("RETREAT QUERY", piece_name(p), space_name(from), space_name(to), "atk came from", moving_piece_came_from(from));
 	if (has_unbesieged_enemy_units(to))
 		return false;
 	if (has_unbesieged_enemy_fortifications(to))
 		return false;
-	if (moving_piece_came_from(to) === battle_space())
+	if (moving_piece_came_from(from) === to)
 		return false;
 	if (force_has_drilled_troops(p)) {
 		if (is_cultivated(to) || has_friendly_fortifications(to))
@@ -3262,7 +3308,8 @@ function can_defender_retreat_from(p, from) {
 		return false;
 	if (can_defender_retreat_inside(p, from))
 		return true;
-	// TODO: retreat from amphib to british controlled port
+	if (game.battle.defender === BRITAIN && has_amphib(from))
+		return true;
 	let can_retreat = false;
 	for_each_exit(from, to => {
 		if (can_defender_retreat_from_to(p, from, to))
@@ -3316,7 +3363,9 @@ states.retreat_defender_to = {
 		let who = game.battle.who;
 		view.prompt = "Retreat losing leaders and units \u2014 select destination.";
 		view.who = who;
-		// TODO: retreat from amphib to british controlled port
+		if (game.active === BRITAIN && has_amphib(from)) {
+			for_each_british_controlled_port(to => gen_action_space(to));
+		}
 		if (can_defender_retreat_inside(who, from))
 			gen_action_space(from);
 		for_each_exit(from, to => {
@@ -3364,7 +3413,7 @@ function goto_resolve_siege(space) {
 		drm += drm_def_ld;
 		msg += `\n-${drm_def_ld} defender's leader`;
 	}
-	if (space == LOUISBOURG) {
+	if (space === LOUISBOURG) {
 		msg += `\n-1 for Louisbourg`;
 		drm -= 1;
 	}
@@ -4492,7 +4541,7 @@ exports.view = function(state, current) {
 		if (states[game.state].inactive)
 			states[game.state].inactive();
 		else
-			view.prompt = `Waiting for ${game.active} \u2014 ${game.state.replace(/_/g, ' ')}...`;
+			view.prompt = `Waiting for ${game.active} \u2014 ${game.state.replace(/_/g, " ")}...`;
 	} else {
 		states[game.state].prompt();
 		gen_action_undo();
