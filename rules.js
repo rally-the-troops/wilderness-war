@@ -1709,6 +1709,7 @@ function start_action_phase() {
 }
 
 function end_action_phase() {
+	lift_sieges();
 	console.log("END ACTION PHASE");
 	clear_undo();
 	game.pieces.activated.length = 0;
@@ -1893,7 +1894,22 @@ states.activate_force = {
 	},
 }
 
+function lift_sieges() {
+	console.log("LIFT SIEGES");
+	for (let sid in game.sieges) {
+		let space = sid | 0;
+		if (!has_enemy_units(space) || !has_friendly_units(space)) {
+			log(`Siege in ${space_name(space)} lifted.`);
+			for (let p = 1; p < pieces.length; ++p)
+				if (is_piece_in_space(p, space))
+					set_piece_outside(p);
+			delete game.sieges[sid];
+		}
+	}
+}
+
 function end_activation() {
+	lift_sieges();
 	clear_undo();
 	// TODO: goto_pick_force for campaign event
 	goto_pick_move();
@@ -1972,7 +1988,7 @@ states.define_force = {
 
 		// select any leader in the map space
 		for_each_friendly_leader_in_space(space, p => {
-			if (p !== selected && !is_piece_inside(p)) {
+			if (p !== selected) {
 				gen_action_space(leader_box(p));
 				// XXX if (p !== main_leader && leader_command(p) <= leader_command(selected))
 				// XXX gen_action_piece(p);
@@ -1981,7 +1997,7 @@ states.define_force = {
 
 		// pick up subordinate leaders
 		for_each_friendly_leader_in_node(space, p => {
-			if (p !== selected && !is_piece_inside(p)) {
+			if (p !== selected) {
 				if (p !== main_leader && leader_command(p) <= leader_command(selected))
 					gen_action_piece(p);
 			}
@@ -1989,29 +2005,26 @@ states.define_force = {
 
 		// drop off subordinate leaders
 		for_each_friendly_leader_in_node(leader_box(selected), p => {
-			if (p !== selected && !is_piece_inside(p))
+			if (p !== selected) {
 				gen_action_piece(p);
+			}
 		});
 
 		// pick up units
 		for_each_friendly_unit_in_node(space, p => {
-			if (!is_piece_inside(p)) {
-				if (is_british_iroquois_or_mohawk(p)) {
-					// 5.534 Only Johnson can command British Iroquois and Mohawk (and for free)
-					if (selected === JOHNSON)
-						gen_action_piece(p);
-				} else {
-					if (cap > 0)
-						gen_action_piece(p);
-				}
+			if (is_british_iroquois_or_mohawk(p)) {
+				// 5.534 Only Johnson can command British Iroquois and Mohawk (and for free)
+				if (selected === JOHNSON)
+					gen_action_piece(p);
+			} else {
+				if (cap > 0)
+					gen_action_piece(p);
 			}
 		});
 
 		// drop off units
 		for_each_friendly_unit_in_node(leader_box(selected), p => {
-			if (!is_piece_inside(p)) {
-				gen_action_piece(p);
-			}
+			gen_action_piece(p);
 		});
 	},
 
@@ -2091,7 +2104,18 @@ console.log("GOTO_MOVE_PIECE", who);
 		from: {},
 		aux: list_auxiliary_units_in_force(who)
 	}
-	resume_move();
+	if (is_piece_inside(who))
+		goto_break_siege();
+	else
+		resume_move();
+}
+
+function goto_break_siege(who) {
+	let here = moving_piece_space();
+	game.move.path = { [here]: here };
+	// TODO: may defenders attempt to avoid battle when breaking out of siege?
+	goto_battle_check();
+	console.log("GOTO_BREAK_SIEGE", who);
 }
 
 function may_naval_move(who) {
@@ -2227,6 +2251,7 @@ states.move = {
 			remove_enemy_forts_uc_in_path(game.move.path, to);
 
 		move_piece_to(who, to);
+		lift_sieges();
 		goto_intercept();
 	},
 	piece(who) {
@@ -2266,6 +2291,7 @@ states.amphibious_landing = {
 		game.move.path[to] = from;
 		game.move.start_cost = 1;
 		move_piece_to(who, to);
+		lift_sieges();
 		game.state = 'move';
 		goto_intercept();
 	},
@@ -2287,7 +2313,7 @@ function goto_battle_check() {
 	let where = moving_piece_space();
 	console.log("BATTLE CHECK", space_name(where));
 	if (has_unbesieged_enemy_units(where)) {
-		// TODO: breaking the siege
+		// TODO: breaking the siege (units inside join)
 		goto_battle(where, false, false);
 	} else {
 		end_move_step(false);
@@ -2295,6 +2321,7 @@ function goto_battle_check() {
 }
 
 function end_move_step(final) {
+	lift_sieges();
 	let who = moving_piece();
 	let where = moving_piece_space();
 	console.log("END MOVE STEP");
@@ -2632,17 +2659,10 @@ function end_avoid_battle() {
 // BATTLE
 
 function for_each_attacking_piece(fn) {
+	for_each_piece_in_force(game.move.moving, fn);
+	/*
 	let where = game.battle.where;
 	if (game.battle.breaking_siege) {
-		if (game.battle.attacker === BRITAIN) {
-			for (let p = first_british_piece; p <= last_british_piece; ++p)
-				if (is_piece_in_space(p, where))
-					fn(p);
-		} else {
-			for (let p = first_french_piece; p <= last_french_piece; ++p)
-				if (is_piece_in_space(p, where))
-					fn(p);
-		}
 	} else {
 		if (game.battle.attacker === BRITAIN) {
 			for (let p = first_british_piece; p <= last_british_piece; ++p)
@@ -2654,6 +2674,7 @@ function for_each_attacking_piece(fn) {
 					fn(p);
 		}
 	}
+	*/
 }
 
 function for_each_defending_piece(fn) {
