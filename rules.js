@@ -3961,6 +3961,54 @@ events.françois_bigot = {
 	},
 }
 
+const british_ministerial_crisis_cards = [ 47, 48, 54, 57, 58, 59, 60, 61, 63, 64 ];
+
+events.british_ministerial_crisis = {
+	can_play() {
+		return enemy_player.hand.length > 0;
+	},
+	play() {
+		let n = 0;
+		for (let i = 0; i < enemy_player.hand.length; ++i) {
+			let c = enemy_player.hand[i];
+			if (british_ministerial_crisis_cards.includes(c))
+				++n;
+		}
+		if (n > 0) {
+			set_active(enemy());
+			game.state = 'british_ministerial_crisis';
+			game.count = 1;
+		} else {
+			log("British player has none of the listed cards in hand.");
+			end_action_phase();
+		}
+	},
+}
+
+states.british_ministerial_crisis = {
+	prompt() {
+		view.prompt = "British Ministerial Crisis \u2014 discard one of the listed cards.";
+		if (game.count > 0) {
+			for (let i = 0; i < player.hand.length; ++i) {
+				let c = player.hand[i];
+				if (british_ministerial_crisis_cards.includes(c))
+					gen_action_discard(c);
+			}
+		} else {
+			gen_action_next();
+		}
+	},
+	discard(c) {
+		push_undo();
+		game.count = 0;
+		discard_card(c, "");
+	},
+	next() {
+		set_active(enemy());
+		end_action_phase();
+	}
+}
+
 function is_card_removed(card) {
 	return game.cards.removed.includes(card);
 }
@@ -4685,6 +4733,10 @@ function gen_action_space(space) {
 
 function gen_action_piece(piece) {
 	gen_action('piece', piece);
+}
+
+function gen_action_discard(card) {
+	gen_action('discard', card);
 }
 
 function load_game_state(state) {
