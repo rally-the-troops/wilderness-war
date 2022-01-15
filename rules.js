@@ -2110,12 +2110,11 @@ console.log("GOTO_MOVE_PIECE", who);
 		resume_move();
 }
 
-function goto_break_siege(who) {
+function goto_break_siege() {
+	console.log("GOTO_BREAK_SIEGE");
 	let here = moving_piece_space();
 	game.move.path = { [here]: here };
-	// TODO: may defenders attempt to avoid battle when breaking out of siege?
-	goto_battle_check();
-	console.log("GOTO_BREAK_SIEGE", who);
+	goto_avoid_battle();
 }
 
 function may_naval_move(who) {
@@ -3166,7 +3165,6 @@ function determine_winner_battle() {
 		} else {
 			log("DEFENDER WON RAID BATTLE VS MILITIA");
 			retreat_attacker(game.raid.where, game.raid.from[game.raid.where] | 0);
-			goto_pick_raid();
 		}
 		return;
 	}
@@ -3191,13 +3189,6 @@ function determine_winner_battle() {
 		let from = game.battle.where;
 		let to = moving_piece_came_from(game.battle.where);
 		retreat_attacker(from, to);
-
-		// if raiders need to retreat again, they go back to this
-		// space, unless they retreat to join other raiders
-		if (!game.raid.from[to])
-			game.raid.from[to] = from;
-
-		end_retreat();
 	}
 }
 
@@ -3254,31 +3245,59 @@ function can_attacker_retreat_from_to(p, from, to) {
 
 function retreat_attacker(from, to) {
 	set_active(game.battle.attacker);
+	game.state = 'retreat_attacker';
+	game.retreat = { from, to };
+}
 
-	// TODO: manual user to click on retreat location
+states.retreat_attacker = {
+	prompt() {
+		let from = game.retreat.from;
+		let to = game.retreat.to;
+		if (from === to)
+			view.prompt = `Retreat losing leaders and units back into ${space_name(to)}.`;
+		else
+			view.prompt = `Retreat losing leaders and units from ${space_name(from)} to ${space_name(to)}.`;
+		view.where = from;
+		gen_action_space(to);
+	},
+	space(_) {
+		let from = game.retreat.from;
+		let to = game.retreat.to;
+		delete game.retreat;
 
-	console.log("RETREAT ATTACKER", space_name(from), "to", space_name(to));
+		console.log("RETREAT ATTACKER", space_name(from), "to", space_name(to));
 
-	// NOTE: Besieged pieces assaulting out are already inside so not affected by the code below.
-	// NOTE: We unstack forces here by retreating individual units before leaders!
-	for_each_friendly_unit_in_space(from, p => {
-		if (!is_piece_inside(p)) {
-			if (can_attacker_retreat_from_to(p, from, to))
-				move_piece_to(p, to);
-			else
-				eliminate_piece(p);
+		// NOTE: Besieged pieces assaulting out are already inside so not affected by the code below.
+		// NOTE: We unstack forces here by retreating individual units before leaders!
+		for_each_friendly_unit_in_space(from, p => {
+			if (!is_piece_inside(p)) {
+				if (can_attacker_retreat_from_to(p, from, to))
+					move_piece_to(p, to);
+				else
+					eliminate_piece(p);
+			}
+		});
+		for_each_friendly_leader_in_space(from, p => {
+			if (!is_piece_inside(p)) {
+				if (can_attacker_retreat_from_to(p, from, to))
+					move_piece_to(p, to);
+				else
+					eliminate_piece(p);
+			}
+		});
+
+		// Raid battle vs militia
+		if (game.raid && game.raid.where > 0) {
+			// if raiders need to retreat again, they go back to this
+			// space, unless they retreat to join other raiders
+			if (!game.raid.from[to])
+				game.raid.from[to] = from;
+			return goto_pick_raid();
 		}
-	});
-	for_each_friendly_leader_in_space(from, p => {
-		if (!is_piece_inside(p)) {
-			if (can_attacker_retreat_from_to(p, from, to))
-				move_piece_to(p, to);
-			else
-				eliminate_piece(p);
-		}
-	});
 
-	// TODO: lift siege if attack on enemy fort repulsed
+		// Normal battle
+		end_retreat();
+	}
 }
 
 function goto_retreat_defender() {
