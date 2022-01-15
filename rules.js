@@ -981,6 +981,14 @@ function has_enemy_units(space) {
 	return false;
 }
 
+function count_enemy_units_in_space(space) {
+	let n = 0;
+	for (let p = first_enemy_unit; p <= last_enemy_unit; ++p)
+		if (is_piece_in_space(p, space))
+			++n;
+	return n;
+}
+
 function has_unbesieged_enemy_units(space) {
 	for (let p = first_enemy_unit; p <= last_enemy_unit; ++p)
 		if (is_piece_in_space(p, space) && !is_piece_inside(p))
@@ -1296,10 +1304,10 @@ function reduce_unit(p) {
 function eliminate_piece(p) {
 	log(piece_name(p) + " is eliminated.");
 	isolate_piece_from_force(p);
-	if (is_regulars_unit(p) || is_coureurs_unit(p))
-		game.pieces.location[p] = 0; // TODO: permanently eliminated
-	else
-		game.pieces.location[p] = 0;
+	if (is_indian_unit(p)) {
+		// TODO: remove allied marker if necessary
+	}
+	game.pieces.location[p] = 0;
 }
 
 function eliminate_indian_tribe(tribe) {
@@ -3863,6 +3871,26 @@ states.construct_forts = {
 
 // EVENTS
 
+const TODO = { can_play() { return false } };
+
+events.campaign = TODO;
+
+events.northern_indian_alliance = TODO;
+events.western_indian_alliance = TODO;
+events.iroquois_indian_alliance = TODO;
+events.mohawks = TODO;
+events.cherokees = TODO;
+events.cherokee_uprising = TODO;
+events.treaty_of_easton = TODO;
+events.indians_desert = TODO;
+
+events.provincial_regiments_dispersed_for_frontier_duty = TODO;
+events.raise_provincial_regiments = TODO;
+events.colonial_recruits = TODO;
+
+events.troop_transports_and_local_enlistments = TODO;
+events.victories_in_germany_release_troops_and_finances_for_new_world = TODO;
+
 events.louisbourg_squadrons = {
 	can_play() {
 		return is_friendly_controlled_space(LOUISBOURG);
@@ -3930,6 +3958,81 @@ states.governor_vaudreuil_interferes = {
 			isolate_piece_from_force(p);
 			game.swap = p;
 		}
+	},
+}
+
+events.small_pox = {
+	can_play() {
+		console.log("can_play_small_pox");
+		for (let s = first_space; s <= last_space; ++s)
+			if (count_enemy_units_in_space(s) > 4)
+				return true;
+		return false;
+	},
+	play() {
+		game.state = 'small_pox';
+	},
+}
+
+states.small_pox = {
+	prompt() {
+		view.prompt = "Choose a space with more than 4 units.";
+		for (let s = first_space; s <= last_space; ++s)
+			if (count_enemy_units_in_space(s) > 4)
+				gen_action_space(s);
+	},
+	space(s) {
+		log(`Small Pox in ${space_name(s)}.`);
+		let roll = roll_d6();
+		log("Roll " + roll + ".");
+		if (count_enemy_units_in_space(s) > 8) {
+			game.count = roll;
+		} else {
+			game.count = Math.ceil(roll / 2);
+		}
+		log(`Must eliminate ${game.count} steps.`);
+		clear_undo();
+		game.state = 'reduce_from_small_pox';
+		game.small_pox = s;
+		set_active(enemy());
+	},
+}
+
+states.reduce_from_small_pox = {
+	prompt() {
+		view.prompt = `Small Pox in ${space_name(game.small_pox)} \u2014 eliminate ${game.count} steps.`;
+		if (game.count > 0) {
+			let can_reduce = false;
+			for_each_friendly_unit_in_space(game.small_pox, p => {
+				if (!is_unit_reduced(p)) {
+					can_reduce = true;
+					gen_action_piece(p);
+				}
+			});
+			if (!can_reduce) {
+				for_each_friendly_unit_in_space(game.small_pox, p => {
+					if (is_unit_reduced(p))
+						gen_action_piece(p);
+				});
+			}
+		} else {
+			gen_action_next();
+		}
+	},
+	piece(p) {
+		push_undo();
+		game.count --;
+		reduce_unit(p);
+	},
+	next() {
+		log("Remove all Indians.");
+		for_each_friendly_unit_in_space(game.small_pox, p => {
+			if (is_indian_unit(p))
+				eliminate_piece(p);
+		});
+		delete game.small_pox;
+		set_active(enemy());
+		end_action_phase();
 	},
 }
 
@@ -4437,6 +4540,16 @@ states.light_infantry = {
 	},
 }
 
+events.french_regulars = TODO;
+events.british_regulars = TODO;
+events.highlanders = TODO;
+events.royal_americans = TODO;
+
+events.acadians_expelled = TODO;
+events.william_pitt = TODO;
+events.diplomatic_revolution = TODO;
+events.intrigues_against_shirley = TODO;
+
 // SETUP
 
 exports.scenarios = [
@@ -4633,6 +4746,7 @@ function setup_1757(end_year) {
 	setup_leader("offmap", "Shirley");
 
 	game.events.pitt = 1;
+	game.events.diplo = 1;
 
 	game.France.hand_size = 9;
 	game.Britain.hand_size = 9;
