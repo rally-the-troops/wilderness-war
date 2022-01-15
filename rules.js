@@ -365,6 +365,7 @@ const SOUTHERN_COLONIAL_MILITIAS = find_space("Southern Colonial Militias");
 
 const first_amphib_card = 17;
 const last_amphib_card = 20;
+const SURRENDER = 6;
 const LOUISBOURG_SQUADRONS = 21;
 
 function has_amphibious_arrow(space) {
@@ -1761,6 +1762,8 @@ function play_card(card) {
 	log(`${game.active} plays ${card_name(card)}.`);
 	remove_from_array(player.hand, card);
 	game.cards.current = card;
+	if (card === SURRENDER)
+		game.events.surrender = 1;
 	if (cards[card].special === 'remove')
 		game.cards.removed.push(card);
 	else
@@ -1771,6 +1774,8 @@ function discard_card(card, reason) {
 	log(`${game.active} discards ${card_name(card)}${reason}.`);
 	remove_from_array(player.hand, card);
 	game.cards.current = card;
+	if (card === SURRENDER)
+		game.events.surrender = 1;
 	if (cards[card].special === 'remove')
 		game.cards.removed.push(card);
 	else
@@ -3917,6 +3922,26 @@ states.governor_vaudreuil_interferes = {
 			isolate_piece_from_force(p);
 			game.swap = p;
 		}
+	},
+}
+
+events.courier_intercepted = {
+	can_play() {
+		return enemy_player.hand.length > 0;
+	},
+	play() {
+		let roll = roll_d6();
+		log("Roll " + roll + ".");
+		if (roll >= 3) {
+			let i = random(enemy_player.hand.length);
+			let c = enemy_player.hand[i];
+			enemy_player.hand.splice(i, 1);
+			player.hand.push(c);
+			log(`Steals ${card_name(c)}.`);
+		} else {
+			log("No effect.");
+		}
+		end_action_phase();
 	},
 }
 
