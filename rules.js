@@ -444,6 +444,11 @@ function draw_leader_from_pool() {
 
 // ITERATORS
 
+function for_each_siege(fn) {
+	for (let sid in game.sieges)
+		fn(sid|0, game.sieges[sid]);
+}
+
 function for_each_exit(s, fn) {
 	let { land, river, lakeshore } = spaces[s];
 	for (let i = 0; i < land.length; ++i)
@@ -1896,16 +1901,15 @@ states.activate_force = {
 
 function lift_sieges() {
 	console.log("LIFT SIEGES");
-	for (let sid in game.sieges) {
-		let space = sid | 0;
+	for_each_siege(space => {
 		if (!has_enemy_units(space) || !has_friendly_units(space)) {
 			log(`Siege in ${space_name(space)} lifted.`);
 			for (let p = 1; p < pieces.length; ++p)
 				if (is_piece_in_space(p, space))
 					set_piece_outside(p);
-			delete game.sieges[sid];
+			delete game.sieges[space];
 		}
-	}
+	});
 }
 
 function end_activation() {
@@ -3503,7 +3507,9 @@ states.assault_possible = {
 		goto_assault(where);
 	},
 	pass() {
-		log("does not assault " + space_name(where));
+		let where = game.assault_possible;
+		delete game.assault_possible;
+		log("Does not assault " + space_name(where));
 		end_activation();
 	},
 }
@@ -3832,6 +3838,58 @@ states.construct_forts = {
 }
 
 // EVENTS
+
+function is_friendly_siege(space) {
+	if (has_friendly_fort(space))
+		return true;
+	if (is_fortress(space))
+		return has_unbesieged_enemy_units(space);
+	return false;
+}
+
+function is_enemy_siege(space) {
+	return !is_friendly_siege(space);
+}
+
+events.bastions_repaired = {
+	can_play() {
+		let result = false;
+		for_each_siege((space, level) => {
+			console.log("for_each_siege", space, level);
+			if (level > 0 && is_friendly_siege(space))
+				result = true;
+		});
+		return result;
+	},
+	play() {
+		game.state = 'bastions_repaired';
+		game.count = 1;
+	},
+}
+
+states.bastions_repaired = {
+	prompt() {
+		if (game.count > 0) {
+			view.prompt = "Replace a siege 1 or siege 2 marker on the map with siege 0.";
+			for_each_siege((space, level) => {
+				if (level > 0 && is_friendly_siege(space))
+					gen_action_space(space);
+			});
+		} else {
+			view.prompt = "Replace a siege 1 or siege 2 marker on the map with siege 0 - done.";
+			gen_action_next();
+		}
+	},
+	space(s) {
+		push_undo();
+		log(`Replaces siege marker in ${space_name(s)}.`);
+		game.sieges[s] = 0;
+		game.count = 0;
+	},
+	next() {
+		end_action_phase();
+	},
+}
 
 function find_unused_friendly_militia() {
 	for (let p = first_friendly_unit; p <= last_friendly_unit; ++p)
