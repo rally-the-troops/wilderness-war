@@ -4092,6 +4092,95 @@ states.stingy_provincial_assembly = {
 	},
 }
 
+events.british_colonial_politics = {
+	can_play() {
+		if (game.active === FRANCE)
+			return game.tracks.pa > 0;
+		return game.tracks.pa < 2;
+	},
+	play() {
+		if (game.active === FRANCE) {
+			game.tracks.pa -= 1;
+			log(`Provincial Assemblies reduced to ${pa_name()}.`);
+			goto_enforce_provincial_limits();
+		} else {
+			game.tracks.pa += 1;
+			log(`Provincial Assemblies increased to ${pa_name()}.`);
+			end_action_phase();
+		}
+	},
+}
+
+function pa_name() {
+	switch (game.tracks.pa) {
+	case RELUCTANT: return "Reluctant";
+	case SUPPORTIVE: return "Supportive";
+	case ENTHUSIASTIC: return "Enthusiastic";
+	}
+}
+
+const provincial_limit_southern = [ 2, 4, 6 ];
+const provincial_limit_northern = [ 6, 10, 18 ];
+
+function provincial_limit(dept) {
+	if (dept === 'northern')
+		return provincial_limit_northern[game.tracks.pa];
+	else
+		return provincial_limit_southern[game.tracks.pa];
+}
+
+function goto_enforce_provincial_limits() {
+	if (game.tracks.pa < ENTHUSIASTIC) {
+		let num_s = count_provincial_units_from('southern', true);
+		let num_n = count_provincial_units_from('northern', true);
+		let max_n = provincial_limit('northern');
+		let max_s = provincial_limit('southern');
+		if (num_s > max_s || num_n > max_n) {
+			clear_undo();
+			set_active(enemy());
+			game.state = 'enforce_provincial_limits';
+			return;
+		}
+	}
+	end_action_phase();
+}
+
+states.enforce_provincial_limits = {
+	prompt() {
+		let num_s = count_provincial_units_from('southern');
+		let num_n = count_provincial_units_from('northern');
+		let max_n = provincial_limit('northern');
+		let max_s = provincial_limit('southern');
+		console.log("British Colonial Politics", num_s, max_s, num_n, max_n);
+		let can_remove = false;
+		if (num_s > max_s || num_n > max_n) {
+			for (let p = first_british_piece; p <= last_british_piece; ++p) {
+				if (num_s > max_s && is_provincial_unit_from(p, 'southern') && is_piece_unbesieged(p)) {
+					gen_action_piece(p);
+					can_remove = true;
+				} else if (num_n > max_n && is_provincial_unit_from(p, 'northern') && is_piece_unbesieged(p)) {
+					gen_action_piece(p);
+					can_remove = true;
+				}
+			}
+		}
+		if (!can_remove) {
+			view.prompt = `Remove provincial units over limit \u2014 done.`;
+			gen_action_next();
+		} else {
+			view.prompt = `Remove provincial units over limit: ${num_s}/${max_s} southern, ${num_n}/${max_n} northern.`;
+		}
+	},
+	piece(p) {
+		push_undo();
+		eliminate_piece(p);
+	},
+	next() {
+		set_active(enemy());
+		end_action_phase();
+	},
+}
+
 function is_card_removed(card) {
 	return game.cards.removed.includes(card);
 }
