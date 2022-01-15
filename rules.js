@@ -3873,6 +3873,53 @@ events.louisbourg_squadrons = {
 	}
 }
 
+events.governor_vaudreuil_interferes = {
+	can_play() {
+		let n = 0;
+		for (let p = first_enemy_leader; p <= last_enemy_leader; ++p) {
+			if (is_piece_unbesieged(p))
+				if (!game.events.no_fr_naval || piece_space(p) !== LOUISBOURG)
+					++n;
+		}
+		return n >= 2;
+	},
+	play() {
+		game.state = 'governor_vaudreuil_interferes';
+		game.swap = 0;
+	},
+}
+
+states.governor_vaudreuil_interferes = {
+	prompt() {
+		view.prompt = "Choose any 2 unbesieged French leaders and reverse their locations.";
+		if (game.swap)
+			view.who = game.swap;
+		for (let p = first_enemy_leader; p <= last_enemy_leader; ++p) {
+			if (is_piece_unbesieged(p))
+				if (!game.events.no_fr_naval || piece_space(p) !== LOUISBOURG)
+					if (p !== game.swap)
+						gen_action_piece(p);
+		}
+	},
+	piece(p) {
+		if (game.swap) {
+			isolate_piece_from_force(p);
+			let a = game.swap;
+			delete game.swap;
+			let a_loc = piece_space(a);
+			let p_loc = piece_space(p);
+			move_piece_to(a, p_loc);
+			move_piece_to(p, a_loc);
+			log(`${piece_name(p)} and ${piece_name(a)} reverse locations.`);
+			end_action_phase();
+		} else {
+			push_undo();
+			isolate_piece_from_force(p);
+			game.swap = p;
+		}
+	},
+}
+
 function is_card_removed(card) {
 	return game.cards.removed.includes(card);
 }
