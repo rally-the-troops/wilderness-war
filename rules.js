@@ -365,6 +365,7 @@ const SOUTHERN_COLONIAL_MILITIAS = find_space("Southern Colonial Militias");
 
 const first_amphib_card = 17;
 const last_amphib_card = 20;
+const LOUISBOURG_SQUADRONS = 21;
 
 function has_amphibious_arrow(space) {
 	return space === HALIFAX || space === LOUISBOURG;
@@ -414,6 +415,7 @@ function deal_card() {
 }
 
 function deal_cards() {
+	// TODO: hand size (quiberon bay)
 	let fn = game.France.hand_size - game.France.hand.length;
 	let bn = game.Britain.hand_size - game.Britain.hand.length;
 
@@ -1696,7 +1698,7 @@ function start_season() {
 		break;
 	}
 
-	if (game.events.quiberon_bay)
+	if (game.events.quiberon)
 		set_active(BRITAIN);
 	else
 		set_active(FRANCE);
@@ -1773,6 +1775,11 @@ function discard_card(card, reason) {
 		game.cards.removed.push(card);
 	else
 		game.cards.discarded.push(card);
+}
+
+function remove_card(card) {
+	remove_from_array(game.cards.discarded, card);
+	game.cards.removed.push(card);
 }
 
 states.action_phase = {
@@ -2122,6 +2129,8 @@ function goto_break_siege() {
 }
 
 function may_naval_move(who) {
+	if (game.active === FRANCE && game.no_fr_naval)
+		return false;
 	if (is_leader(who) && count_pieces_in_force(who) > 0)
 		return cards[game.cards.current].activation === 3;
 	return true;
@@ -2200,10 +2209,12 @@ states.move = {
 				// TODO: check valid destinations too
 				if (may_naval_move(who))
 					gen_action_x('naval_move', game.move.type !== 'naval');
-				if (game.active === BRITAIN && has_amphibious_arrow(from)) {
-					for (let card = first_amphib_card; card <= last_amphib_card; ++card)
-						if (player.hand.includes(card))
-							gen_action('play_event', card);
+				if (!game.events.no_amphib) {
+					if (game.active === BRITAIN && has_amphibious_arrow(from)) {
+						for (let card = first_amphib_card; card <= last_amphib_card; ++card)
+							if (player.hand.includes(card))
+								gen_action('play_event', card);
+					}
 				}
 			}
 		}
@@ -3839,16 +3850,55 @@ states.construct_forts = {
 
 // EVENTS
 
+events.louisbourg_squadrons = {
+	can_play() {
+		return is_friendly_controlled_space(LOUISBOURG);
+	},
+	play() {
+		game.events.no_amphib = 1;
+		log("French Navy operates aggressively.");
+		log("No amphibious landings this year.");
+		let roll = roll_d6()
+		if (roll <= 3) {
+			log("Roll " + roll + ".");
+			log("No French naval moves ever.");
+			log("British may play Quiberon.");
+			log("Card removed.");
+			game.events.no_fr_naval = 1;
+			remove_card(LOUISBOURG_SQUADRONS);
+		} else {
+			log("Roll " + roll + ": no effect.");
+		}
+		end_action_phase();
+	}
+}
+
+function is_card_removed(card) {
+	return game.cards.removed.includes(card);
+}
+
+events.quiberon_bay = {
+	can_play() {
+		if (is_card_removed(LOUISBOURG_SQUADRONS))
+			return true;
+		if (is_friendly_controlled_space(LOUISBOURG))
+			return true;
+		if (game.year > 1759)
+			return true;
+		return false;
+	},
+	play() {
+		log("Battle destroys French fleet.");
+		game.events.quiberon = 1;
+	},
+}
+
 function is_friendly_siege(space) {
 	if (has_friendly_fort(space))
 		return true;
 	if (is_fortress(space))
 		return has_unbesieged_enemy_units(space);
 	return false;
-}
-
-function is_enemy_siege(space) {
-	return !is_friendly_siege(space);
 }
 
 events.bastions_repaired = {
