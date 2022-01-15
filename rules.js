@@ -3945,6 +3945,22 @@ events.courier_intercepted = {
 	},
 }
 
+events.françois_bigot = {
+	can_play() {
+		return enemy_player.hand.length > 0;
+	},
+	play() {
+		let i = random(enemy_player.hand.length);
+		let c = enemy_player.hand[i];
+		enemy_player.hand.splice(i, 1);
+		game.cards.discarded.push(c);
+		log(`France discards ${card_name(c)}.`);
+		if (c === SURRENDER)
+			game.events.surrender = 1;
+		end_action_phase();
+	},
+}
+
 function is_card_removed(card) {
 	return game.cards.removed.includes(card);
 }
