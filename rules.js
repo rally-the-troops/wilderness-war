@@ -621,6 +621,14 @@ function is_british_iroquois_or_mohawk(p) {
 	return british_iroquois_or_mohawk_units.includes(p);
 }
 
+function is_provincial_unit_from(p, type) {
+	switch (pieces[p].type) {
+	case 'northern-provincials': return type === 'northern';
+	case 'southern-provincials': return type === 'southern';
+	}
+	return false;
+}
+
 function is_drilled_troops(p) {
 	switch (pieces[p].type) {
 	case 'regulars': return true;
@@ -4007,6 +4015,81 @@ states.british_ministerial_crisis = {
 		set_active(enemy());
 		end_action_phase();
 	}
+}
+
+function count_provincial_units_from(dept, count_besieged) {
+	let n = 0;
+	for (let p = first_british_piece; p <= last_british_piece; ++p)
+		if (is_provincial_unit_from(p, dept) && is_piece_on_map(p))
+			if (count_besieged || is_piece_unbesieged(p))
+				++n;
+	return n;
+}
+
+events.stingy_provincial_assembly = {
+	can_play() {
+		if (game.tracks.pa === ENTHUSIASTIC)
+			return false;
+		let num_n = count_provincial_units_from('northern', false);
+		let num_s = count_provincial_units_from('southern', false);
+		return (num_n + num_s) > 0;
+	},
+	play() {
+		let num_n = count_provincial_units_from('northern');
+		let num_s = count_provincial_units_from('southern');
+		if (num_n > 0 && num_s === 0) {
+			goto_stingy_provincial_assembly('northern');
+		} else if (num_n === 0 && num_s > 0) {
+			goto_stingy_provincial_assembly('southern');
+		} else {
+			game.state = 'stingy_provincial_assembly_department';
+			game.count = 1;
+		}
+	}
+}
+
+states.stingy_provincial_assembly_department = {
+	prompt() {
+		view.prompt = "Stingy Provincial Assembly \u2014 choose a department.";
+		gen_action('northern');
+		gen_action('southern');
+	},
+	northern() {
+		goto_stingy_provincial_assembly('northern');
+	},
+	southern() {
+		goto_stingy_provincial_assembly('southern');
+	},
+}
+
+function goto_stingy_provincial_assembly(dept) {
+	clear_undo();
+	set_active(enemy());
+	game.state = 'stingy_provincial_assembly';
+	game.department = dept;
+	game.count = 1;
+}
+
+states.stingy_provincial_assembly = {
+	prompt() {
+		view.prompt = `Stingy Provincial Assembly \u2014 remove a ${game.department} provincial unit.`;
+		if (game.count > 0) {
+			for (let p = first_british_piece; p <= last_british_piece; ++p)
+				if (is_provincial_unit_from(p, game.department) && is_piece_unbesieged(p))
+					gen_action_piece(p);
+		} else {
+			gen_action_next();
+		}
+	},
+	piece(p) {
+		push_undo();
+		game.count = 0;
+		eliminate_piece(p);
+	},
+	next() {
+		set_active(enemy());
+		end_action_phase();
+	},
 }
 
 function is_card_removed(card) {
