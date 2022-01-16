@@ -361,6 +361,9 @@ define_indian_settlement("Pays d'en Haut", "Potawatomi");
 define_indian_settlement("Pays d'en Haut", "Huron");
 
 const JOHNSON = find_leader("Johnson");
+const MONTCALM = find_leader("Montcalm");
+const LEVIS = find_leader("Lévis");
+const BOUGAINVILLE = find_leader("Bougainville");
 
 const HALIFAX = find_space("Halifax");
 const LOUISBOURG = find_space("Louisbourg");
@@ -4943,7 +4946,67 @@ states.light_infantry = {
 	},
 }
 
-events.french_regulars = TODO;
+function find_unused_french_regular() {
+	for (let p = first_french_unit; p <= last_french_unit; ++p)
+		if (is_regulars_unit(p) && is_piece_unused(p))
+			return p;
+	return 0;
+}
+
+events.french_regulars = {
+	can_play() {
+		if (game.events.french_regulars)
+			return false;
+		if (game.events.quiberon)
+			return false;
+		if (!has_british_units(QUEBEC))
+			return true;
+		if (!has_british_units(LOUISBOURG))
+			return true;
+		return false;
+	},
+	play() {
+		game.state = 'french_regulars';
+		game.count = 2;
+	}
+}
+
+states.french_regulars = {
+	prompt() {
+		view.prompt = `Place 2 regular units at either Québec or Louisbourg.`;
+		if (game.count > 0) {
+			if (!has_british_units(QUEBEC))
+				gen_action_space(QUEBEC);
+			if (!has_british_units(LOUISBOURG))
+				gen_action_space(LOUISBOURG);
+		} else {
+			gen_action_next();
+		}
+	},
+	space(s) {
+		let p;
+		push_undo();
+		for (p of [ MONTCALM, LEVIS, BOUGAINVILLE ]) {
+			if (is_piece_unused(p)) {
+				log(`${piece_name(p)} placed in ${space_name(s)}.`);
+				move_piece_to(p, s);
+			}
+		}
+		for (let i = 0; i < game.count; ++i) {
+			p = find_unused_french_regular();
+			if (p) {
+				log(`${piece_name(p)} placed in ${space_name(s)}.`);
+				move_piece_to(p, s);
+			}
+		}
+		game.count = 0;
+	},
+	next() {
+		game.events.french_regulars = 1;
+		end_action_phase();
+	},
+}
+
 events.british_regulars = TODO;
 events.highlanders = TODO;
 events.royal_americans = TODO;
