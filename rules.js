@@ -24,6 +24,9 @@ const { spaces, pieces, cards } = require("./data");
 const BRITAIN = 'Britain';
 const FRANCE = 'France';
 
+const DEAD = -1;
+const UNUSED = 0;
+
 // Order of pieces: br.leaders/br.units/fr.leaders/fr.units
 let first_british_piece = -1;
 let last_british_leader = -1;
@@ -184,6 +187,10 @@ const SUPPORTIVE = 1;
 const ENTHUSIASTIC = 2;
 
 function find_space(name) {
+	if (name === 'dead')
+		return DEAD;
+	if (name === 'unused')
+		return UNUSED;
 	let ix = spaces.findIndex(node => node.name === name);
 	if (ix < 0)
 		throw new Error("cannot find space " + name);
@@ -195,13 +202,6 @@ function find_leader(name) {
 	if (ix < 0)
 		throw new Error("cannot find leader " + name);
 	return ix;
-}
-
-function exists_unused_unit(name) {
-	for (let i = 0; i < pieces.length; ++i)
-		if (pieces[i].name === name && game.pieces.location[i] === 0)
-			return true;
-	return 0;
 }
 
 function find_unused_unit(name) {
@@ -873,12 +873,12 @@ function set_force_inside(force) {
 
 function is_piece_on_map(p) {
 	// TODO: militia boxes?
-	return piece_node(p) > 0;
+	let s = piece_node(p);
+	return s !== UNUSED && s !== DEAD;
 }
 
-function is_unit_unused(p) {
-	// TODO: permanently eliminated
-	return piece_node(p) === 0;
+function is_piece_unused(p) {
+	return piece_node(p) === UNUSED;
 }
 
 function is_piece_in_node(p, node) {
@@ -1384,7 +1384,10 @@ function eliminate_piece(p) {
 	if (is_indian_unit(p)) {
 		// TODO: remove allied marker if necessary
 	}
-	game.pieces.location[p] = 0;
+	if (is_leader(p))
+		game.pieces.location[p] = DEAD;
+	else
+		game.pieces.location[p] = UNUSED;
 }
 
 function eliminate_indian_tribe(tribe) {
@@ -1769,9 +1772,6 @@ function start_year() {
 		game.pieces.pool.push(find_leader("Amherst"));
 		game.pieces.pool.push(find_leader("Forbes"));
 		game.pieces.pool.push(find_leader("Wolfe"));
-		setup_leader("Amherst", "Amherst");
-		setup_leader("Forbes", "Forbes");
-		setup_leader("Wolfe", "Wolfe");
 	}
 
 	game.tracks.season = EARLY;
@@ -1800,6 +1800,14 @@ function start_season() {
 	deal_cards();
 
 	start_action_phase();
+}
+
+function end_season() {
+	delete game.events.french_regulars;
+}
+
+function end_year() {
+	delete game.events.no_amphib;
 }
 
 function start_action_phase() {
@@ -4490,7 +4498,7 @@ states.raise_provincial_regiments_where = {
 
 function find_unused_provincial(dept) {
 	for (let p = first_friendly_unit; p <= last_friendly_unit; ++p)
-		if (is_provincial_unit_from(p, dept) && is_unit_unused(p))
+		if (is_provincial_unit_from(p, dept) && is_piece_unused(p))
 			return p;
 	return 0;
 }
@@ -4749,7 +4757,7 @@ states.restore_regular_or_light_infantry_units = {
 
 function find_unused_friendly_militia() {
 	for (let p = first_friendly_unit; p <= last_friendly_unit; ++p)
-		if (is_militia_unit(p) && is_unit_unused(p))
+		if (is_militia_unit(p) && is_piece_unused(p))
 			return p;
 	return 0;
 }
@@ -4811,7 +4819,7 @@ states.call_out_militias = {
 
 function find_unused_rangers() {
 	for (let p = first_friendly_unit; p <= last_friendly_unit; ++p)
-		if (is_rangers_unit(p) && is_unit_unused(p))
+		if (is_rangers_unit(p) && is_piece_unused(p))
 			return p;
 	return 0;
 }
@@ -4872,7 +4880,7 @@ states.rangers = {
 
 function find_unused_light_infantry() {
 	for (let p = first_friendly_unit; p <= last_friendly_unit; ++p)
-		if (is_light_infantry_unit(p) && is_unit_unused(p))
+		if (is_light_infantry_unit(p) && is_piece_unused(p))
 			return p;
 	return 0;
 }
@@ -5064,8 +5072,8 @@ function setup_1757(end_year) {
 	setup_unit("Logstown", "Shawnee");
 	setup_unit("Mingo Town", "Mingo");
 
-	setup_leader("offmap", "Dieskau");
-	setup_leader("offmap", "Beaujeu");
+	setup_leader("dead", "Dieskau");
+	setup_leader("dead", "Beaujeu");
 
 	setup_markers(game.Britain.forts, [
 		"Hudson Carry South",
@@ -5137,8 +5145,8 @@ function setup_1757(end_year) {
 	game.pieces.pool.push(find_leader("Murray"));
 	game.pieces.pool.push(find_leader("Wolfe"));
 
-	setup_leader("offmap", "Braddock");
-	setup_leader("offmap", "Shirley");
+	setup_leader("dead", "Braddock");
+	setup_leader("dead", "Shirley");
 
 	game.events.pitt = 1;
 	game.events.diplo = 1;
@@ -5271,9 +5279,9 @@ function setup_1755() {
 	game.pieces.pool.push(find_leader("Murray"));
 	game.pieces.pool.push(find_leader("Webb"));
 
-	setup_leader("offmap", "Amherst");
-	setup_leader("offmap", "Forbes");
-	setup_leader("offmap", "Wolfe");
+	setup_leader("unused", "Amherst");
+	setup_leader("unused", "Forbes");
+	setup_leader("unused", "Wolfe");
 
 	game.France.hand_size = 8;
 	game.Britain.hand_size = 8;
