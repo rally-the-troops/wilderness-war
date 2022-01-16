@@ -15,6 +15,10 @@
 
 // TODO: lift sieges/remove amphib after move/turn end
 
+// TODO: voluntary DEMOLITION
+
+// TODO: move core of is_friendly/enemy to is_british/french and branch in is_friendly/enemy
+
 const { spaces, pieces, cards } = require("./data");
 
 const BRITAIN = 'Britain';
@@ -61,6 +65,11 @@ for (let p = 1; p < pieces.length; ++p) {
 	}
 }
 
+let first_british_unit = last_british_leader;
+let last_british_unit = last_british_piece;
+let first_french_unit = last_french_leader;
+let last_french_unit = last_french_piece;
+
 // Patch up leader/box associations.
 for (let s = 1; s < spaces.length; ++s) {
 	if (spaces[s].type === 'leader-box') {
@@ -69,7 +78,6 @@ for (let s = 1; s < spaces.length; ++s) {
 		pieces[p].box = s;
 	}
 }
-
 
 let game;
 let view = null;
@@ -981,6 +989,58 @@ function has_enemy_units(space) {
 	return false;
 }
 
+function has_british_units(space) {
+	for (let p = first_british_unit; p <= last_british_unit; ++p)
+		if (is_piece_in_space(p, space))
+			return true;
+	return false;
+}
+
+function has_french_drilled_troops(space) {
+	for (let p = first_british_unit; p <= last_british_unit; ++p)
+		if (is_piece_in_space(p, space))
+			if (is_drilled_troops(p))
+				return true;
+	return false;
+}
+
+function is_originally_british(space) {
+	return originally_friendly_spaces.Britain.includes(space);
+}
+
+function is_french_controlled_space(space) {
+	if (is_space_unbesieged(space) && !has_british_units(space)) {
+		if (is_originally_british(space)) {
+			if (has_french_units(space))
+				return true;
+		} else {
+			// TODO: neutral spaces?
+			return true;
+		}
+	}
+	return false;
+}
+
+function has_french_stockade(space) {
+	return game.France.stockades.includes(space);
+}
+
+function has_french_fort(space) {
+	return game.France.forts.includes(space);
+}
+
+function has_french_fortress(space) {
+	return is_fortress(space) && is_french_controlled_space(space);
+}
+
+function has_french_fortification(space) {
+	return has_french_stockade(space) || has_french_fort(space) || has_french_fortress(space);
+}
+
+function has_unbesieged_french_fortification(space) {
+	return is_space_unbesieged(space) && has_french_fortifications(space);
+}
+
 function count_enemy_units_in_space(space) {
 	let n = 0;
 	for (let p = first_enemy_unit; p <= last_enemy_unit; ++p)
@@ -1054,7 +1114,7 @@ function has_friendly_drilled_troops(space) {
 
 function has_friendly_rangers(space) {
 	if (game.active === BRITAIN)
-		for (let p = first_british_piece; p <= last_british_piece; ++p)
+		for (let p = first_british_unit; p <= last_british_unit; ++p)
 			if (is_rangers_unit(p) && is_piece_in_space(p, space))
 				return true;
 	return false;
@@ -1733,7 +1793,7 @@ function start_action_phase() {
 }
 
 function end_action_phase() {
-	lift_sieges();
+	lift_sieges_and_amphib();
 	console.log("END ACTION PHASE");
 	clear_undo();
 	game.pieces.activated.length = 0;
@@ -1927,8 +1987,9 @@ states.activate_force = {
 	},
 }
 
-function lift_sieges() {
-	console.log("LIFT SIEGES");
+function lift_sieges_and_amphib() {
+	console.log("LIFT SIEGES AND AMPHIB");
+
 	for_each_siege(space => {
 		if (!has_enemy_units(space) || !has_friendly_units(space)) {
 			log(`Siege in ${space_name(space)} lifted.`);
@@ -1938,10 +1999,21 @@ function lift_sieges() {
 			delete game.sieges[space];
 		}
 	});
+
+	let amphib = game.Britain.amphib;
+	for (let i = amphib.length-1; i >= 0; --i) {
+		let s = amphib[i];
+		if (!has_british_units(s)) {
+			if (has_french_drilled_troops(s) || has_unbesieged_french_fortification()) {
+				log(`Amphib removed from ${space_name(s)}.`);
+				amphib.splice(i, 1);
+			}
+		}
+	}
 }
 
 function end_activation() {
-	lift_sieges();
+	lift_sieges_and_amphib();
 	clear_undo();
 	// TODO: goto_pick_force for campaign event
 	goto_pick_move();
@@ -2286,7 +2358,7 @@ states.move = {
 			remove_enemy_forts_uc_in_path(game.move.path, to);
 
 		move_piece_to(who, to);
-		lift_sieges();
+		lift_sieges_and_amphib();
 		goto_intercept();
 	},
 	piece(who) {
@@ -2326,7 +2398,7 @@ states.amphibious_landing = {
 		game.move.path[to] = from;
 		game.move.start_cost = 1;
 		move_piece_to(who, to);
-		lift_sieges();
+		lift_sieges_and_amphib();
 		game.state = 'move';
 		goto_intercept();
 	},
@@ -2356,7 +2428,7 @@ function goto_battle_check() {
 }
 
 function end_move_step(final) {
-	lift_sieges();
+	lift_sieges_and_amphib();
 	let who = moving_piece();
 	let where = moving_piece_space();
 	console.log("END MOVE STEP");
@@ -4122,7 +4194,8 @@ states.british_ministerial_crisis = {
 
 function count_provincial_units_from(dept, count_besieged) {
 	let n = 0;
-	for (let p = first_british_piece; p <= last_british_piece; ++p)
+	// TODO: use provincial unit numbers
+	for (let p = first_british_unit; p <= last_british_unit; ++p)
 		if (is_provincial_unit_from(p, dept) && is_piece_on_map(p))
 			if (count_besieged || is_piece_unbesieged(p))
 				++n;
@@ -4177,7 +4250,8 @@ states.stingy_provincial_assembly = {
 	prompt() {
 		view.prompt = `Stingy Provincial Assembly \u2014 remove a ${game.department} provincial unit.`;
 		if (game.count > 0) {
-			for (let p = first_british_piece; p <= last_british_piece; ++p)
+			// TODO: use provincial unit numbers
+			for (let p = first_british_unit; p <= last_british_unit; ++p)
 				if (is_provincial_unit_from(p, game.department) && is_piece_unbesieged(p))
 					gen_action_piece(p);
 		} else {
@@ -4257,7 +4331,8 @@ states.enforce_provincial_limits = {
 		console.log("British Colonial Politics", num_s, max_s, num_n, max_n);
 		let can_remove = false;
 		if (num_s > max_s || num_n > max_n) {
-			for (let p = first_british_piece; p <= last_british_piece; ++p) {
+			// TODO: use provincial unit numbers
+			for (let p = first_british_unit; p <= last_british_unit; ++p) {
 				if (num_s > max_s && is_provincial_unit_from(p, 'southern') && is_piece_unbesieged(p)) {
 					gen_action_piece(p);
 					can_remove = true;
