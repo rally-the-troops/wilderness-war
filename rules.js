@@ -3980,7 +3980,6 @@ events.cherokee_uprising = TODO;
 events.treaty_of_easton = TODO;
 
 events.provincial_regiments_dispersed_for_frontier_duty = TODO;
-events.raise_provincial_regiments = TODO;
 
 events.indians_desert = {
 	play() {
@@ -4252,13 +4251,31 @@ states.british_ministerial_crisis = {
 	}
 }
 
-function count_provincial_units_from(dept, count_besieged) {
+function count_reduced_unbesieged_provincial_units_from(dept) {
+	let n = 0;
+	for (let p = first_british_unit; p <= last_british_unit; ++p)
+		if (is_provincial_unit_from(p, dept) && is_piece_on_map(p))
+			if (is_piece_unbesieged(p) && is_unit_reduced(p))
+				++n;
+	return n;
+}
+
+function count_unbesieged_provincial_units_from(dept) {
 	let n = 0;
 	// TODO: use provincial unit numbers
 	for (let p = first_british_unit; p <= last_british_unit; ++p)
 		if (is_provincial_unit_from(p, dept) && is_piece_on_map(p))
-			if (count_besieged || is_piece_unbesieged(p))
+			if (is_piece_unbesieged(p))
 				++n;
+	return n;
+}
+
+function count_provincial_units_from(dept) {
+	let n = 0;
+	// TODO: use provincial unit numbers
+	for (let p = first_british_unit; p <= last_british_unit; ++p)
+		if (is_provincial_unit_from(p, dept) && is_piece_on_map(p))
+			++n;
 	return n;
 }
 
@@ -4266,13 +4283,13 @@ events.stingy_provincial_assembly = {
 	can_play() {
 		if (game.tracks.pa === ENTHUSIASTIC)
 			return false;
-		let num_n = count_provincial_units_from('northern', false);
-		let num_s = count_provincial_units_from('southern', false);
+		let num_n = count_unbesieged_provincial_units_from('northern');
+		let num_s = count_unbesieged_provincial_units_from('southern');
 		return (num_n + num_s) > 0;
 	},
 	play() {
-		let num_n = count_provincial_units_from('northern');
-		let num_s = count_provincial_units_from('southern');
+		let num_n = count_unbesieged_provincial_units_from('northern');
+		let num_s = count_unbesieged_provincial_units_from('southern');
 		if (num_n > 0 && num_s === 0) {
 			goto_stingy_provincial_assembly('northern');
 		} else if (num_n === 0 && num_s > 0) {
@@ -4368,8 +4385,8 @@ function provincial_limit(dept) {
 
 function goto_enforce_provincial_limits() {
 	if (game.tracks.pa < ENTHUSIASTIC) {
-		let num_s = count_provincial_units_from('southern', true);
-		let num_n = count_provincial_units_from('northern', true);
+		let num_s = count_provincial_units_from('southern');
+		let num_n = count_provincial_units_from('northern');
 		let max_n = provincial_limit('northern');
 		let max_s = provincial_limit('southern');
 		if (num_s > max_s || num_n > max_n) {
@@ -4417,6 +4434,122 @@ states.enforce_provincial_limits = {
 		set_active(enemy());
 		end_action_phase();
 	},
+}
+
+function can_raise_provincial_regiments(dept) {
+	let num = count_provincial_units_from(dept);
+	let max = provincial_limit(dept);
+	return num < max;
+}
+
+function can_restore_provincial_regiments(dept) {
+	return count_reduced_unbesieged_provincial_units_from(dept) > 0;
+}
+
+events.raise_provincial_regiments = {
+	can_play() {
+		if (game.tracks.pa === RELUCTANT)
+			return false;
+		if (can_raise_provincial_regiments('northern') || can_restore_provincial_regiments('northern'))
+			return true;
+		if (can_raise_provincial_regiments('southern') || can_restore_provincial_regiments('southern'))
+			return true;
+		return false;
+	},
+	play() {
+		game.state = 'raise_provincial_regiments_where';
+	},
+}
+
+states.raise_provincial_regiments_where = {
+	prompt() {
+		view.prompt = "Raise Provincial regiments in which department?";
+		if (can_raise_provincial_regiments('northern') || can_restore_provincial_regiments('northern'))
+			gen_action('northern');
+		if (can_raise_provincial_regiments('southern') || can_restore_provincial_regiments('southern'))
+			gen_action('southern');
+	},
+	northern() {
+		push_undo();
+		let num = count_provincial_units_from('northern');
+		let max = provincial_limit('northern');
+		game.state = 'raise_provincial_regiments';
+		game.count = clamp(max - num, 0, 4);
+		game.department = 'northern';
+	},
+	southern() {
+		push_undo();
+		let num = count_provincial_units_from('southern');
+		let max = provincial_limit('southern');
+		game.state = 'raise_provincial_regiments';
+		game.count = clamp(max - num, 0, 2);
+		game.department = 'southern';
+		game.did_raise = 0;
+	},
+}
+
+function find_unused_provincial(dept) {
+	for (let p = first_friendly_unit; p <= last_friendly_unit; ++p)
+		if (is_provincial_unit_from(p, dept) && is_unit_unused(p))
+			return p;
+	return 0;
+}
+
+states.raise_provincial_regiments = {
+	prompt() {
+		let num = count_provincial_units_from(game.department);
+		let can_raise = false;
+		if (!game.did_raise) {
+			if (can_restore_provincial_regiments(game.department)) {
+				can_raise = true;
+				gen_action('restore');
+			}
+		}
+		if (game.count > 0) {
+			let list = departments[game.department];
+			for (let i = 0; i < list.length; ++i) {
+				let s = list[i];
+				if (has_unbesieged_friendly_fortifications(s)) {
+					can_raise = true;
+					gen_action_space(s);
+				}
+			}
+		}
+		if (can_raise) {
+			if (game.did_raise)
+				view.prompt = `Raise Provincial regiments in ${game.department} department.`;
+			else
+				view.prompt = `Raise Provincial regiments in ${game.department} department or restore all to full.`;
+		} else {
+			view.prompt = `Raise Provincial regiments in ${game.department} department \u2014 done.`;
+			gen_action_next();
+		}
+	},
+	restore() {
+		// TODO: restore_provincial_regiments state for manual restoring?
+		push_undo();
+		log(`Restores all provincials of ${game.department} department.`);
+		for (let p = first_friendly_unit; p <= last_friendly_unit; ++p) {
+			if (is_provincial_unit_from(p, game.department) && is_piece_unbesieged(p) && is_unit_reduced(p)) {
+				log(`Restores ${piece_name(p)}.`);
+				set_unit_reduced(p, 0);
+			}
+		}
+		game.count = 0;
+	},
+	space(s) {
+		push_undo();
+		let p = find_unused_provincial(game.department);
+		log(`Raises ${piece_name(p)} in ${space_name(s)}.`);
+		move_piece_to(p, s);
+		game.count --;
+		game.did_raise = 1;
+	},
+	next() {
+		delete game.did_raise;
+		delete game.department;
+		end_action_phase();
+	}
 }
 
 function is_card_removed(card) {
