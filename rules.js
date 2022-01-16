@@ -364,6 +364,7 @@ const JOHNSON = find_leader("Johnson");
 const MONTCALM = find_leader("Montcalm");
 const LEVIS = find_leader("Lévis");
 const BOUGAINVILLE = find_leader("Bougainville");
+const SHIRLEY = find_leader("Shirley");
 
 const HALIFAX = find_space("Halifax");
 const LOUISBOURG = find_space("Louisbourg");
@@ -5014,7 +5015,27 @@ events.royal_americans = TODO;
 events.acadians_expelled = TODO;
 events.william_pitt = TODO;
 events.diplomatic_revolution = TODO;
-events.intrigues_against_shirley = TODO;
+
+events.intrigues_against_shirley = {
+	can_play() {
+		return game.tracks.vp >= 1 && is_piece_on_map(SHIRLEY) && is_piece_unbesieged(SHIRLEY);
+	},
+	play() {
+		game.state = 'intrigues_against_shirley';
+	}
+}
+
+states.intrigues_against_shirley = {
+	prompt() {
+		view.prompt = "Eliminate Shirley.";
+		gen_action_piece(SHIRLEY);
+	},
+	piece(p) {
+		isolate_piece_from_force(SHIRLEY);
+		eliminate_piece(SHIRLEY);
+		end_action_phase();
+	},
+}
 
 // SETUP
 
