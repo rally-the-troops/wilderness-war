@@ -3976,13 +3976,53 @@ events.mohawks = TODO;
 events.cherokees = TODO;
 events.cherokee_uprising = TODO;
 events.treaty_of_easton = TODO;
-events.indians_desert = TODO;
 
 events.provincial_regiments_dispersed_for_frontier_duty = TODO;
 events.raise_provincial_regiments = TODO;
 
 events.troop_transports_and_local_enlistments = TODO;
 events.victories_in_germany_release_troops_and_finances_for_new_world = TODO;
+
+events.indians_desert = {
+	play() {
+		game.state = 'indians_desert';
+		game.indians_desert = 0;
+		game.count = 2;
+	}
+}
+
+states.indians_desert = {
+	prompt() {
+		let can_desert = false;
+		if (game.count > 0) {
+			for (let p = first_enemy_unit; p <= last_enemy_unit; ++p) {
+				if (is_indian_unit(p) && is_piece_on_map(p) && is_piece_unbesieged(p)) {
+					if (!game.indians_desert || is_piece_in_space(p, game.indians_desert)) {
+						can_desert = true;
+						gen_action_piece(p);
+					}
+				}
+			}
+		}
+		if (can_desert) {
+			view.prompt = `Eliminate up to two unbesieged Indian units from any one space (${game.count} left).`;
+		} else {
+			view.prompt = "Eliminate up to two unbesieged Indian units from any one space \u2014 done.";
+			gen_action_next();
+		}
+	},
+	piece(p) {
+		push_undo();
+		if (!game.indians_desert)
+			game.indians_desert = piece_space(p);
+		eliminate_piece(p);
+		game.count --;
+	},
+	next() {
+		delete game.indians_desert;
+		end_action_phase();
+	},
+}
 
 events.louisbourg_squadrons = {
 	can_play() {
