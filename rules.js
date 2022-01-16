@@ -361,11 +361,13 @@ define_indian_settlement("Pays d'en Haut", "Potawatomi");
 define_indian_settlement("Pays d'en Haut", "Huron");
 
 const JOHNSON = find_leader("Johnson");
+
 const HALIFAX = find_space("Halifax");
 const LOUISBOURG = find_space("Louisbourg");
 const BAIE_ST_PAUL = find_space("Baie-St-Paul");
 const RIVIERE_OUELLE = find_space("Rivière-Ouelle");
 const ILE_D_ORLEANS = find_space("Île d'Orléans");
+const QUEBEC = find_space("Québec");
 
 const ST_LAWRENCE_CANADIAN_MILITIAS = find_space("St. Lawrence Canadian Militias");
 const NORTHERN_COLONIAL_MILITIAS = find_space("Northern Colonial Militias");
@@ -3980,9 +3982,6 @@ events.treaty_of_easton = TODO;
 events.provincial_regiments_dispersed_for_frontier_duty = TODO;
 events.raise_provincial_regiments = TODO;
 
-events.troop_transports_and_local_enlistments = TODO;
-events.victories_in_germany_release_troops_and_finances_for_new_world = TODO;
-
 events.indians_desert = {
 	play() {
 		game.state = 'indians_desert';
@@ -4523,6 +4522,84 @@ states.colonial_recruits = {
 			view.prompt = `Restore ${game.count} reduced colonial recruits.`;
 		} else {
 			view.prompt = `Restore colonial recruits \u2014 done.`;
+			gen_action_next();
+		}
+	},
+	piece(p) {
+		push_undo();
+		log(`Restores ${piece_name(p)}.`);
+		set_unit_reduced(p, 0);
+		game.count --;
+	},
+	next() {
+		end_action_phase();
+	},
+}
+
+function has_unbesieged_reduced_regular_or_light_infantry_units() {
+	for (let p = first_friendly_unit; p <= last_friendly_unit; ++p)
+		if (is_regulars_unit(p) || is_light_infantry_unit(p))
+			if (is_piece_unbesieged(p) && is_unit_reduced(p))
+				return true;
+	return false;
+}
+
+events.troop_transports_and_local_enlistments = {
+	can_play() {
+		if (game.active === FRANCE) {
+			if (game.events.quiberon)
+				return false;
+			if (is_british_controlled_space(QUEBEC))
+				return false;
+		}
+		return has_unbesieged_reduced_regular_or_light_infantry_units();
+	},
+	play() {
+		game.state = 'restore_regular_or_light_infantry_units';
+		if (game.active === FRANCE)
+			game.count = 3;
+		else
+			game.count = 6;
+	},
+}
+
+events.victories_in_germany_release_troops_and_finances_for_new_world = {
+	can_play() {
+		if (game.year <= 1755)
+			return false;
+		if (game.active === FRANCE) {
+			if (game.events.quiberon)
+				return false;
+			if (is_british_controlled_space(QUEBEC))
+				return false;
+		}
+		return has_unbesieged_reduced_regular_or_light_infantry_units();
+	},
+	play() {
+		let roll = roll_d5();
+		log("Roll " + roll + ".");
+		game.state = 'restore_regular_or_light_infantry_units';
+		game.count = roll;
+	},
+}
+
+states.restore_regular_or_light_infantry_units = {
+	prompt() {
+		let can_restore = false;
+		if (game.count > 0) {
+			for (let p = first_friendly_unit; p <= last_friendly_unit; ++p) {
+				if (is_regulars_unit(p) || is_light_infantry_unit(p)) {
+					if (is_piece_unbesieged(p) && is_unit_reduced(p)) {
+						can_restore = true;
+						gen_action_piece(p);
+					}
+				}
+			}
+		}
+		if (can_restore) {
+			view.prompt = `Restore ${game.count} reduced regular or light infantry.`;
+		} else {
+			view.prompt = `Restore reduced regular or light infantry \u2014 done.`;
 			gen_action_next();
 		}
 	},
