@@ -629,6 +629,14 @@ function is_british_iroquois_or_mohawk(p) {
 	return british_iroquois_or_mohawk_units.includes(p);
 }
 
+function is_provincial_unit(p) {
+	switch (pieces[p].type) {
+	case 'northern-provincials': return true;
+	case 'southern-provincials': return true;
+	}
+	return false;
+}
+
 function is_provincial_unit_from(p, type) {
 	switch (pieces[p].type) {
 	case 'northern-provincials': return type === 'northern';
@@ -984,6 +992,13 @@ function has_friendly_units(space) {
 
 function has_enemy_units(space) {
 	for (let p = first_enemy_unit; p <= last_enemy_unit; ++p)
+		if (is_piece_in_space(p, space))
+			return true;
+	return false;
+}
+
+function has_french_units(space) {
+	for (let p = first_french_unit; p <= last_french_unit; ++p)
 		if (is_piece_in_space(p, space))
 			return true;
 	return false;
@@ -1987,11 +2002,18 @@ states.activate_force = {
 	},
 }
 
+function is_vacant_of_besieging_units(space) {
+	if (has_french_fort(space) || has_french_fortress(space))
+		return !has_french_units(space);
+	else
+		return !has_british_units(space);
+}
+
 function lift_sieges_and_amphib() {
 	console.log("LIFT SIEGES AND AMPHIB");
 
 	for_each_siege(space => {
-		if (!has_enemy_units(space) || !has_friendly_units(space)) {
+		if (is_vacant_of_besieging_units(space)) {
 			log(`Siege in ${space_name(space)} lifted.`);
 			for (let p = 1; p < pieces.length; ++p)
 				if (is_piece_in_space(p, space))
@@ -3958,7 +3980,6 @@ events.indians_desert = TODO;
 
 events.provincial_regiments_dispersed_for_frontier_duty = TODO;
 events.raise_provincial_regiments = TODO;
-events.colonial_recruits = TODO;
 
 events.troop_transports_and_local_enlistments = TODO;
 events.victories_in_germany_release_troops_and_finances_for_new_world = TODO;
@@ -4421,6 +4442,55 @@ states.bastions_repaired = {
 		log(`Replaces siege marker in ${space_name(s)}.`);
 		game.sieges[s] = 0;
 		game.count = 0;
+	},
+	next() {
+		end_action_phase();
+	},
+}
+
+function is_colonial_recruit(p) {
+	return is_coureurs_unit(p) || is_rangers_unit(p) || is_light_infantry_unit(p) || is_provincial_unit(p);
+}
+
+events.colonial_recruits = {
+	can_play() {
+		let n = 0;
+		for (let p = first_friendly_unit; p <= last_friendly_unit; ++p)
+			if (is_colonial_recruit(p) && is_piece_unbesieged(p) && is_unit_reduced(p))
+				++n;
+		return n > 0;
+	},
+	play() {
+		let roll = roll_d6();
+		log("Roll " + roll + ".");
+		game.state = 'colonial_recruits';
+		game.count = roll;
+	},
+}
+
+states.colonial_recruits = {
+	prompt() {
+		let can_restore = false;
+		if (game.count > 0) {
+			for (let p = first_friendly_unit; p <= last_friendly_unit; ++p) {
+				if (is_colonial_recruit(p) && is_piece_unbesieged(p) && is_unit_reduced(p)) {
+					can_restore = true;
+					gen_action_piece(p);
+				}
+			}
+		}
+		if (can_restore) {
+			view.prompt = `Restore ${game.count} reduced colonial recruits.`;
+		} else {
+			view.prompt = `Restore colonial recruits \u2014 done.`;
+			gen_action_next();
+		}
+	},
+	piece(p) {
+		push_undo();
+		log(`Restores ${piece_name(p)}.`);
+		set_unit_reduced(p, 0);
+		game.count --;
 	},
 	next() {
 		end_action_phase();
