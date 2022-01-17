@@ -13,9 +13,8 @@
 // TODO: rename node/space -> location/space or raw_space/space or box/space?
 // TODO: replace piece[p].type lookups with index range checks
 
-// TODO: lift sieges/remove amphib after move/turn end
-
 // TODO: voluntary DEMOLITION
+// TODO: track 'held'
 
 // TODO: move core of is_friendly/enemy to is_british/french and branch in is_friendly/enemy
 
@@ -1829,8 +1828,17 @@ function start_season() {
 }
 
 function end_season() {
+	log("");
+	log(".h2 End Season");
+	log("");
+
 	delete game.events.french_regulars;
 	delete game.events.british_regulars;
+	delete player.passed;
+	delete enemy_player.passed;
+
+	game.tracks.season ++;
+	start_season();
 }
 
 function end_year() {
@@ -1850,9 +1858,13 @@ function end_action_phase() {
 	clear_undo();
 	game.pieces.activated.length = 0;
 	game.count = 0;
+
 	// TODO: skip if next player has no cards or passed
 	// TODO: end season
-	set_active(enemy());
+	if (enemy_player.passed && player.passed)
+		return end_season();
+	if (!enemy_player.passed)
+		set_active(enemy());
 	start_action_phase();
 }
 
@@ -1904,10 +1916,7 @@ function discard_card(card, reason) {
 	game.cards.current = card;
 	if (card === SURRENDER)
 		game.events.surrender = 1;
-	if (cards[card].special === 'remove')
-		game.cards.removed.push(card);
-	else
-		game.cards.discarded.push(card);
+	game.cards.discarded.push(card);
 }
 
 function remove_card(card) {
@@ -1944,7 +1953,7 @@ states.action_phase = {
 	pass() {
 		// TODO: can you build fortifications, pass, then build next turn?
 		log(game.active + " pass.");
-		game.passed = game.active;
+		player.passed = 1;
 		end_action_phase();
 	},
 }
@@ -5334,12 +5343,13 @@ states.william_pitt = {
 					gen_action('card', c);
 			}
 		} else {
-			view.prompt = "Draw X from Discard - done.";
+			view.prompt = "Draw Highlanders, British Regulars, Light Infantry or Troop Transports from Discard - done.";
 		}
 		gen_action_next();
 	},
 	card(c) {
 		push_undo();
+		log(`Draws ${card_name(c)} from discard.`);
 		remove_from_array(game.cards.discarded, c);
 		player.hand.push(c);
 		game.count = 0;
@@ -5381,6 +5391,7 @@ states.diplomatic_revolution = {
 	},
 	card(c) {
 		push_undo();
+		log(`Draws ${card_name(c)} from discard.`);
 		remove_from_array(game.cards.discarded, c);
 		player.hand.push(c);
 		game.count = 0;
@@ -5951,6 +5962,10 @@ exports.view = function(state, current) {
 		view.move = game.move;
 	if (game.force)
 		view.force = game.force;
+	if (game.Britain.held)
+		view.british_held = 1;
+	if (game.France.held)
+		view.french_held = 1;
 
 	if (current === FRANCE)
 		view.hand = game.France.hand;
