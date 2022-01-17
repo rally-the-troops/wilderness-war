@@ -17,6 +17,7 @@
 // TODO: track 'held'
 
 // TODO: move core of is_friendly/enemy to is_british/french and branch in is_friendly/enemy
+// TODO: update indian alliance markers when placing/eliminating indians
 
 const { spaces, pieces, cards } = require("./data");
 
@@ -4040,9 +4041,136 @@ events.campaign = TODO;
 
 events.provincial_regiments_dispersed_for_frontier_duty = TODO;
 
-events.northern_indian_alliance = TODO;
-events.western_indian_alliance = TODO;
-events.iroquois_indian_alliance = TODO;
+events.northern_indian_alliance = {
+	can_play() {
+		return is_friendly_controlled_space(MONTREAL);
+	},
+	play() {
+		clear_undo(); // rolling die
+		let roll = roll_d6();
+		log(`Roll ${roll}.`);
+		if (game.tracks.vp > 4)
+			game.count = roll;
+		else
+			game.count = Math.ceil(roll / 2);
+		if (has_friendly_fort(NIAGARA))
+			game.alliance = [ 'northern', 'pays-d-en-haut' ];
+		else
+			game.alliance = [ 'northern' ];
+		game.state = 'indian_alliance';
+	}
+}
+
+events.western_indian_alliance = {
+	can_play() {
+		return is_friendly_controlled_space(MONTREAL);
+	},
+	play() {
+		clear_undo(); // rolling die
+		let roll = roll_d6();
+		log(`Roll ${roll}.`);
+		if (game.tracks.vp > 4)
+			game.count = roll;
+		else
+			game.count = Math.ceil(roll / 2);
+		if (has_friendly_fort(NIAGARA))
+			game.alliance = [ 'western', 'pays-d-en-haut' ];
+		else
+			game.alliance = [ 'western' ];
+		game.state = 'indian_alliance';
+	}
+}
+
+events.iroquois_alliance = {
+	can_play() {
+		let ff =
+			has_friendly_fortifications(OSWEGO) ||
+			has_friendly_fortifications(ONEIDA_CARRY_WEST) ||
+			has_friendly_fortifications(ONEIDA_CARRY_EAST);
+		let ef =
+			has_enemy_fortifications(OSWEGO) ||
+			has_enemy_fortifications(ONEIDA_CARRY_WEST) ||
+			has_enemy_fortifications(ONEIDA_CARRY_EAST);
+		if (ff && !ef) {
+			if (game.active === BRITAIN)
+				return within_two_of_gray_settlement.includes(piece_space(JOHNSON));
+			return true;
+		}
+		return false;
+	},
+	play() {
+		clear_undo(); // rolling die
+		let roll = roll_d6();
+		log(`Roll ${roll}.`);
+		game.state = 'indian_alliance';
+		game.count = roll;
+		game.alliance = [ 'iroquois' ];
+	},
+}
+
+function find_unused_indian(tribe) {
+	for (let i = 0; i < pieces.length; ++i)
+		if (pieces[i].name === tribe && game.pieces.location[i] === 0)
+			return i;
+	return 0;
+}
+
+function is_indian_alliance(p, alliance) {
+	if (is_indian_unit(p))
+		return pieces[p].subtype === alliance;
+	return false;
+}
+
+states.indian_alliance = {
+	prompt() {
+		view.prompt = `Place at indians at their settlements or restore to full (${game.count} left).`;
+		let can_place = false;
+		for (let a of game.alliance) {
+			if (game.count >= 1) {
+				for (let s of indian_spaces[a]) {
+					if (!has_enemy_units(s) && !has_enemy_fortifications(s)) {
+						let p = find_unused_indian(indian_tribe[s]);
+						if (p) {
+							can_place = true;
+							gen_action_space(s);
+						}
+					}
+				}
+			}
+			if (game.count >= 0.5) {
+				for (let p = first_friendly_unit; p <= last_friendly_unit; ++p) {
+					if (is_indian_alliance(p, a)) {
+						if (is_piece_on_map(p) && is_piece_unbesieged(p) && is_unit_reduced(p)) {
+							can_place = true;
+							gen_action_piece(p);
+						}
+					}
+				}
+			}
+		}
+		if (!can_place)
+			gen_action_next();
+	},
+	space(s) {
+		push_undo();
+		let p = find_unused_unit(indian_tribe[s]);
+		if (p) {
+			log(`${piece_name(p)} placed at ${space_name(s)}.`);
+			move_piece_to(p, s);
+			game.count -= 1.0;
+		}
+	},
+	piece(p) {
+		push_undo();
+		log(`${piece_name(p)} restored.`);
+		set_unit_reduced(p, 0);
+		game.count -= 0.5;
+	},
+	next() {
+		delete game.alliance;
+		end_action_phase();
+	},
+}
 
 // Used by Mohawks and Cherokees events.
 function place_and_restore_british_indian_tribe(s, tribe) {
@@ -4077,6 +4205,23 @@ for_each_exit(CANAJOHARIE, one => {
 			}
 		});
 	}
+});
+
+const within_two_of_gray_settlement = [];
+indian_spaces.iroquois.forEach(zero => {
+	within_two_of_gray_settlement.push(zero);
+});
+indian_spaces.iroquois.forEach(zero => {
+	for_each_exit(zero, one => {
+		if (!within_two_of_gray_settlement.includes(one)) {
+			within_two_of_gray_settlement.push(one);
+			for_each_exit(one, two => {
+				if (!within_two_of_gray_settlement.includes(two)) {
+					within_two_of_gray_settlement.push(two);
+				}
+			});
+		}
+	});
 });
 
 events.mohawks = {
