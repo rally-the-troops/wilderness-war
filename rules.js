@@ -454,6 +454,7 @@ function draw_leader_from_pool() {
 		let i = random(game.pieces.pool.length);
 		let p = game.pieces.pool[i];
 		game.pieces.pool.splice(i, 1);
+		move_piece_to(p, leader_box(p));
 		return p;
 	}
 	return 0;
@@ -683,6 +684,18 @@ function indian_home_settlement(p) {
 
 function is_regulars_unit(p) {
 	return pieces[p].type === 'regulars';
+}
+
+function is_highland_unit(p) {
+	return pieces[p].type === 'regulars' && pieces[p].subtype === 'highland';
+}
+
+function is_royal_american_unit(p) {
+	return pieces[p].type === 'regulars' && pieces[p].subtype === 'royal';
+}
+
+function is_3_4_regular_unit(p) {
+	return pieces[p].type === 'regulars' && pieces[p].subtype === undefined;
 }
 
 function is_rangers_unit(p) {
@@ -1808,6 +1821,7 @@ function start_season() {
 
 function end_season() {
 	delete game.events.french_regulars;
+	delete game.events.british_regulars;
 }
 
 function end_year() {
@@ -1842,7 +1856,7 @@ function can_play_event(card) {
 	let event = events[cards[card].event];
 	if (event !== undefined) {
 		if (event.can_play)
-			return event.can_play();
+			return event.can_play(card);
 		return true;
 	}
 	return false;
@@ -1904,7 +1918,7 @@ states.action_phase = {
 		push_undo();
 		player.did_construct = 0;
 		play_card(card);
-		events[cards[card].event].play();
+		events[cards[card].event].play(card);
 	},
 	activate_force(card) {
 		goto_activate_force(card);
@@ -4106,7 +4120,6 @@ states.governor_vaudreuil_interferes = {
 
 events.small_pox = {
 	can_play() {
-		console.log("can_play_small_pox");
 		for (let s = first_space; s <= last_space; ++s)
 			if (count_enemy_units_in_space(s) > 4)
 				return true;
@@ -4125,6 +4138,7 @@ states.small_pox = {
 				gen_action_space(s);
 	},
 	space(s) {
+		clear_undo(); // rolling die
 		log(`Small Pox in ${space_name(s)}.`);
 		let roll = roll_d6();
 		log("Roll " + roll + ".");
@@ -4645,6 +4659,7 @@ events.colonial_recruits = {
 		return n > 0;
 	},
 	play() {
+		clear_undo(); // rolling die
 		let roll = roll_d6();
 		log("Roll " + roll + ".");
 		game.state = 'colonial_recruits';
@@ -4821,7 +4836,7 @@ states.call_out_militias = {
 	},
 }
 
-function find_unused_rangers() {
+function find_unused_ranger_unit() {
 	for (let p = first_friendly_unit; p <= last_friendly_unit; ++p)
 		if (is_rangers_unit(p) && is_piece_unused(p))
 			return p;
@@ -4840,7 +4855,7 @@ states.rangers = {
 		view.prompt = `Place a Rangers unit at a fortification, or restore 2 to full strength.`;
 		let can_place = false;
 		if (game.count === 2) {
-			if (find_unused_rangers()) {
+			if (find_unused_ranger_unit()) {
 				for (let s = first_space; s <= last_space; ++s) {
 					if (has_unbesieged_friendly_fortifications(s)) {
 						can_place = true;
@@ -4866,7 +4881,7 @@ states.rangers = {
 	space(s) {
 		push_undo();
 		log(`Places rangers in ${space_name(s)}.`);
-		let p = find_unused_rangers();
+		let p = find_unused_ranger_unit();
 		move_piece_to(p, s);
 		game.count -= 2;
 	},
@@ -4882,72 +4897,7 @@ states.rangers = {
 	},
 }
 
-function find_unused_light_infantry() {
-	for (let p = first_friendly_unit; p <= last_friendly_unit; ++p)
-		if (is_light_infantry_unit(p) && is_piece_unused(p))
-			return p;
-	return 0;
-}
-
-function place_two_light_infantry(s) {
-	let p = find_unused_light_infantry();
-	if (p)
-		move_piece_to(p, s);
-	p = find_unused_light_infantry();
-	if (p)
-		move_piece_to(p, s);
-}
-
-events.light_infantry = {
-	play() {
-		clear_undo(); // drawing leader from pool reveals information
-		game.state = 'light_infantry';
-		game.leader = draw_leader_from_pool();
-		game.count = 1;
-		if (game.leader) {
-			move_piece_to(game.leader, leader_box(game.leader));
-			place_two_light_infantry(leader_box(game.leader));
-		}
-	}
-}
-
-states.light_infantry = {
-	prompt() {
-		if (game.leader) {
-			view.prompt = `Place 2 Light Infantry units and ${piece_name(game.leader)} at a fortress.`;
-			view.who = game.leader;
-		} else {
-			view.prompt = `Place 2 Light Infantry units at a fortress.`;
-		}
-		if (game.count > 0) {
-			for (let s = first_space; s <= last_space; ++s) {
-				if (has_unbesieged_friendly_fortress(s)) {
-					gen_action_space(s);
-				}
-
-			}
-		}
-		if (game.count === 0)
-			gen_action_next();
-	},
-	space(s) {
-		push_undo();
-		if (game.leader) {
-			log(`Places 2 Light Infantry and ${piece_name(game.leader)} in ${space_name(s)}.`);
-			move_piece_to(game.leader, s);
-		} else {
-			log(`Places 2 Light Infantry in ${space_name(s)}.`);
-			place_two_light_infantry(s);
-		}
-		game.count = 0;
-	},
-	next() {
-		delete game.leader;
-		end_action_phase();
-	},
-}
-
-function find_unused_french_regular() {
+function find_unused_french_regular_unit() {
 	for (let p = first_french_unit; p <= last_french_unit; ++p)
 		if (is_regulars_unit(p) && is_piece_unused(p))
 			return p;
@@ -4968,13 +4918,32 @@ events.french_regulars = {
 	},
 	play() {
 		game.state = 'french_regulars';
+		game.leader = [];
+		if (is_piece_unused(MONTCALM)) {
+			game.leader.push(MONTCALM);
+			move_piece_to(MONTCALM, leader_box(MONTCALM));
+		}
+		if (is_piece_unused(LEVIS)) {
+			game.leader.push(LEVIS);
+			move_piece_to(LEVIS, leader_box(LEVIS));
+		}
+		if (is_piece_unused(BOUGAINVILLE)) {
+			game.leader.push(BOUGAINVILLE);
+			move_piece_to(BOUGAINVILLE, leader_box(BOUGAINVILLE));
+		}
 		game.count = 2;
 	}
 }
 
 states.french_regulars = {
 	prompt() {
-		view.prompt = `Place 2 regular units at either Québec or Louisbourg.`;
+		if (game.leader.length > 0) {
+			let p = game.leader[0];
+			view.prompt = `Place ${piece_name(p)} at either Québec or Louisbourg.`;
+			view.who = p;
+		} else {
+			view.prompt = `Place ${game.count} Regulars at either Québec or Louisbourg.`;
+		}
 		if (game.count > 0) {
 			if (!has_british_units(QUEBEC))
 				gen_action_space(QUEBEC);
@@ -4985,36 +4954,302 @@ states.french_regulars = {
 		}
 	},
 	space(s) {
-		let p;
 		push_undo();
-		for (p of [ MONTCALM, LEVIS, BOUGAINVILLE ]) {
-			if (is_piece_unused(p)) {
-				log(`${piece_name(p)} placed in ${space_name(s)}.`);
-				move_piece_to(p, s);
-			}
-		}
-		for (let i = 0; i < game.count; ++i) {
-			p = find_unused_french_regular();
+		if (game.leader.length > 0) {
+			let p = game.leader.shift();
+			log(`${piece_name(p)} placed in ${space_name(s)}.`);
+			move_piece_to(p, s);
+		} else {
+			let p = find_unused_french_regular_unit();
 			if (p) {
 				log(`${piece_name(p)} placed in ${space_name(s)}.`);
 				move_piece_to(p, s);
+				game.count --;
+			} else {
+				game.count = 0;
 			}
 		}
-		game.count = 0;
 	},
 	next() {
 		game.events.french_regulars = 1;
+		delete game.leader;
 		end_action_phase();
 	},
 }
 
-events.british_regulars = TODO;
-events.highlanders = TODO;
-events.royal_americans = TODO;
+function find_unused_light_infantry_unit() {
+	for (let p = first_british_unit; p <= last_british_unit; ++p)
+		if (is_light_infantry_unit(p) && is_piece_unused(p))
+			return p;
+	return 0;
+}
+
+events.light_infantry = {
+	play() {
+		clear_undo(); // drawing leader from pool
+		game.state = 'light_infantry';
+		game.count = 1;
+		game.leader = draw_leader_from_pool();
+	}
+}
+
+states.light_infantry = {
+	prompt() {
+		if (game.leader) {
+			view.prompt = `Place ${piece_name(game.leader)} at any fortress.`;
+			view.who = game.leader;
+		} else {
+			view.prompt = `Place ${game.count} Light Infantry at any fortresses.`;
+		}
+		if (game.count > 0) {
+			for (let s = first_space; s <= last_space; ++s) {
+				if (has_unbesieged_friendly_fortress(s)) {
+					gen_action_space(s);
+				}
+			}
+		}
+		if (game.count === 0)
+			gen_action_next();
+	},
+	space(s) {
+		push_undo();
+		if (game.leader) {
+			log(`${piece_name(game.leader)} placed in ${space_name(s)}.`);
+			move_piece_to(game.leader, s);
+			game.leader = 0;
+		} else {
+			let p = find_unused_light_infantry_unit();
+			if (p) {
+				log(`${piece_name(p)} placed in ${space_name(s)}.`);
+				move_piece_to(p, s);
+				game.count --;
+			} else {
+				log("No more Light Infantry units available.");
+				game.count = 0;
+			}
+		}
+	},
+	next() {
+		delete game.leader;
+		end_action_phase();
+	},
+}
+
+function find_unused_3_4_regular_unit() {
+	for (let p = first_british_unit; p <= last_british_unit; ++p)
+		if (is_3_4_regular_unit(p) && is_piece_unused(p))
+			return p;
+	return 0;
+}
+
+events.british_regulars = {
+	can_play() {
+		// TODO: check available ports
+		if (game.events.british_regulars)
+			return false;
+		return true;
+	},
+	play() {
+		clear_undo(); // drawing leader from pool
+		game.state = 'british_regulars';
+		game.count = 3;
+		game.leader = draw_leader_from_pool();
+	}
+}
+
+states.british_regulars = {
+	prompt() {
+		if (game.leader) {
+			view.prompt = `Place ${piece_name(game.leader)} at any port.`;
+			view.who = game.leader;
+		} else {
+			view.prompt = `Place ${game.count} Regulars at any ports.`;
+		}
+		if (game.count > 0) {
+			for_each_british_controlled_port(s => {
+				if (is_space_unbesieged(s))
+					gen_action_space(s);
+			});
+		} else {
+			gen_action_next();
+		}
+	},
+	space(s) {
+		push_undo();
+		if (game.leader) {
+			log(`${piece_name(game.leader)} placed in ${space_name(s)}.`);
+			move_piece_to(game.leader, s);
+			game.leader = 0;
+		} else {
+			let p = find_unused_3_4_regular_unit();
+			if (p) {
+				log(`${piece_name(p)} placed in ${space_name(s)}.`);
+				move_piece_to(p, s);
+				game.count --;
+			} else {
+				game.count = 0;
+			}
+		}
+	},
+	next() {
+		game.events.british_regulars = 1;
+		delete game.leader;
+		end_action_phase();
+	},
+}
+
+function find_unused_highland_unit() {
+	for (let p = first_british_unit; p <= last_british_unit; ++p)
+		if (is_highland_unit(p) && is_piece_unused(p))
+			return p;
+	return 0;
+}
+
+events.highlanders = {
+	can_play() {
+		// TODO: check available ports
+		if (game.events.pitt || game.year > 1758)
+			return true;
+		return false;
+	},
+	play(card) {
+		clear_undo(); // drawing leader from pool
+		game.state = 'highlanders';
+		game.leader = [];
+		if (card === 60) {
+			game.count = 4;
+			for (let i = 0; i < 2; ++i) {
+				let p = draw_leader_from_pool();
+				if (p)
+					game.leader.push(p);
+			}
+		} else {
+			game.count = 1;
+			let p = draw_leader_from_pool();
+			if (p)
+				game.leader.push(p);
+		}
+	}
+}
+
+states.highlanders = {
+	prompt() {
+		if (game.leader.length > 0) {
+			let p = game.leader[0];
+			view.prompt = `Place ${piece_name(p)} at any port.`;
+			view.who = p;
+		} else {
+			view.prompt = `Place ${game.count} Highlanders at any ports.`;
+		}
+		if (game.count > 0) {
+			for_each_british_controlled_port(s => {
+				if (is_space_unbesieged(s))
+					gen_action_space(s);
+			});
+		} else {
+			gen_action_next();
+		}
+	},
+	space(s) {
+		push_undo();
+		if (game.leader.length > 0) {
+			let p = game.leader.shift();
+			log(`${piece_name(p)} placed in ${space_name(s)}.`);
+			move_piece_to(p, s);
+		} else {
+			let p = find_unused_highland_unit();
+			if (p) {
+				log(`${piece_name(p)} placed in ${space_name(s)}.`);
+				move_piece_to(p, s);
+				game.count --;
+			} else {
+				game.count = 0;
+			}
+		}
+	},
+	next() {
+		delete game.leader;
+		end_action_phase();
+	},
+}
+
+function find_unused_royal_american_unit() {
+	for (let p = first_british_unit; p <= last_british_unit; ++p)
+		if (is_royal_american_unit(p) && is_piece_unused(p))
+			return p;
+	return 0;
+}
+
+events.royal_americans = {
+	can_play() {
+		// TODO: check available fortresses in northern or southern depts
+		return true;
+	},
+	play() {
+		clear_undo(); // drawing leader from pool
+		game.state = 'royal_americans';
+		game.count = 4;
+		game.leader = draw_leader_from_pool();
+	}
+}
+
+states.royal_americans = {
+	prompt() {
+		if (game.leader) {
+			let p = game.leader;
+			view.prompt = `Place ${piece_name(p)} at any fortress in the departments.`;
+			view.who = p;
+		} else {
+			view.prompt = `Place ${game.count} Royal American units at any fortress in the departments.`;
+		}
+		if (game.count > 0) {
+			// TODO: use a list of fortresses in the departments
+			departments.northern.forEach(s => {
+				if (has_unbesieged_friendly_fortress(s))
+					gen_action_space(s);
+			});
+			departments.southern.forEach(s => {
+				if (has_unbesieged_friendly_fortress(s))
+					gen_action_space(s);
+			});
+		} else {
+			gen_action_next();
+		}
+	},
+	space(s) {
+		push_undo();
+		if (game.leader) {
+			log(`${piece_name(game.leader)} placed in ${space_name(s)}.`);
+			move_piece_to(game.leader, s);
+			game.leader = 0;
+		} else {
+			let p = find_unused_royal_american_unit();
+			if (p) {
+				log(`${piece_name(p)} placed in ${space_name(s)}.`);
+				move_piece_to(p, s);
+				game.count --;
+			} else {
+				game.count = 0;
+			}
+		}
+	},
+	next() {
+		delete game.leader;
+		end_action_phase();
+	},
+}
 
 events.acadians_expelled = TODO;
 events.william_pitt = TODO;
-events.diplomatic_revolution = TODO;
+
+events.diplomatic_revolution = TODO; /* {
+	can_play() {
+		return !game.events.quiberon;
+	},
+	play() {
+		pick a card from discard!
+	}
+} */
 
 events.intrigues_against_shirley = {
 	can_play() {
