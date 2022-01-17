@@ -13,7 +13,7 @@
 // TODO: rename node/space -> location/space or raw_space/space or box/space?
 // TODO: replace piece[p].type lookups with index range checks
 
-// TODO: voluntary DEMOLITION
+// TODO: voluntary DEMOLITION (strategy_phase and before ending move/activation)
 // TODO: track 'held'
 
 // TODO: move core of is_friendly/enemy to is_british/french and branch in is_friendly/enemy
@@ -371,6 +371,7 @@ const BAIE_ST_PAUL = find_space("Baie-St-Paul");
 const RIVIERE_OUELLE = find_space("Rivière-Ouelle");
 const ILE_D_ORLEANS = find_space("Île d'Orléans");
 const QUEBEC = find_space("Québec");
+const OHIO_FORKS = find_space("Ohio Forks");
 
 const ST_LAWRENCE_CANADIAN_MILITIAS = find_space("St. Lawrence Canadian Militias");
 const NORTHERN_COLONIAL_MILITIAS = find_space("Northern Colonial Militias");
@@ -706,6 +707,10 @@ function is_3_4_regular_unit(p) {
 	return pieces[p].type === 'regulars' && pieces[p].subtype === undefined;
 }
 
+function is_western_indian_unit(p) {
+	return pieces[p].type === 'indians' && pieces[p].subtype === 'western';
+}
+
 function is_rangers_unit(p) {
 	return pieces[p].type === 'rangers';
 }
@@ -1039,6 +1044,14 @@ function has_british_units(space) {
 }
 
 function has_french_drilled_troops(space) {
+	for (let p = first_french_unit; p <= last_french_unit; ++p)
+		if (is_piece_in_space(p, space))
+			if (is_drilled_troops(p))
+				return true;
+	return false;
+}
+
+function has_british_drilled_troops(space) {
 	for (let p = first_british_unit; p <= last_british_unit; ++p)
 		if (is_piece_in_space(p, space))
 			if (is_drilled_troops(p))
@@ -4015,15 +4028,39 @@ const TODO = { can_play() { return false } };
 
 events.campaign = TODO;
 
+events.provincial_regiments_dispersed_for_frontier_duty = TODO;
+
 events.northern_indian_alliance = TODO;
 events.western_indian_alliance = TODO;
 events.iroquois_indian_alliance = TODO;
 events.mohawks = TODO;
 events.cherokees = TODO;
 events.cherokee_uprising = TODO;
-events.treaty_of_easton = TODO;
 
-events.provincial_regiments_dispersed_for_frontier_duty = TODO;
+events.treaty_of_easton = {
+	can_play() {
+		if (has_unbesieged_friendly_fortifications(OHIO_FORKS) && has_british_drilled_troops(OHIO_FORKS))
+			return true;
+		let result = false;
+		for_each_exit(OHIO_FORKS, s => {
+			if (has_unbesieged_friendly_fortifications(s) && has_british_drilled_troops(s))
+				result = true;
+		});
+		return result;
+	},
+	play() {
+		// TODO: treaty_of_easton state for manual elimination?
+		for (let p = first_french_unit; p <= last_french_unit; ++p) {
+			if (is_indian_unit(p) && is_piece_on_map(p) && is_piece_unbesieged(p)) {
+				if (is_western_indian_unit(p)) {
+					log(`${piece_name(p)} eliminated.`);
+					eliminate_piece(p);
+				}
+			}
+		}
+		end_action_phase();
+	},
+}
 
 events.indians_desert = {
 	play() {
