@@ -430,9 +430,18 @@ function deal_card() {
 }
 
 function deal_cards() {
-	// TODO: hand size (quiberon bay)
-	let fn = game.France.hand_size - game.France.hand.length;
-	let bn = game.Britain.hand_size - game.Britain.hand.length;
+	let fn = 8;
+	if (game.events.diplo)
+		fn = 9;
+	if (game.events.quiberon)
+		fn = 7;
+
+	let bn = 8;
+	if (game.events.pitt)
+		bn = 9;
+
+	fn = fn - game.France.hand.length;
+	bn = bn - game.Britain.hand.length;
 
 	log("Dealt " + fn + " cards to France.");
 	log("Dealt " + bn + " cards to Britain.");
@@ -4266,7 +4275,7 @@ states.british_ministerial_crisis = {
 			gen_action_next();
 		}
 	},
-	discard(c) {
+	card(c) {
 		push_undo();
 		game.count = 0;
 		discard_card(c, "");
@@ -4595,6 +4604,7 @@ events.quiberon_bay = {
 	play() {
 		log("Battle destroys French fleet.");
 		game.events.quiberon = 1;
+		delete game.events.diplo;
 	},
 }
 
@@ -5298,16 +5308,87 @@ states.acadians_expelled = {
 	},
 }
 
-events.william_pitt = TODO;
+const william_pitt_cards = [
+	'highlanders',
+	'british_regulars',
+	'light_infantry',
+	'troop_transports_and_local_enlistments'
+];
 
-events.diplomatic_revolution = TODO; /* {
+events.william_pitt = {
+	play() {
+		// TODO: pick a card from discard!
+		game.events.pitt = 1;
+		game.state = 'william_pitt';
+		game.count = 1;
+	}
+}
+
+states.william_pitt = {
+	prompt() {
+		if (game.count > 0) {
+			view.prompt = "Draw Highlanders, British Regulars, Light Infantry or Troop Transports from Discard.";
+			view.hand = game.cards.discarded;
+			for (let c of game.cards.discarded) {
+				if (william_pitt_cards.includes(cards[c].event))
+					gen_action('card', c);
+			}
+		} else {
+			view.prompt = "Draw X from Discard - done.";
+		}
+		gen_action_next();
+	},
+	card(c) {
+		push_undo();
+		remove_from_array(game.cards.discarded, c);
+		player.hand.push(c);
+		game.count = 0;
+	},
+	next() {
+		end_action_phase();
+	}
+}
+
+const diplomatic_revolution_cards = [
+	'french_regulars',
+	'troop_transports_and_local_enlistments'
+];
+
+events.diplomatic_revolution = {
 	can_play() {
 		return !game.events.quiberon;
 	},
 	play() {
-		pick a card from discard!
+		// TODO: pick a card from discard!
+		game.events.diplo = 1;
+		end_action_phase();
 	}
-} */
+}
+
+states.diplomatic_revolution = {
+	prompt() {
+		if (game.count > 0) {
+			view.prompt = "Draw French Regulars or Troop Transports from Discard.";
+			view.hand = view.cards.discard;
+			for (let c of view.cards.discarded) {
+				if (diplomatic_revolution_cards.includes(cards[c].event))
+					gen_action('card', c);
+			}
+		} else {
+			view.prompt = "Draw French Regulars or Troop Transports from Discard - done.";
+		}
+		gen_action_next();
+	},
+	card(c) {
+		push_undo();
+		remove_from_array(game.cards.discarded, c);
+		player.hand.push(c);
+		game.count = 0;
+	},
+	next() {
+		end_action_phase();
+	}
+}
 
 events.intrigues_against_shirley = {
 	can_play() {
@@ -5528,9 +5609,6 @@ function setup_1757(end_year) {
 	game.events.pitt = 1;
 	game.events.diplo = 1;
 
-	game.France.hand_size = 9;
-	game.Britain.hand_size = 9;
-
 	start_year();
 
 	return game;
@@ -5660,9 +5738,6 @@ function setup_1755() {
 	setup_leader("unused", "Forbes");
 	setup_leader("unused", "Wolfe");
 
-	game.France.hand_size = 8;
-	game.Britain.hand_size = 8;
-
 	start_year();
 
 	return game;
@@ -5697,7 +5772,6 @@ exports.setup = function (seed, scenario, options) {
 		sieges: {},
 		France: {
 			hand: [],
-			hand_size: 0,
 			held: 0,
 			did_construct: 0,
 			allied: [],
@@ -5708,7 +5782,6 @@ exports.setup = function (seed, scenario, options) {
 		},
 		Britain: {
 			hand: [],
-			hand_size: 0,
 			held: 0,
 			did_construct: 0,
 			allied: [],
@@ -5802,7 +5875,7 @@ function gen_action_piece(piece) {
 }
 
 function gen_action_discard(card) {
-	gen_action('discard', card);
+	gen_action('card', card);
 }
 
 function load_game_state(state) {
