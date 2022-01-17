@@ -108,8 +108,13 @@ function random(n) {
 	return ((game.seed = game.seed * 69621 % 0x7fffffff) / 0x7fffffff) * n | 0;
 }
 
-function roll_d6() {
-	return random(6) + 1;
+function roll_die(reason) {
+	let die = random(6) + 1;
+	if (reason)
+		log(`Roll ${die} ${reason}.`);
+	else
+		log(`Roll ${die}.`);
+	return die;
 }
 
 function clamp(x, min, max) {
@@ -1449,6 +1454,11 @@ function move_piece_to(who, to) {
 	game.pieces.location[who] = to;
 }
 
+function place_piece(who, to) {
+	log(`${piece_name(who)} placed at ${space_name(to)}.`);
+	game.pieces.location[who] = to;
+}
+
 function move_pieces_from_node_to_node(from, to) {
 	for (let p = 0; p < pieces.length; ++p) {
 		if (piece_node(p) === from)
@@ -2322,6 +2332,8 @@ function may_naval_move(who) {
 }
 
 function resume_move() {
+	game.state = 'move';
+
 	if (game.move.type === null) {
 		game.move.cost = {};
 		game.move.path = {};
@@ -2626,7 +2638,7 @@ function attempt_intercept() {
 	}
 	game.move.did_attempt_intercept = 1;
 
-	let roll = roll_d6();
+	let roll = roll_die("to intercept");
 	if (roll + tactics >= 4) {
 		if (is_leader(piece))
 			log(`${piece_name(piece)} attempts to intercept:\n${roll} + ${tactics} >= 4 \u2014 success!`);
@@ -2776,7 +2788,7 @@ function attempt_avoid_battle() {
 		return;
 	}
 
-	let roll = roll_d6();
+	let roll = roll_die("to avoid battle");
 	if (roll + tactics >= 4) {
 		if (is_leader(piece))
 			log(`${piece_name(piece)} attempts to avoid battle:\n${roll} + ${tactics} >= 4 \u2014 success!`);
@@ -3027,14 +3039,14 @@ function goto_battle_roll() {
 	// TODO: modifiers
 	let atk_str = attacker_combat_strength();
 	let atk_mod = 0;
-	game.battle.atk_roll = roll_d6();
+	game.battle.atk_roll = roll_die("for attacker");
 	game.battle.atk_result = combat_result(atk_str, game.battle.atk_roll + atk_mod);
 	log("ATTACKER", "str="+atk_str, "roll="+game.battle.atk_roll, "+", atk_mod, "=", game.battle.atk_result);
 
 	// TODO: modifiers
 	let def_str = defender_combat_strength();
 	let def_mod = 0;
-	game.battle.def_roll = roll_d6();
+	game.battle.def_roll = roll_die("for defender");
 	game.battle.def_result = combat_result(def_str, game.battle.def_roll + def_mod);
 	log("DEFENDER", "str="+def_str, "roll="+game.battle.def_roll, "+", def_mod, "=", game.battle.def_result);
 
@@ -3250,7 +3262,7 @@ states.leader_check = {
 			gen_action_next();
 	},
 	piece(piece) {
-		let die = roll_d6();
+		let die = roll_die("for leader check");
 		if (die === 1) {
 			log(`${piece_name(piece)} rolls ${die} and is killed`);
 			eliminate_piece(piece);
@@ -3291,7 +3303,7 @@ states.raid_leader_check = {
 			gen_action_next();
 	},
 	piece(piece) {
-		let die = roll_d6();
+		let die = roll_die("for leader check");
 		if (die === 1) {
 			log(`${piece_name(piece)} rolls ${die} and is killed`);
 			eliminate_piece(piece);
@@ -3378,7 +3390,7 @@ function determine_winner_battle() {
 			goto_retreat_defender();
 		} else {
 			if (def_surv === 0 && game.battle.def_result === 0) {
-				console.log("POSSIBLE OVERRUN");
+				log("OVERRUN");
 				end_move_step(false);
 			} else {
 				end_move_step(true);
@@ -3643,7 +3655,7 @@ function goto_resolve_siege(space) {
 	log("Resolve siege in " + space_name(space));
 	let att_leader = find_friendly_commanding_leader_in_space(space);
 	let def_leader = find_enemy_commanding_leader_in_space(space);
-	let die = roll_d6();
+	let die = roll_die("for siege");
 	let msg = `Roll ${die}`;
 	let drm_att_ld = leader_tactics(att_leader);
 	let drm = drm_att_ld;
@@ -3800,7 +3812,7 @@ function resolve_raid() {
 	if (x_stockade || x_allied || (game.events.blockhouses === game.active))
 		column = 'stockade';
 
-	let d = roll_d6();
+	let d = roll_die("for raid");
 	let drm = 0;
 	let mods = [];
 
@@ -4047,7 +4059,7 @@ events.northern_indian_alliance = {
 	},
 	play() {
 		clear_undo(); // rolling die
-		let roll = roll_d6();
+		let roll = roll_die();
 		log(`Roll ${roll}.`);
 		if (game.tracks.vp > 4)
 			game.count = roll;
@@ -4067,7 +4079,7 @@ events.western_indian_alliance = {
 	},
 	play() {
 		clear_undo(); // rolling die
-		let roll = roll_d6();
+		let roll = roll_die();
 		log(`Roll ${roll}.`);
 		if (game.tracks.vp > 4)
 			game.count = roll;
@@ -4100,7 +4112,7 @@ events.iroquois_alliance = {
 	},
 	play() {
 		clear_undo(); // rolling die
-		let roll = roll_d6();
+		let roll = roll_die();
 		log(`Roll ${roll}.`);
 		game.state = 'indian_alliance';
 		game.count = roll;
@@ -4155,8 +4167,7 @@ states.indian_alliance = {
 		push_undo();
 		let p = find_unused_unit(indian_tribe[s]);
 		if (p) {
-			log(`${piece_name(p)} placed at ${space_name(s)}.`);
-			move_piece_to(p, s);
+			place_piece(p, s);
 			game.count -= 1.0;
 		}
 	},
@@ -4182,8 +4193,7 @@ function place_and_restore_british_indian_tribe(s, tribe) {
 	for (let p = first_british_unit; p <= last_british_unit; ++p) {
 		if (is_indian_tribe(p, tribe)) {
 			if (is_piece_unused(p)) {
-				log(`${piece_name(p)} placed at ${space_name(s)}.`);
-				move_piece_to(p, s);
+				place_piece(p, s);
 			}
 			if (is_unit_reduced(p) && is_piece_unbesieged(p)) {
 				log(`${piece_name(p)} restored.`);
@@ -4426,7 +4436,7 @@ events.louisbourg_squadrons = {
 		game.events.no_amphib = 1;
 		log("French Navy operates aggressively.");
 		log("No amphibious landings this year.");
-		let roll = roll_d6()
+		let roll = roll_die()
 		if (roll <= 3) {
 			log("Roll " + roll + ".");
 			log("No French naval moves ever.");
@@ -4510,7 +4520,7 @@ states.small_pox = {
 	space(s) {
 		clear_undo(); // rolling die
 		log(`Small Pox in ${space_name(s)}.`);
-		let roll = roll_d6();
+		let roll = roll_die();
 		log("Roll " + roll + ".");
 		if (count_enemy_units_in_space(s) > 8) {
 			game.count = roll;
@@ -4568,7 +4578,7 @@ events.courier_intercepted = {
 		return enemy_player.hand.length > 0;
 	},
 	play() {
-		let roll = roll_d6();
+		let roll = roll_die();
 		log("Roll " + roll + ".");
 		if (roll >= 3) {
 			let i = random(enemy_player.hand.length);
@@ -4937,8 +4947,7 @@ states.raise_provincial_regiments = {
 	space(s) {
 		push_undo();
 		let p = find_unused_provincial(game.department);
-		log(`Raises ${piece_name(p)} in ${space_name(s)}.`);
-		move_piece_to(p, s);
+		place_piece(p, s);
 		game.count --;
 		game.did_raise = 1;
 	},
@@ -5032,7 +5041,7 @@ events.colonial_recruits = {
 	},
 	play() {
 		clear_undo(); // rolling die
-		let roll = roll_d6();
+		let roll = roll_die();
 		log("Roll " + roll + ".");
 		game.state = 'colonial_recruits';
 		game.count = roll;
@@ -5193,9 +5202,8 @@ states.call_out_militias = {
 	},
 	space(s) {
 		push_undo();
-		log(`Places militia in ${space_name(s)}.`);
 		let p = find_unused_friendly_militia();
-		move_piece_to(p, s);
+		place_piece(p, s);
 		game.count -= 2;
 	},
 	piece(p) {
@@ -5254,9 +5262,8 @@ states.rangers = {
 	},
 	space(s) {
 		push_undo();
-		log(`Places rangers in ${space_name(s)}.`);
 		let p = find_unused_ranger_unit();
-		move_piece_to(p, s);
+		place_piece(p, s);
 		game.count -= 2;
 	},
 	piece(p) {
@@ -5331,13 +5338,11 @@ states.french_regulars = {
 		push_undo();
 		if (game.leader.length > 0) {
 			let p = game.leader.shift();
-			log(`${piece_name(p)} placed in ${space_name(s)}.`);
-			move_piece_to(p, s);
+			place_piece(p, s);
 		} else {
 			let p = find_unused_french_regular_unit();
 			if (p) {
-				log(`${piece_name(p)} placed in ${space_name(s)}.`);
-				move_piece_to(p, s);
+				place_piece(p, s);
 				game.count --;
 			} else {
 				game.count = 0;
@@ -5388,14 +5393,12 @@ states.light_infantry = {
 	space(s) {
 		push_undo();
 		if (game.leader) {
-			log(`${piece_name(game.leader)} placed in ${space_name(s)}.`);
-			move_piece_to(game.leader, s);
+			place_piece(game.leader, s);
 			game.leader = 0;
 		} else {
 			let p = find_unused_light_infantry_unit();
 			if (p) {
-				log(`${piece_name(p)} placed in ${space_name(s)}.`);
-				move_piece_to(p, s);
+				place_piece(p, s);
 				game.count --;
 			} else {
 				log("No more Light Infantry units available.");
@@ -5451,14 +5454,12 @@ states.british_regulars = {
 	space(s) {
 		push_undo();
 		if (game.leader) {
-			log(`${piece_name(game.leader)} placed in ${space_name(s)}.`);
-			move_piece_to(game.leader, s);
+			place_piece(game.leader, s);
 			game.leader = 0;
 		} else {
 			let p = find_unused_3_4_regular_unit();
 			if (p) {
-				log(`${piece_name(p)} placed in ${space_name(s)}.`);
-				move_piece_to(p, s);
+				place_piece(p, s);
 				game.count --;
 			} else {
 				game.count = 0;
@@ -5528,13 +5529,11 @@ states.highlanders = {
 		push_undo();
 		if (game.leader.length > 0) {
 			let p = game.leader.shift();
-			log(`${piece_name(p)} placed in ${space_name(s)}.`);
-			move_piece_to(p, s);
+			place_piece(p, s);
 		} else {
 			let p = find_unused_highland_unit();
 			if (p) {
-				log(`${piece_name(p)} placed in ${space_name(s)}.`);
-				move_piece_to(p, s);
+				place_piece(p, s);
 				game.count --;
 			} else {
 				game.count = 0;
@@ -5593,14 +5592,12 @@ states.royal_americans = {
 	space(s) {
 		push_undo();
 		if (game.leader) {
-			log(`${piece_name(game.leader)} placed in ${space_name(s)}.`);
-			move_piece_to(game.leader, s);
+			place_piece(game.leader, s);
 			game.leader = 0;
 		} else {
 			let p = find_unused_royal_american_unit();
 			if (p) {
-				log(`${piece_name(p)} placed in ${space_name(s)}.`);
-				move_piece_to(p, s);
+				place_piece(p, s);
 				game.count --;
 			} else {
 				game.count = 0;
@@ -5625,8 +5622,7 @@ events.acadians_expelled = {
 		// TODO: acadians_expelled_halifax state for manual placing?
 		for (let i = 0; i < 2; ++i) {
 			let p = find_unused_3_4_regular_unit();
-			log(`${piece_name(p)} placed at Halifax.`);
-			move_piece_to(p, HALIFAX);
+			place_piece(p, HALIFAX);
 		}
 
 		// TODO: restore_acadians_expelled state for manual restoring?
@@ -5661,8 +5657,7 @@ states.acadians_expelled = {
 		push_undo();
 		let p = find_unused_coureurs_unit();
 		if (p) {
-			log(`${piece_name(p)} placed at ${space_name(s)}.`);
-			move_piece_to(p, s);
+			place_piece(p, s);
 		}
 		game.count = 0;
 	},
