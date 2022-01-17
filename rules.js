@@ -5239,7 +5239,65 @@ states.royal_americans = {
 	},
 }
 
-events.acadians_expelled = TODO;
+function find_unused_coureurs_unit() {
+	for (let p = first_french_unit; p <= last_french_unit; ++p)
+		if (is_coureurs_unit(p) && is_piece_unused(p))
+			return p;
+	return 0;
+}
+
+events.acadians_expelled = {
+	play() {
+		// TODO: acadians_expelled_halifax state for manual placing?
+		for (let i = 0; i < 2; ++i) {
+			let p = find_unused_3_4_regular_unit();
+			log(`${piece_name(p)} placed at Halifax.`);
+			move_piece_to(p, HALIFAX);
+		}
+
+		// TODO: restore_acadians_expelled state for manual restoring?
+		for (let p = first_french_unit; p <= last_french_unit; ++p) {
+			if (is_militia_unit(p) || is_coureurs_unit(p)) {
+				if (is_unit_reduced(p) && is_piece_unbesieged(p)) {
+					log(`${piece_name(p)} restored.`);
+					set_unit_reduced(p, 0);
+				}
+			}
+		}
+
+		set_active(enemy());
+		game.state = 'acadians_expelled';
+		game.count = 1;
+	},
+}
+
+states.acadians_expelled = {
+	prompt() {
+		view.prompt = "Place a Coureurs unit at Québec or Louisbourg.";
+		if (game.count > 0) {
+			if (has_unbesieged_friendly_fortress(QUEBEC))
+				gen_action_space(QUEBEC);
+			if (has_unbesieged_friendly_fortress(LOUISBOURG))
+				gen_action_space(LOUISBOURG);
+		} else {
+			gen_action_next();
+		}
+	},
+	space(s) {
+		push_undo();
+		let p = find_unused_coureurs_unit();
+		if (p) {
+			log(`${piece_name(p)} placed at ${space_name(s)}.`);
+			move_piece_to(p, s);
+		}
+		game.count = 0;
+	},
+	next() {
+		set_active(enemy());
+		end_action_phase();
+	},
+}
+
 events.william_pitt = TODO;
 
 events.diplomatic_revolution = TODO; /* {
