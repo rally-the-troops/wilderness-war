@@ -4140,7 +4140,7 @@ states.indian_alliance = {
 		for (let a of game.alliance) {
 			if (game.count >= 1) {
 				for (let s of indian_spaces[a]) {
-					if (!has_enemy_units(s) && !has_enemy_fortifications(s)) {
+					if (!has_enemy_units(s) && !has_enemy_fortifications(s) && !has_enemy_allied_settlement(s)) {
 						let p = find_unused_indian(indian_tribe[s]);
 						if (p) {
 							can_place = true;
