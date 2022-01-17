@@ -23,7 +23,7 @@ const { spaces, pieces, cards } = require("./data");
 const BRITAIN = 'Britain';
 const FRANCE = 'France';
 
-const DEAD = -1;
+const DEAD = 0;
 const UNUSED = 0;
 
 // Order of pieces: br.leaders/br.units/fr.leaders/fr.units
@@ -303,13 +303,16 @@ const departments = {
 }
 
 const indian_spaces = {
-	northern_indians: [
+	"pays-d-en-haut": [
+		find_space("Pays d'en Haut")
+	],
+	northern: [
 		"Kahnawake",
 		"Lac des Deux Montagnes",
 		"Mississauga",
 		"St-François",
 	].map(name => spaces.findIndex(space => space.name === name)),
-	western_indians: [
+	western: [
 		"Kittaning",
 		"Logstown",
 		"Mingo Town",
@@ -371,7 +374,13 @@ const BAIE_ST_PAUL = find_space("Baie-St-Paul");
 const RIVIERE_OUELLE = find_space("Rivière-Ouelle");
 const ILE_D_ORLEANS = find_space("Île d'Orléans");
 const QUEBEC = find_space("Québec");
+const MONTREAL = find_space("Montréal");
 const OHIO_FORKS = find_space("Ohio Forks");
+const CANAJOHARIE = find_space("Canajoharie");
+const NIAGARA = find_space("Niagara");
+const OSWEGO = find_space("Oswego");
+const ONEIDA_CARRY_WEST = find_space("Oneida Carry West");
+const ONEIDA_CARRY_EAST = find_space("Oneida Carry East");
 
 const ST_LAWRENCE_CANADIAN_MILITIAS = find_space("St. Lawrence Canadian Militias");
 const NORTHERN_COLONIAL_MILITIAS = find_space("Northern Colonial Militias");
@@ -4034,7 +4043,76 @@ events.provincial_regiments_dispersed_for_frontier_duty = TODO;
 events.northern_indian_alliance = TODO;
 events.western_indian_alliance = TODO;
 events.iroquois_indian_alliance = TODO;
-events.mohawks = TODO;
+
+// Used by Mohawks and Cherokees events.
+function place_and_restore_british_indian_tribe(s, tribe) {
+	push_undo();
+
+	// TODO: restore_mohawks/cherokee state for manual restoring?
+
+	// TODO: use mohawks piece list
+	for (let p = first_british_unit; p <= last_british_unit; ++p) {
+		if (is_indian_tribe(p, tribe)) {
+			if (is_piece_unused(p)) {
+				log(`${piece_name(p)} placed at ${space_name(s)}.`);
+				move_piece_to(p, s);
+			}
+			if (is_unit_reduced(p) && is_piece_unbesieged(p)) {
+				log(`${piece_name(p)} restored.`);
+				set_unit_reduced(p, 0);
+			}
+		}
+	}
+
+	game.count = 0;
+}
+
+const within_two_of_canajoharie = [ CANAJOHARIE ];
+for_each_exit(CANAJOHARIE, one => {
+	if (!within_two_of_canajoharie.includes(one)) {
+		within_two_of_canajoharie.push(one);
+		for_each_exit(one, two => {
+			if (!within_two_of_canajoharie.includes(two)) {
+				within_two_of_canajoharie.push(two);
+			}
+		});
+	}
+});
+
+events.mohawks = {
+	can_play() {
+		let s = piece_space(JOHNSON);
+		if (within_two_of_canajoharie.includes(s))
+			if (is_piece_unbesieged(JOHNSON))
+				return true;
+		return false;
+	},
+	play() {
+		game.state = 'mohawks';
+		game.count = 1;
+	},
+}
+
+states.mohawks = {
+	prompt() {
+		view.prompt = "Place all Mohawk units not on the map with Johnson.";
+		let can_place = false;
+		if (game.count > 0) {
+			if (is_piece_on_map(JOHNSON) && is_piece_unbesieged(JOHNSON)) {
+				can_place = true;
+				gen_action_space(piece_space(JOHNSON));
+			}
+		}
+		if (!can_place)
+			gen_action_next();
+	},
+	space(s) {
+		place_and_restore_british_indian_tribe(s, 'Mohawk');
+	},
+	next() {
+		end_action_phase();
+	},
+}
 
 events.cherokees = {
 	can_play() {
@@ -4066,25 +4144,7 @@ states.cherokees = {
 			gen_action_next();
 	},
 	space(s) {
-		push_undo();
-
-		// TODO: restore_cherokees state for manual restoring?
-
-		// TODO: use cherokee piece list
-		for (let p = first_british_unit; p <= last_british_unit; ++p) {
-			if (is_indian_tribe(p, 'Cherokee')) {
-				if (is_piece_unused(p)) {
-					log(`${piece_name(p)} placed at ${space_name(s)}.`);
-					move_piece_to(p, s);
-				}
-				if (is_unit_reduced(p) && is_piece_unbesieged(p)) {
-					log(`${piece_name(p)} restored.`);
-					set_unit_reduced(p, 0);
-				}
-			}
-		}
-
-		game.count = 0;
+		place_and_restore_british_indian_tribe(s, 'Cherokee');
 	},
 	next() {
 		end_action_phase();
@@ -4147,17 +4207,17 @@ states.cherokee_uprising = {
 	},
 }
 
+const in_or_adjacent_to_ohio_forks = [ OHIO_FORKS ];
+for_each_exit(OHIO_FORKS, one => {
+	in_or_adjacent_to_ohio_forks.push(one);
+});
 
 events.treaty_of_easton = {
 	can_play() {
-		if (has_unbesieged_friendly_fortifications(OHIO_FORKS) && has_british_drilled_troops(OHIO_FORKS))
-			return true;
-		let result = false;
-		for_each_exit(OHIO_FORKS, s => {
+		for (let s of in_or_adjacent_to_ohio_forks)
 			if (has_unbesieged_friendly_fortifications(s) && has_british_drilled_troops(s))
-				result = true;
-		});
-		return result;
+				return true;
+		return false;
 	},
 	play() {
 		// TODO: treaty_of_easton state for manual elimination?
@@ -4723,6 +4783,7 @@ states.raise_provincial_regiments = {
 		for (let p = first_friendly_unit; p <= last_friendly_unit; ++p) {
 			if (is_provincial_unit_from(p, game.department) && is_piece_unbesieged(p) && is_unit_reduced(p)) {
 				log(`Restores ${piece_name(p)}.`);
+				// TODO: drilled troops must be in supply!
 				set_unit_reduced(p, 0);
 			}
 		}
@@ -4839,6 +4900,7 @@ states.colonial_recruits = {
 		if (game.count > 0) {
 			for (let p = first_friendly_unit; p <= last_friendly_unit; ++p) {
 				if (is_colonial_recruit(p) && is_piece_unbesieged(p) && is_unit_reduced(p)) {
+					// TODO: drilled troops must be in supply!
 					can_restore = true;
 					gen_action_piece(p);
 				}
@@ -4917,6 +4979,7 @@ states.restore_regular_or_light_infantry_units = {
 				if (is_regulars_unit(p) || is_light_infantry_unit(p)) {
 					if (is_piece_unbesieged(p) && is_unit_reduced(p)) {
 						can_restore = true;
+						// TODO: drilled troops must be in supply!
 						gen_action_piece(p);
 					}
 				}
