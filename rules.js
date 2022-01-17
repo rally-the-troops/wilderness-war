@@ -1419,6 +1419,7 @@ function reduce_unit(p) {
 function eliminate_piece(p) {
 	log(piece_name(p) + " is eliminated.");
 	isolate_piece_from_force(p);
+	set_unit_reduced(p, 0);
 	if (is_indian_unit(p)) {
 		// TODO: remove allied marker if necessary
 	}
@@ -1912,7 +1913,7 @@ function card_name(card) {
 }
 
 function play_card(card) {
-	log(`${game.active} plays ${card_name(card)}.`);
+	log(`Played ${card_name(card)}.`);
 	remove_from_array(player.hand, card);
 	game.cards.current = card;
 	if (card === SURRENDER)
@@ -1924,7 +1925,7 @@ function play_card(card) {
 }
 
 function discard_card(card, reason) {
-	log(`${game.active} discards ${card_name(card)}${reason}.`);
+	log(`Discarded ${card_name(card)}${reason}.`);
 	remove_from_array(player.hand, card);
 	game.cards.current = card;
 	if (card === SURRENDER)
@@ -4034,8 +4035,118 @@ events.northern_indian_alliance = TODO;
 events.western_indian_alliance = TODO;
 events.iroquois_indian_alliance = TODO;
 events.mohawks = TODO;
-events.cherokees = TODO;
-events.cherokee_uprising = TODO;
+
+events.cherokees = {
+	can_play() {
+		if (game.events.cherokee_uprising)
+			return false;
+		return true;
+	},
+	play() {
+		game.events.cherokees = 1;
+		game.state = 'cherokees';
+		game.count = 1;
+	},
+}
+
+states.cherokees = {
+	prompt() {
+		view.prompt = "Place all Cherokee units not on the map at a British fortification in the southern dept.";
+		let can_place = false;
+		if (game.count > 0) {
+			for (let i = 0; i < departments.southern.length; ++i) {
+				let s = departments.southern[i];
+				if (has_unbesieged_friendly_fortifications(s)) {
+					can_place = true;
+					gen_action_space(s);
+				}
+			}
+		}
+		if (!can_place)
+			gen_action_next();
+	},
+	space(s) {
+		push_undo();
+
+		// TODO: restore_cherokees state for manual restoring?
+
+		// TODO: use cherokee piece list
+		for (let p = first_british_unit; p <= last_british_unit; ++p) {
+			if (is_indian_tribe(p, 'Cherokee')) {
+				if (is_piece_unused(p)) {
+					log(`${piece_name(p)} placed at ${space_name(s)}.`);
+					move_piece_to(p, s);
+				}
+				if (is_unit_reduced(p) && is_piece_unbesieged(p)) {
+					log(`${piece_name(p)} restored.`);
+					set_unit_reduced(p, 0);
+				}
+			}
+		}
+
+		game.count = 0;
+	},
+	next() {
+		end_action_phase();
+	},
+}
+
+events.cherokee_uprising = {
+	can_play() {
+		if (game.events.cherokees)
+			return true;
+		return false;
+	},
+	play() {
+		clear_undo();
+		delete game.events.cherokees;
+		game.events.cherokee_uprising = 1;
+		set_active(enemy());
+		game.state = 'cherokee_uprising';
+		game.uprising = {
+			regular: 2,
+			southern: 1
+		}
+	},
+}
+
+states.cherokee_uprising = {
+	prompt() {
+		view.prompt = `Eliminate ${game.uprising.regular} regular, ${game.uprising.southern} southern provincial, and all Cherokee.`;
+		let can_eliminate = false;
+		for (let p = first_british_unit; p <= last_british_unit; ++p) {
+			if (is_piece_on_map(p) && is_piece_unbesieged(p)) {
+				let x = false;
+				if (game.uprising.regular > 0 && is_regulars_unit(p))
+					x = true;
+				if (game.uprising.southern > 0 && is_provincial_unit_from(p, 'southern'))
+					x = true;
+				if (is_indian_tribe(p, 'Cherokee'))
+					x = true;
+				if (x) {
+					can_eliminate = true;
+					gen_action_piece(p);
+				}
+			}
+		}
+		if (!can_eliminate)
+			gen_action_next();
+	},
+	piece(p) {
+		push_undo();
+		if (is_regulars_unit(p))
+			game.uprising.regular --;
+		if (is_provincial_unit_from(p, 'southern'))
+			game.uprising.southern --;
+		eliminate_piece(p);
+	},
+	next() {
+		delete game.uprising;
+		set_active(enemy());
+		end_action_phase();
+	},
+}
+
 
 events.treaty_of_easton = {
 	can_play() {
@@ -4053,7 +4164,6 @@ events.treaty_of_easton = {
 		for (let p = first_french_unit; p <= last_french_unit; ++p) {
 			if (is_indian_unit(p) && is_piece_on_map(p) && is_piece_unbesieged(p)) {
 				if (is_western_indian_unit(p)) {
-					log(`${piece_name(p)} eliminated.`);
 					eliminate_piece(p);
 				}
 			}
