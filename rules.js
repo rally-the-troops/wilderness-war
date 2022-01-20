@@ -397,6 +397,40 @@ const last_amphib_card = 20;
 const SURRENDER = 6;
 const LOUISBOURG_SQUADRONS = 21;
 
+const within_two_of_canajoharie = [ CANAJOHARIE ];
+for_each_exit(CANAJOHARIE, one => {
+	if (!within_two_of_canajoharie.includes(one)) {
+		within_two_of_canajoharie.push(one);
+		for_each_exit(one, two => {
+			if (!within_two_of_canajoharie.includes(two)) {
+				within_two_of_canajoharie.push(two);
+			}
+		});
+	}
+});
+
+const within_two_of_gray_settlement = [];
+indian_spaces.iroquois.forEach(zero => {
+	within_two_of_gray_settlement.push(zero);
+});
+indian_spaces.iroquois.forEach(zero => {
+	for_each_exit(zero, one => {
+		if (!within_two_of_gray_settlement.includes(one)) {
+			within_two_of_gray_settlement.push(one);
+			for_each_exit(one, two => {
+				if (!within_two_of_gray_settlement.includes(two)) {
+					within_two_of_gray_settlement.push(two);
+				}
+			});
+		}
+	});
+});
+
+const in_or_adjacent_to_ohio_forks = [ OHIO_FORKS ];
+for_each_exit(OHIO_FORKS, one => {
+	in_or_adjacent_to_ohio_forks.push(one);
+});
+
 function has_amphibious_arrow(space) {
 	return space === HALIFAX || space === LOUISBOURG;
 }
@@ -1419,6 +1453,12 @@ function isolate_piece_from_force(p) {
 	if (is_leader(p))
 		move_pieces_from_node_to_node(leader_box(p), where);
 	move_piece_to(p, where);
+}
+
+function restore_unit(p) {
+	let s = piece_space(p);
+	log(`${piece_name(p)} restored at ${space_name(s)}.`);
+	set_unit_reduced(p, 0);
 }
 
 function reduce_unit(p) {
@@ -4047,6 +4087,19 @@ states.construct_forts = {
 
 // EVENTS
 
+function can_place_in_space(s) {
+	if (has_enemy_units(s))
+		return false;
+	if (has_enemy_fortifications(s))
+		return false;
+	return true;
+}
+
+function can_restore_unit(p) {
+	// TODO: out-of-supply drilled troops
+	return is_piece_on_map(p) && is_piece_unbesieged(p) && is_unit_reduced(p);
+}
+
 const TODO = { can_play() { return false } };
 
 events.campaign = TODO;
@@ -4140,9 +4193,9 @@ states.indian_alliance = {
 		for (let a of game.alliance) {
 			if (game.count >= 1) {
 				for (let s of indian_spaces[a]) {
-					if (!has_enemy_units(s) && !has_enemy_fortifications(s) && !has_enemy_allied_settlement(s)) {
+					if (!has_enemy_allied_settlement(s)) {
 						let p = find_unused_indian(indian_tribe[s]);
-						if (p) {
+						if (p && can_place_in_space(s)) {
 							can_place = true;
 							gen_action_space(s);
 						}
@@ -4152,7 +4205,7 @@ states.indian_alliance = {
 			if (game.count >= 0.5) {
 				for (let p = first_friendly_unit; p <= last_friendly_unit; ++p) {
 					if (is_indian_alliance(p, a)) {
-						if (is_piece_on_map(p) && is_piece_unbesieged(p) && is_unit_reduced(p)) {
+						if (can_restore_unit(p)) {
 							can_place = true;
 							gen_action_piece(p);
 						}
@@ -4173,8 +4226,7 @@ states.indian_alliance = {
 	},
 	piece(p) {
 		push_undo();
-		log(`${piece_name(p)} restored.`);
-		set_unit_reduced(p, 0);
+		restore_unit(p);
 		game.count -= 0.5;
 	},
 	next() {
@@ -4192,47 +4244,15 @@ function place_and_restore_british_indian_tribe(s, tribe) {
 	// TODO: use mohawks piece list
 	for (let p = first_british_unit; p <= last_british_unit; ++p) {
 		if (is_indian_tribe(p, tribe)) {
-			if (is_piece_unused(p)) {
+			if (is_piece_unused(p))
 				place_piece(p, s);
-			}
-			if (is_unit_reduced(p) && is_piece_unbesieged(p)) {
-				log(`${piece_name(p)} restored.`);
-				set_unit_reduced(p, 0);
-			}
+			if (can_restore_unit(p))
+				restore_unit(p);
 		}
 	}
 
 	game.count = 0;
 }
-
-const within_two_of_canajoharie = [ CANAJOHARIE ];
-for_each_exit(CANAJOHARIE, one => {
-	if (!within_two_of_canajoharie.includes(one)) {
-		within_two_of_canajoharie.push(one);
-		for_each_exit(one, two => {
-			if (!within_two_of_canajoharie.includes(two)) {
-				within_two_of_canajoharie.push(two);
-			}
-		});
-	}
-});
-
-const within_two_of_gray_settlement = [];
-indian_spaces.iroquois.forEach(zero => {
-	within_two_of_gray_settlement.push(zero);
-});
-indian_spaces.iroquois.forEach(zero => {
-	for_each_exit(zero, one => {
-		if (!within_two_of_gray_settlement.includes(one)) {
-			within_two_of_gray_settlement.push(one);
-			for_each_exit(one, two => {
-				if (!within_two_of_gray_settlement.includes(two)) {
-					within_two_of_gray_settlement.push(two);
-				}
-			});
-		}
-	});
-});
 
 events.mohawks = {
 	can_play() {
@@ -4253,9 +4273,10 @@ states.mohawks = {
 		view.prompt = "Place all Mohawk units not on the map with Johnson.";
 		let can_place = false;
 		if (game.count > 0) {
-			if (is_piece_on_map(JOHNSON) && is_piece_unbesieged(JOHNSON)) {
+			let s = piece_space(JOHNSON);
+			if (can_place_in_space(s)) {
 				can_place = true;
-				gen_action_space(piece_space(JOHNSON));
+				gen_action_space(s);
 			}
 		}
 		if (!can_place)
@@ -4362,11 +4383,6 @@ states.cherokee_uprising = {
 	},
 }
 
-const in_or_adjacent_to_ohio_forks = [ OHIO_FORKS ];
-for_each_exit(OHIO_FORKS, one => {
-	in_or_adjacent_to_ohio_forks.push(one);
-});
-
 events.treaty_of_easton = {
 	can_play() {
 		for (let s of in_or_adjacent_to_ohio_forks)
@@ -4438,14 +4454,13 @@ events.louisbourg_squadrons = {
 		log("No amphibious landings this year.");
 		let roll = roll_die()
 		if (roll <= 3) {
-			log("Roll " + roll + ".");
 			log("No French naval moves ever.");
 			log("British may play Quiberon.");
 			log("Card removed.");
 			game.events.no_fr_naval = 1;
 			remove_card(LOUISBOURG_SQUADRONS);
 		} else {
-			log("Roll " + roll + ": no effect.");
+			log("No effect.");
 		}
 		end_action_phase();
 	}
@@ -4521,7 +4536,6 @@ states.small_pox = {
 		clear_undo(); // rolling die
 		log(`Small Pox in ${space_name(s)}.`);
 		let roll = roll_die();
-		log("Roll " + roll + ".");
 		if (count_enemy_units_in_space(s) > 8) {
 			game.count = roll;
 		} else {
@@ -4579,7 +4593,6 @@ events.courier_intercepted = {
 	},
 	play() {
 		let roll = roll_die();
-		log("Roll " + roll + ".");
 		if (roll >= 3) {
 			let i = random(enemy_player.hand.length);
 			let c = enemy_player.hand[i];
@@ -4934,13 +4947,10 @@ states.raise_provincial_regiments = {
 	restore() {
 		// TODO: restore_provincial_regiments state for manual restoring?
 		push_undo();
-		log(`Restores all provincials of ${game.department} department.`);
 		for (let p = first_friendly_unit; p <= last_friendly_unit; ++p) {
-			if (is_provincial_unit_from(p, game.department) && is_piece_unbesieged(p) && is_unit_reduced(p)) {
-				log(`Restores ${piece_name(p)}.`);
-				// TODO: drilled troops must be in supply!
-				set_unit_reduced(p, 0);
-			}
+			if (is_provincial_unit_from(p, game.department))
+				if (can_restore_unit(p))
+					restore_unit(p);
 		}
 		game.count = 0;
 	},
@@ -5042,7 +5052,6 @@ events.colonial_recruits = {
 	play() {
 		clear_undo(); // rolling die
 		let roll = roll_die();
-		log("Roll " + roll + ".");
 		game.state = 'colonial_recruits';
 		game.count = roll;
 	},
@@ -5053,10 +5062,11 @@ states.colonial_recruits = {
 		let can_restore = false;
 		if (game.count > 0) {
 			for (let p = first_friendly_unit; p <= last_friendly_unit; ++p) {
-				if (is_colonial_recruit(p) && is_piece_unbesieged(p) && is_unit_reduced(p)) {
-					// TODO: drilled troops must be in supply!
-					can_restore = true;
-					gen_action_piece(p);
+				if (is_colonial_recruit(p)) {
+					if (can_restore_unit(p)) {
+						can_restore = true;
+						gen_action_piece(p);
+					}
 				}
 			}
 		}
@@ -5069,8 +5079,7 @@ states.colonial_recruits = {
 	},
 	piece(p) {
 		push_undo();
-		log(`Restores ${piece_name(p)}.`);
-		set_unit_reduced(p, 0);
+		restore_unit(p);
 		game.count --;
 	},
 	next() {
@@ -5131,9 +5140,8 @@ states.restore_regular_or_light_infantry_units = {
 		if (game.count > 0) {
 			for (let p = first_friendly_unit; p <= last_friendly_unit; ++p) {
 				if (is_regulars_unit(p) || is_light_infantry_unit(p)) {
-					if (is_piece_unbesieged(p) && is_unit_reduced(p)) {
+					if (can_restore_unit(p)) {
 						can_restore = true;
-						// TODO: drilled troops must be in supply!
 						gen_action_piece(p);
 					}
 				}
@@ -5148,8 +5156,7 @@ states.restore_regular_or_light_infantry_units = {
 	},
 	piece(p) {
 		push_undo();
-		log(`Restores ${piece_name(p)}.`);
-		set_unit_reduced(p, 0);
+		restore_unit(p);
 		game.count --;
 	},
 	next() {
@@ -5208,9 +5215,7 @@ states.call_out_militias = {
 	},
 	piece(p) {
 		push_undo();
-		let s = piece_space(p);
-		log(`Restores militia in ${space_name(s)}.`);
-		set_unit_reduced(p, 0);
+		restore_unit(p);
 		game.count -= 1;
 	},
 	next() {
@@ -5249,8 +5254,8 @@ states.rangers = {
 		}
 		if (game.count > 0) {
 			for (let p = first_friendly_unit; p <= last_friendly_unit; ++p) {
-				if (is_rangers_unit(p) && is_unit_reduced(p) && is_piece_on_map(p)) {
-					if (is_piece_unbesieged(p)) {
+				if (is_rangers_unit(p)) {
+					if (can_restore_unit(p)) {
 						can_place = true;
 						gen_action_piece(p);
 					}
@@ -5268,9 +5273,7 @@ states.rangers = {
 	},
 	piece(p) {
 		push_undo();
-		let s = piece_space(p);
-		log(`Restores rangers in ${space_name(s)}.`);
-		set_unit_reduced(p, 0);
+		restore_unit(p);
 		game.count -= 1;
 	},
 	next() {
@@ -5444,7 +5447,7 @@ states.british_regulars = {
 		}
 		if (game.count > 0) {
 			for_each_british_controlled_port(s => {
-				if (is_space_unbesieged(s))
+				if (can_place_in_space(s))
 					gen_action_space(s);
 			});
 		} else {
@@ -5518,7 +5521,7 @@ states.highlanders = {
 		}
 		if (game.count > 0) {
 			for_each_british_controlled_port(s => {
-				if (is_space_unbesieged(s))
+				if (can_place_in_space(s))
 					gen_action_space(s);
 			});
 		} else {
@@ -5627,12 +5630,9 @@ events.acadians_expelled = {
 
 		// TODO: restore_acadians_expelled state for manual restoring?
 		for (let p = first_french_unit; p <= last_french_unit; ++p) {
-			if (is_militia_unit(p) || is_coureurs_unit(p)) {
-				if (is_unit_reduced(p) && is_piece_unbesieged(p)) {
-					log(`${piece_name(p)} restored.`);
-					set_unit_reduced(p, 0);
-				}
-			}
+			if (is_militia_unit(p) || is_coureurs_unit(p))
+				if (can_restore_unit(p))
+					restore_unit(p);
 		}
 
 		set_active(enemy());
@@ -5645,9 +5645,9 @@ states.acadians_expelled = {
 	prompt() {
 		view.prompt = "Place a Coureurs unit at Québec or Louisbourg.";
 		if (game.count > 0) {
-			if (has_unbesieged_friendly_fortress(QUEBEC))
+			if (!has_british_units(QUEBEC))
 				gen_action_space(QUEBEC);
-			if (has_unbesieged_friendly_fortress(LOUISBOURG))
+			if (!has_british_units(LOUISBOURG))
 				gen_action_space(LOUISBOURG);
 		} else {
 			gen_action_next();
@@ -5656,9 +5656,8 @@ states.acadians_expelled = {
 	space(s) {
 		push_undo();
 		let p = find_unused_coureurs_unit();
-		if (p) {
+		if (p)
 			place_piece(p, s);
-		}
 		game.count = 0;
 	},
 	next() {
