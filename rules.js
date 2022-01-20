@@ -4104,7 +4104,58 @@ const TODO = { can_play() { return false } };
 
 events.campaign = TODO;
 
-events.provincial_regiments_dispersed_for_frontier_duty = TODO;
+function count_french_raids_in_dept(dept) {
+	let n = 0;
+	for (let i = 0; i < game.France.raids.length; ++i) {
+		let s = game.France.raids[i];
+		if (departments[dept].includes(s))
+			++n;
+	}
+	return n;
+}
+
+events.provincial_regiments_dispersed_for_frontier_duty = {
+	can_play() {
+		let s = Math.min(count_french_raids_in_dept('southern'), count_provincial_units_from('southern'));
+		let n = Math.min(count_french_raids_in_dept('northern'), count_provincial_units_from('northern'));
+		return (s + n) > 0;
+	},
+	play() {
+		game.state = 'provincial_regiments_dispersed_for_frontier_duty';
+		game.frontier_duty = {
+			southern: Math.min(count_french_raids_in_dept('southern'), count_provincial_units_from('southern')),
+			northern: Math.min(count_french_raids_in_dept('northern'), count_provincial_units_from('northern')),
+		};
+	}
+}
+
+states.provincial_regiments_dispersed_for_frontier_duty = {
+	prompt() {
+		view.prompt = `Eliminate ${game.frontier_duty.southern} southern and ${game.frontier_duty.northern} northern provincials.`;
+		let can_eliminate = false;
+		for (let p = first_british_unit; p <= last_british_unit; ++p) {
+			if ((game.frontier_duty.northern > 0 && is_provincial_unit_from(p, 'northern')) ||
+				(game.frontier_duty.southern > 0 && is_provincial_unit_from(p, 'southern'))) {
+				can_eliminate = true;
+				gen_action_piece(p);
+			}
+		}
+		if (!can_eliminate)
+			gen_action_next();
+	},
+	piece(p) {
+		push_undo();
+		if (is_provincial_unit_from(p, 'southern'))
+			game.frontier_duty.southern --;
+		if (is_provincial_unit_from(p, 'northern'))
+			game.frontier_duty.northern --;
+		eliminate_piece(p);
+	},
+	next() {
+		delete game.frontier_duty;
+		end_action_phase();
+	},
+}
 
 events.northern_indian_alliance = {
 	can_play() {
