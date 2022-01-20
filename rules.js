@@ -1415,10 +1415,16 @@ function find_enemy_commanding_leader_in_space(space) {
 
 function award_vp(n) {
 	if (game.active === FRANCE) {
-		log(`France gains ${n} VP.`);
+		if (n < 0)
+			log(`France loses ${-n} VP.`);
+		else
+			log(`France gains ${n} VP.`);
 		game.tracks.vp += n;
 	} else {
-		log(`Britain gains ${n} VP.`);
+		if (n < 0)
+			log(`Britain loses ${-n} VP.`);
+		else
+			log(`Britain gains ${n} VP.`);
 		game.tracks.vp -= n;
 	}
 }
@@ -1429,6 +1435,10 @@ function remove_friendly_stockade(space) {
 
 function remove_friendly_fort_uc(space) {
 	remove_from_array(player.forts_uc, space);
+}
+
+function remove_friendly_fort(space) {
+	remove_from_array(player.forts, space);
 }
 
 function remove_enemy_fort_uc(space) {
@@ -2034,6 +2044,10 @@ states.action_phase = {
 			gen_card_menu(player.hand[i]);
 		if (player.hand.length === 1 && !player.held)
 			gen_action_pass();
+		gen_action('demolish');
+	},
+	demolish() {
+		goto_demolition();
 	},
 	play_event(card) {
 		push_undo();
@@ -2196,7 +2210,9 @@ states.activate_campaign = {
 function goto_pick_move() {
 	if (game.activation.list.length === 0) {
 		delete game.activation;
-		end_action_phase();
+		// TODO: demolish here or by clicking button before ending move
+		goto_demolition_after_move();
+		// end_action_phase();
 	} else if (game.activation.list.length === 1) {
 		pick_move(game.activation.list.pop());
 	} else {
@@ -4021,6 +4037,62 @@ states.raiders_go_home = {
 	next() {
 		delete game.go_home;
 		goto_pick_raid();
+	}
+}
+
+// DEMOLITION
+
+function goto_demolition() {
+	push_undo();
+	game.state = 'demolition';
+}
+
+function goto_demolition_after_move() {
+	game.state = 'demolition_after_move';
+}
+
+function demolition_prompt() {
+	view.prompt = "You may demolish any friendly unbesieged fortification."
+	for (let s of player.stockades)
+		if (is_space_unbesieged(s))
+			gen_action_space(s);
+	for (let s of player.forts_uc)
+		if (is_space_unbesieged(s))
+			gen_action_space(s);
+	for (let s of player.forts)
+		if (is_space_unbesieged(s))
+			gen_action_space(s);
+	gen_action_next();
+}
+
+function demolition_space(s) {
+	push_undo();
+	if (has_friendly_stockade(s)) {
+		log(`Demolishes stockade at ${space_name(s)}.`);
+		remove_friendly_stockade(s);
+	} else if (has_friendly_fort_uc(s)) {
+		log(`Demolishes fort U/C at ${space_name(s)}.`);
+		remove_friendly_fort_uc(s);
+	} else if (has_friendly_fort(s)) {
+		log(`Demolishes fort at ${space_name(s)}.`);
+		award_vp(-1);
+		remove_friendly_fort(s);
+	}
+}
+
+states.demolition = {
+	prompt: demolition_prompt,
+	space: demolition_space,
+	next() {
+		game.state = 'action_phase';
+	}
+}
+
+states.demolition_after_move = {
+	prompt: demolition_prompt,
+	space: demolition_space,
+	next() {
+		end_action_phase();
 	}
 }
 
