@@ -19,6 +19,8 @@
 // TODO: move core of is_friendly/enemy to is_british/french and branch in is_friendly/enemy
 // TODO: update indian alliance markers when placing/eliminating indians
 
+// TODO: only move pieces once per campaign
+
 const { spaces, pieces, cards } = require("./data");
 
 const BRITAIN = 'Britain';
@@ -900,10 +902,6 @@ function unit_strength(p) {
 	return pieces[p].strength;
 }
 
-function is_piece_activated(p) {
-	return game.pieces.activated.includes(p);
-}
-
 function is_unit_reduced(p) {
 	return game.pieces.reduced.includes(p);
 }
@@ -1543,6 +1541,38 @@ function add_raid(who) {
 		game.raid.list.push(where);
 }
 
+function is_vacant_of_besieging_units(space) {
+	if (has_french_fort(space) || has_french_fortress(space))
+		return !has_french_units(space);
+	else
+		return !has_british_units(space);
+}
+
+function lift_sieges_and_amphib() {
+	console.log("LIFT SIEGES AND AMPHIB");
+
+	for_each_siege(space => {
+		if (is_vacant_of_besieging_units(space)) {
+			log(`Siege in ${space_name(space)} lifted.`);
+			for (let p = 1; p < pieces.length; ++p)
+				if (is_piece_in_space(p, space))
+					set_piece_outside(p);
+			delete game.sieges[space];
+		}
+	});
+
+	let amphib = game.Britain.amphib;
+	for (let i = amphib.length-1; i >= 0; --i) {
+		let s = amphib[i];
+		if (!has_british_units(s)) {
+			if (has_french_drilled_troops(s) || has_unbesieged_french_fortification()) {
+				log(`Amphib removed from ${space_name(s)}.`);
+				amphib.splice(i, 1);
+			}
+		}
+	}
+}
+
 // PATH FINDING
 
 function is_in_supply(space) {
@@ -1930,7 +1960,6 @@ function end_action_phase() {
 	lift_sieges_and_amphib();
 	console.log("END ACTION PHASE");
 	clear_undo();
-	game.pieces.activated.length = 0;
 	game.count = 0;
 
 	// TODO: skip if next player has no cards or passed
@@ -2038,8 +2067,12 @@ function goto_activate_individually(card) {
 	push_undo();
 	player.did_construct = 0;
 	discard_card(card, " to activate auxiliaries and leaders");
-	game.count = cards[card].activation;
 	game.state = 'activate_individually';
+	game.count = cards[card].activation;
+	game.activation = {
+		type: 'individually',
+		list: []
+	}
 }
 
 function goto_activate_force(card) {
@@ -2048,6 +2081,21 @@ function goto_activate_force(card) {
 	discard_card(card, " to activate a force");
 	game.state = 'activate_force';
 	game.count = cards[card].activation;
+	game.activation = {
+		type: 'force',
+		list: []
+	}
+}
+
+events.campaign = {
+	play() {
+		game.state = 'activate_campaign';
+		game.count = 2;
+		game.activation = {
+			type: 'force',
+			list: []
+		}
+	}
 }
 
 states.activate_individually = {
@@ -2073,7 +2121,7 @@ states.activate_individually = {
 						if (is_coureurs_unit(p))
 							gen_action_piece(p);
 						if (is_drilled_troops(p))
-							if (game.pieces.activated.length === 0)
+							if (game.activation.list.length === 0)
 								gen_action_piece(p);
 					}
 				}
@@ -2084,7 +2132,7 @@ states.activate_individually = {
 		push_undo();
 		log(`Activate ${piece_name(piece)}.`);
 		isolate_piece_from_force(piece);
-		game.pieces.activated.push(piece);
+		game.activation.list.push(piece);
 		if (is_drilled_troops(piece))
 			game.count = 0;
 		else if (is_indian_unit(piece))
@@ -2093,97 +2141,65 @@ states.activate_individually = {
 			game.count -= 1.0;
 	},
 	next() {
+		push_undo();
 		goto_pick_move();
 	},
 }
 
 states.activate_force = {
 	prompt() {
-		gen_action_pass();
-		if (game.count > 0) {
-			view.prompt = "Activate a Force.";
-			for (let p = first_friendly_leader; p <= last_friendly_leader; ++p) {
-				if (is_piece_on_map(p) && leader_initiative(p) <= game.count)
+		view.prompt = "Activate a Force.";
+		for (let p = first_friendly_leader; p <= last_friendly_leader; ++p)
+			if (is_piece_on_map(p) && leader_initiative(p) <= game.count)
+				if (!game.activation.list.includes(p))
 					gen_action_piece(p);
-			}
-		} else {
-			view.prompt = "Activate a Force \u2014 done.";
-		}
+		gen_action_pass();
 	},
-	piece(leader) {
+	piece(p) {
 		push_undo();
-		log(`Activate force led by ${piece_name(leader)}.`);
-		game.pieces.activated.push(leader);
+		log(`Activate force led by ${piece_name(p)}.`);
+		game.activation.list.push(p);
 		game.count = 0;
-		goto_pick_force();
+		goto_pick_move();
 	},
 	pass() {
 		end_action_phase();
 	},
 }
 
-function is_vacant_of_besieging_units(space) {
-	if (has_french_fort(space) || has_french_fortress(space))
-		return !has_french_units(space);
-	else
-		return !has_british_units(space);
-}
-
-function lift_sieges_and_amphib() {
-	console.log("LIFT SIEGES AND AMPHIB");
-
-	for_each_siege(space => {
-		if (is_vacant_of_besieging_units(space)) {
-			log(`Siege in ${space_name(space)} lifted.`);
-			for (let p = 1; p < pieces.length; ++p)
-				if (is_piece_in_space(p, space))
-					set_piece_outside(p);
-			delete game.sieges[space];
-		}
-	});
-
-	let amphib = game.Britain.amphib;
-	for (let i = amphib.length-1; i >= 0; --i) {
-		let s = amphib[i];
-		if (!has_british_units(s)) {
-			if (has_french_drilled_troops(s) || has_unbesieged_french_fortification()) {
-				log(`Amphib removed from ${space_name(s)}.`);
-				amphib.splice(i, 1);
+states.activate_campaign = {
+	prompt() {
+		if (game.count > 0) {
+			view.prompt = "Activate two leaders and their forces.";
+			for (let p = first_friendly_leader; p <= last_friendly_leader; ++p) {
+				if (is_piece_on_map(p))
+					if (!game.activation.list.includes(p))
+						gen_action_piece(p);
 			}
+		} else {
+			view.prompt = "Activate two leaders and their forces \u2014 done.";
+			gen_action_next();
 		}
-	}
-}
-
-function end_activation() {
-	lift_sieges_and_amphib();
-	clear_undo();
-	// TODO: goto_pick_force for campaign event
-	goto_pick_move();
-}
-
-function goto_pick_force() {
-	if (game.pieces.activated.length === 0) {
-		end_action_phase();
-	} else if (game.pieces.activated.length === 1) {
-		let leader = game.pieces.activated.pop();
-		game.force = {
-			leader: leader,
-			selected: leader,
-			reason: 'move',
-		};
-		game.state = 'define_force';
-	} else {
-		// TODO: for campaign event
-		game.state = 'pick_force';
-	}
+	},
+	piece(leader) {
+		push_undo();
+		log(`Activate force led by ${piece_name(leader)}.`);
+		game.activation.list.push(leader);
+		game.count--;
+	},
+	next() {
+		push_undo();
+		goto_pick_move();
+	},
 }
 
 function goto_pick_move() {
-	if (game.pieces.activated.length === 0)
+	if (game.activation.list.length === 0) {
+		delete game.activation;
 		end_action_phase();
-	else if (game.pieces.activated.length === 1)
-		goto_move_piece(game.pieces.activated[0])
-	else {
+	} else if (game.activation.list.length === 1) {
+		pick_move(game.activation.list.pop());
+	} else {
 		game.state = 'pick_move';
 	}
 }
@@ -2191,16 +2207,36 @@ function goto_pick_move() {
 states.pick_move = {
 	prompt() {
 		view.prompt = "Select an activated force, leader, or unit to move."
-		gen_action_next();
-		game.pieces.activated.forEach(gen_action_piece);
+		gen_action_pass();
+		game.activation.list.forEach(gen_action_piece);
 	},
-	piece(piece) {
+	piece(p) {
 		push_undo();
-		goto_move_piece(piece);
+		remove_from_array(game.activation.list, p);
+		pick_move(p);
 	},
-	next() {
+	pass() {
 		end_action_phase();
 	},
+}
+
+function pick_move(p) {
+	if (game.activation.type === 'force') {
+		game.force = {
+			leader: p,
+			selected: p,
+			reason: 'move',
+		};
+		game.state = 'define_force';
+	} else {
+		goto_move_piece(p);
+	}
+}
+
+function end_activation() {
+	lift_sieges_and_amphib();
+	clear_undo();
+	goto_pick_move();
 }
 
 // DEFINE FORCE (for various actions)
@@ -2326,10 +2362,9 @@ states.define_force = {
 // MOVE
 
 function goto_move_piece(who) {
+console.log("GOTO_MOVE_PIECE", piece_name(who));
 	log(`Move ${piece_name(who)}.`);
-	remove_from_array(game.pieces.activated, who);
 	let from = piece_space(who);
-console.log("GOTO_MOVE_PIECE", who);
 	game.state = 'move';
 	game.move = {
 		moving: who,
@@ -4099,10 +4134,6 @@ function can_restore_unit(p) {
 	// TODO: out-of-supply drilled troops
 	return is_piece_on_map(p) && is_piece_unbesieged(p) && is_unit_reduced(p);
 }
-
-const TODO = { can_play() { return false } };
-
-events.campaign = TODO;
 
 function count_french_raids_in_dept(dept) {
 	let n = 0;
@@ -6177,7 +6208,6 @@ exports.setup = function (seed, scenario, options) {
 			location: pieces.map(x => 0),
 			reduced: [],
 			inside: [],
-			activated: [],
 			pool: [],
 		},
 		sieges: {},
@@ -6358,6 +6388,8 @@ exports.view = function(state, current) {
 		log: game.log,
 	};
 
+	if (game.activation)
+		view.activation = game.activation;
 	if (game.move)
 		view.move = game.move;
 	if (game.force)
