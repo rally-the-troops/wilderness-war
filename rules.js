@@ -13,13 +13,33 @@
 // TODO: rename node/space -> location/space or raw_space/space or box/space?
 // TODO: replace piece[p].type lookups with index range checks
 
-// TODO: voluntary DEMOLITION (strategy_phase and before ending move/activation)
 // TODO: track 'held'
 
 // TODO: move core of is_friendly/enemy to is_british/french and branch in is_friendly/enemy
 // TODO: update indian alliance markers when placing/eliminating indians
 
 // TODO: only move pieces once per campaign
+
+// REACTION CARDS
+
+/*
+	in battle:
+		[ ] coehorns
+		[ ] fieldworks
+		[ ] ambush
+	in siege:
+		[x] coehorns
+		[x] surrender
+	in raid:
+		[x] blockhouses
+	in friendly movement:
+		[x] amphibious_landing
+		[ ] george_croghan
+	in enemy movement:
+		[ ] foul weather
+		[ ] lake schooner
+		[ ] massacre
+*/
 
 const { spaces, pieces, cards } = require("./data");
 
@@ -117,6 +137,14 @@ function roll_die(reason) {
 	else
 		log(`Roll ${die}.`);
 	return die;
+}
+
+function modify(die, drm, why) {
+	if (drm >= 0)
+		log(`+${drm} ${why}.`);
+	else if (drm < 0)
+		log(`${drm} ${why}.`);
+	return die + drm;
 }
 
 function clamp(x, min, max) {
@@ -394,9 +422,19 @@ const ST_LAWRENCE_CANADIAN_MILITIAS = find_space("St. Lawrence Canadian Militias
 const NORTHERN_COLONIAL_MILITIAS = find_space("Northern Colonial Militias");
 const SOUTHERN_COLONIAL_MILITIAS = find_space("Southern Colonial Militias");
 
+const SURRENDER = 6;
+const MASSACRE = 7;
+const COEHORNS = 8;
+const first_fieldworks_card = 9;
+const last_fieldworks_card = 10;
+const first_ambush_card = 11;
+const last_ambush_card = 12;
+const BLOCKHOUSES = 13;
+const FOUL_WEATHER = 14;
+const LAKE_SCHOONER = 15;
+const GEORGE_CROGHAN = 16;
 const first_amphib_card = 17;
 const last_amphib_card = 20;
-const SURRENDER = 6;
 const LOUISBOURG_SQUADRONS = 21;
 
 const within_two_of_canajoharie = [ CANAJOHARIE ];
@@ -518,6 +556,10 @@ function draw_leader_from_pool() {
 		return p;
 	}
 	return 0;
+}
+
+function is_card_available(c) {
+	return !game.cards.discarded.includes(c) && !game.cards.removed.includes(c);
 }
 
 // ITERATORS
@@ -1214,6 +1256,13 @@ function has_friendly_drilled_troops(space) {
 	return false;
 }
 
+function has_friendly_regulars(space) {
+	for (let p = first_friendly_unit; p <= last_friendly_unit; ++p)
+		if (is_regulars_unit(p) && is_piece_in_space(p, space))
+			return true;
+	return false;
+}
+
 function has_friendly_rangers(space) {
 	if (game.active === BRITAIN)
 		for (let p = first_british_unit; p <= last_british_unit; ++p)
@@ -1517,6 +1566,13 @@ function move_pieces_from_node_to_node(from, to) {
 function capture_enemy_fortress(space) {
 	log("captures fortress");
 	award_vp(3);
+}
+
+function capture_enemy_fort_intact(space) {
+	log(`captures enemy fort intact`);
+	remove_from_array(enemy_player.forts, space);
+	player.forts.push(space);
+	award_vp(2);
 }
 
 function capture_enemy_fort(space) {
@@ -1957,6 +2013,7 @@ function end_season() {
 
 function end_year() {
 	delete game.events.no_amphib;
+	delete game.events.blockhouses;
 }
 
 function start_action_phase() {
@@ -2250,6 +2307,12 @@ function pick_move(p) {
 }
 
 function end_activation() {
+	// Clear event flags
+	delete game.events.coehorns;
+	delete game.events.ambush;
+	delete game.events.foul_weather;
+	delete game.events.george_croghan;
+
 	lift_sieges_and_amphib();
 	clear_undo();
 	goto_pick_move();
@@ -2346,7 +2409,7 @@ states.define_force = {
 		push_undo();
 		let where = piece_space(game.force.leader);
 		delete game.force;
-		goto_resolve_siege(where);
+		goto_siege(where);
 	},
 
 	assault() {
@@ -2961,7 +3024,12 @@ function end_avoid_battle() {
 // BATTLE
 
 function for_each_attacking_piece(fn) {
-	for_each_piece_in_force(game.move.moving, fn);
+	let force;
+	if (game.battle.assault)
+		force = find_friendly_commanding_leader_in_space(game.battle.where);
+	else
+		force = game.move.moving;
+	for_each_piece_in_force(force, fn);
 	/*
 	let where = game.battle.where;
 	if (game.battle.breaking_siege) {
@@ -3375,7 +3443,7 @@ function goto_raid_leader_check() {
 			game.raid.leader_check.push(p);
 		});
 		if (game.raid.leader_check.length > 0) {
-			game.state = 'leader_check';
+			game.state = 'raid_leader_check';
 		} else {
 			game.raid.leader_check = 0;
 			raiders_go_home();
@@ -3464,7 +3532,7 @@ function determine_winner_battle() {
 	if (game.raid && game.raid.where > 0) {
 		if (victor === game.battle.attacker) {
 			log("ATTACKER WON RAID BATTLE VS MILITIA");
-			resolve_raid();
+			goto_raid_events();
 		} else {
 			log("DEFENDER WON RAID BATTLE VS MILITIA");
 			retreat_attacker(game.raid.where, game.raid.from[game.raid.where] | 0);
@@ -3497,7 +3565,7 @@ function determine_winner_battle() {
 
 function eliminate_enemy_pieces_inside(where) {
 	for (let p = first_enemy_piece; p <= last_enemy_piece; ++p)
-		if (is_piece_in_space(where) && is_piece_inside(p))
+		if (is_piece_in_space(p, where) && is_piece_inside(p))
 			eliminate_piece(p);
 }
 
@@ -3740,35 +3808,146 @@ function end_retreat() {
 
 const SIEGE_TABLE = [ 0, 0, 0, 1, 1, 1, 2, 2 ];
 
-function goto_resolve_siege(space) {
-	// TODO: Coehorns
+function can_play_coehorns(space) {
+	return is_card_available(COEHORNS) && has_friendly_regulars(space);
+}
+
+function goto_siege(space) {
 	clear_undo();
+	game.siege_where = space;
+	if (can_play_coehorns(game.siege_where))
+		game.state = 'siege_coehorns_attacker';
+	else
+		end_siege_coehorns_attacker();
+}
+
+states.siege_coehorns_attacker = {
+	prompt() {
+		view.prompt = `Siege in ${space_name(game.siege_where)}. You may play "Coehorns & Howitzers" if available.`;
+		if (player.hand.includes(COEHORNS))
+			gen_action('play_event', COEHORNS);
+		gen_action_pass();
+	},
+	play_event(c) {
+		play_card(c);
+		game.events.coehorns = game.active;
+		end_siege_coehorns_attacker();
+	},
+	pass() {
+		end_siege_coehorns_attacker();
+	}
+}
+
+function end_siege_coehorns_attacker() {
+	set_active(enemy());
+	if (can_play_coehorns(game.siege_where))
+		game.state = 'siege_coehorns_defender';
+	else
+		end_siege_coehorns_defender();
+}
+
+states.siege_coehorns_defender = {
+	prompt() {
+		view.prompt = `Siege in ${space_name(game.siege_where)}. You may play "Coehorns & Howitzers" if available.`;
+		if (player.hand.includes(COEHORNS))
+			gen_action('play_event', COEHORNS);
+		gen_action_pass();
+	},
+	play_event(c) {
+		play_card(c);
+		game.events.coehorns = game.active;
+		end_siege_coehorns_defender();
+	},
+	pass() {
+		end_siege_coehorns_defender();
+	}
+}
+
+function end_siege_coehorns_defender() {
+	set_active(enemy());
+	if (is_card_available(SURRENDER)) {
+		if (game.siege_where === LOUISBOURG && game.sieges[LOUISBOURG] !== 1 && game.sieges[LOUISBOURG] !== 2)
+			resolve_siege();
+		else
+			game.state = 'siege_surrender';
+	} else {
+		resolve_siege();
+	}
+}
+
+states.siege_surrender = {
+	prompt() {
+		view.prompt = `Siege in ${space_name(game.siege_where)}. You may play "Surrender!" if available.`;
+		if (player.hand.includes(SURRENDER))
+			gen_action('play_event', SURRENDER);
+		gen_action_pass();
+	},
+	play_event(c) {
+		play_card(c);
+		goto_surrender();
+	},
+	pass() {
+		resolve_siege();
+	}
+}
+
+function goto_surrender() {
+	for (let p = first_enemy_piece; p <= last_enemy_piece; ++p)
+		if (piece_node(p) === game.siege_where)
+			set_piece_outside(p);
+	delete game.sieges[game.siege_where];
+	if (has_enemy_fort(game.siege_where))
+		capture_enemy_fort_intact(game.siege_where);
+	else if (has_enemy_fortress(game.siege_where))
+		capture_enemy_fortress(game.siege_where);
+	set_active(enemy());
+	game.state = 'surrender';
+	game.surrender = find_closest_friendly_unbesieged_fortification(game.siege_where);
+}
+
+states.surrender = {
+	prompt() {
+		view.prompt = "Surrender - place defenders at the closest unbesieged fortification.";
+		view.where = game.siege_where;
+		for (let i=0; i < game.surrender.length; ++i)
+			gen_action_space(game.surrender[i]);
+	},
+	space(s) {
+		for (let p = first_friendly_piece; p <= last_friendly_piece; ++p)
+			if (piece_node(p) === game.siege_where)
+				move_piece_to(p, s);
+		end_surrender();
+	}
+}
+
+function end_surrender() {
+	set_active(enemy());
+	delete game.surrender;
+	delete game.siege_where;
+	end_activation();
+}
+
+function resolve_siege() {
+	let space = game.siege_where;
 	log("Resolve siege in " + space_name(space));
 	let att_leader = find_friendly_commanding_leader_in_space(space);
 	let def_leader = find_enemy_commanding_leader_in_space(space);
 	let die = roll_die("for siege");
-	let msg = `Roll ${die}`;
-	let drm_att_ld = leader_tactics(att_leader);
-	let drm = drm_att_ld;
-	msg += `\n+${drm_att_ld} besieger's leader`;
-	if (def_leader) {
-		let drm_def_ld = leader_tactics(def_leader);
-		drm += drm_def_ld;
-		msg += `\n-${drm_def_ld} defender's leader`;
-	}
-	if (space === LOUISBOURG) {
-		msg += `\n-1 for Louisbourg`;
-		drm -= 1;
-	}
-	let result = SIEGE_TABLE[clamp(die + drm, 0, 7)];
-	msg += `\n= ${result}`;
-	log(msg);
+	die = modify(die, leader_tactics(att_leader), "besieging leader");
+	if (def_leader)
+		die = modify(die, -leader_tactics(def_leader), "defending leader");
+	if (space === LOUISBOURG)
+		die = modify(die, -1, "for Louisbourg");
+	let result = SIEGE_TABLE[clamp(die, 0, 7)];
+	log(`Result(${die}): ${result}`);
 	if (result > 0) {
 		let level = change_siege_marker(space, result);
 		log("Siege level is " + level);
 	}
 	goto_assault_possible(space);
 }
+
+// ASSAULT
 
 function is_assault_possible(space) {
 	let siege_level = game.sieges[space] | 0;
@@ -3850,14 +4029,14 @@ function goto_raid_militia() {
 		console.log("MILITIA AGAINST RAID", space_name(where), space_name(game.raid.battle));
 		if (where === game.raid.battle) {
 			console.log("BATTLED AGAINST STOCKADE, NO MILITIA ALLOWED", space_name(game.raid.battle));
-			resolve_raid();
+			goto_raid_events();
 		} else {
 			set_active(enemy());
 			game.state = 'militia_against_raid';
 			game.count = 1;
 		}
 	} else {
-		resolve_raid();
+		goto_raid_events();
 	}
 }
 
@@ -3885,7 +4064,7 @@ states.militia_against_raid = {
 		if (game.count === 0)
 			goto_battle(game.raid.where, false, false);
 		else
-			resolve_raid();
+			goto_raid_events();
 	},
 }
 
@@ -3894,44 +4073,63 @@ const RAID_TABLE = {
 	cultivated: [  2, 0, 0, 0, 1, 1, 0, 0 ],
 };
 
+function goto_raid_events() {
+	if (is_card_available(BLOCKHOUSES)) {
+		set_active(enemy());
+		game.state = 'raid_blockhouses';
+	} else {
+		resolve_raid();
+	}
+}
+
+states.raid_blockhouses = {
+	prompt() {
+		view.prompt = `Raid in ${space_name(game.raid.where)}. You may play "Blockhouses" if available.`;
+		if (player.hand.includes(BLOCKHOUSES))
+			gen_action('play_event', BLOCKHOUSES);
+		gen_action_pass();
+	},
+	play_event(c) {
+		play_card(c);
+		game.events.blockhouses = game.active;
+		set_active(enemy());
+		resolve_raid();
+	},
+	pass() {
+		set_active(enemy());
+		resolve_raid();
+	}
+}
+
 function resolve_raid() {
 	let where = game.raid.where;
 	let x_stockade = has_enemy_stockade(where);
 	let x_allied = has_enemy_allied_settlement(where);
 
-	let column = 'cultivated';
-	if (x_stockade || x_allied || (game.events.blockhouses === game.active))
-		column = 'stockade';
-
-	let d = roll_die("for raid");
-	let drm = 0;
-	let mods = [];
+	let natural_die = roll_die("for raid");
+	let die = natural_die;
 
 	let commander = find_friendly_commanding_leader_in_space(where);
-	if (commander) {
-		console.log(`${piece_name(commander)} leads the raid`);
-		let t = leader_tactics(commander);
-		drm += t;
-		mods.push(` +${t} tactics rating`);
+	if (commander)
+		die = modify(die, leader_tactics(commander), "leader");
+	if (has_friendly_rangers(where))
+		die = modify(die, 1, "for rangers");
+	if (enemy_department_has_at_least_n_militia(where, 2))
+		die = modify(die, -1, "for milita in dept");
+
+	let column = 'cultivated';
+	if (x_stockade || x_allied)
+	if (game.events.blockhouses === enemy()) {
+		column = 'stockade';
+		log("vs. enemy blockhouses");
 	}
 
-	if (has_friendly_rangers(where)) {
-		drm += 1;
-		mods.push(" +1 for rangers");
-	}
-
-	if (enemy_department_has_at_least_n_militia(where, 2)) {
-		drm -= 1;
-		mods.push(" -1 for militia in department");
-	}
-
-	log(`Raid ${space_name(where)} roll ${d}${mods.join(",")} = ${d+drm} on column vs. ${column}.`);
-	let result = clamp(d + drm, 0, 7);
+	let result = clamp(die, 0, 7);
 	let success = result >= 5;
 	let losses = RAID_TABLE[column][result];
 
 	if (success) {
-		log(`Result: Success with ${losses} losses.`);
+		log(`Result ${die} vs ${column}: Success with ${losses} losses.`);
 		if (x_stockade || x_allied || !has_friendly_raided_marker(where))
 			place_friendly_raided_marker(where);
 		if (x_stockade)
@@ -3939,13 +4137,13 @@ function resolve_raid() {
 		if (x_allied)
 			eliminate_indian_tribe(indian_tribe[where]);
 	} else {
-		log(`Result: Failure with ${losses} losses.`);
+		log(`Result ${die} vs ${column}: Failure with ${losses} losses.`);
 	}
 
 	game.raid.step_loss = losses;
 
 	// 10.32: leader check
-	if (d === 1 || (d === 6 && column === 'vs_stockade'))
+	if (natural_die === 1 || (natural_die === 6 && column === 'vs_stockade'))
 		game.raid.leader_check = 1;
 	else
 		game.raid.leader_check = 0;
@@ -4024,6 +4222,7 @@ states.raiders_go_home = {
 	space(s) {
 		push_undo();
 		let who = game.go_home.who;
+		log(`${piece_name(who)} goes home to ${space_name(s)}.`);
 		move_piece_to(who, s);
 		if (is_leader(who) && !game.go_home.leader.includes(s))
 			game.go_home.leader.push(s);
@@ -4267,7 +4466,6 @@ events.northern_indian_alliance = {
 	play() {
 		clear_undo(); // rolling die
 		let roll = roll_die();
-		log(`Roll ${roll}.`);
 		if (game.tracks.vp > 4)
 			game.count = roll;
 		else
@@ -4287,7 +4485,6 @@ events.western_indian_alliance = {
 	play() {
 		clear_undo(); // rolling die
 		let roll = roll_die();
-		log(`Roll ${roll}.`);
 		if (game.tracks.vp > 4)
 			game.count = roll;
 		else
@@ -4320,7 +4517,6 @@ events.iroquois_alliance = {
 	play() {
 		clear_undo(); // rolling die
 		let roll = roll_die();
-		log(`Roll ${roll}.`);
 		game.state = 'indian_alliance';
 		game.count = roll;
 		game.alliance = [ 'iroquois' ];
@@ -5281,10 +5477,8 @@ events.victories_in_germany_release_troops_and_finances_for_new_world = {
 		return has_unbesieged_reduced_regular_or_light_infantry_units();
 	},
 	play() {
-		let roll = roll_d5();
-		log("Roll " + roll + ".");
 		game.state = 'restore_regular_or_light_infantry_units';
-		game.count = roll;
+		game.count = roll_die();
 	},
 }
 
