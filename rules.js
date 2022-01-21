@@ -9,6 +9,7 @@
 // TODO: show discard/removed card list in UI
 
 // TODO: re-evaluate fortress ownership and VP when pieces move or are eliminated
+// TODO: add/remove 'next' steps at end of states
 
 // TODO: rename node/space -> location/space or raw_space/space or box/space?
 // TODO: replace piece[p].type lookups with index range checks
@@ -425,10 +426,10 @@ const SOUTHERN_COLONIAL_MILITIAS = find_space("Southern Colonial Militias");
 const SURRENDER = 6;
 const MASSACRE = 7;
 const COEHORNS = 8;
-const first_fieldworks_card = 9;
-const last_fieldworks_card = 10;
-const first_ambush_card = 11;
-const last_ambush_card = 12;
+const FIELDWORKS_1 = 9;
+const FIELDWORKS_2 = 10;
+const AMBUSH_1 = 11;
+const AMBUSH_2 = 12;
 const BLOCKHOUSES = 13;
 const FOUL_WEATHER = 14;
 const LAKE_SCHOONER = 15;
@@ -2442,6 +2443,8 @@ states.define_force = {
 // MOVE
 
 function goto_move_piece(who) {
+	// TODO: RESPONSE - Foul Weather
+
 console.log("GOTO_MOVE_PIECE", piece_name(who));
 	log(`Move ${piece_name(who)}.`);
 	let from = piece_space(who);
@@ -2621,6 +2624,8 @@ states.move = {
 		// remember where we came from so we can retreat after battle
 		game.raid.from[to] = game.move.path[to];
 
+		// TODO: RESPONSE - Lake Schooner
+
 		// TODO: except space moved into, if it is guarded!
 		if (force_has_drilled_troops(who))
 			remove_enemy_forts_uc_in_path(game.move.path, to);
@@ -2709,6 +2714,7 @@ function end_move_step(final) {
 		if (has_enemy_stockade(where)) {
 			if (force_has_drilled_troops(who)) {
 				capture_enemy_stockade(where)
+				// TODO: RESPONSE - Massacre!
 			}
 		}
 		end_move();
@@ -3199,8 +3205,14 @@ states.militia_in_battle = {
 
 function goto_battle_events() {
 	set_active(game.battle.attacker);
+
 	// TODO: attacker then defender play events
+	// TODO: RESPONSE - Ambush
+	// TODO: RESPONSE - Coehorns
+	// TODO: RESPONSE - Fieldworks
+
 	// TODO: attacker MAY participate besieged units if breaking the siege
+
 	goto_battle_roll();
 }
 
@@ -3594,9 +3606,11 @@ function determine_winner_assault() {
 		remove_siege_marker(where);
 		if (has_enemy_fortress(where)) {
 			capture_enemy_fortress(where);
+			// TODO: RESPONSE - Massacre!
 		}
 		if (has_enemy_fort(where)) {
 			capture_enemy_fort(where);
+			// TODO: RESPONSE - Massacre!
 		}
 	} else {
 		log("DEFENDER WON ASSAULT");
@@ -3908,8 +3922,9 @@ function goto_surrender() {
 	delete game.sieges[game.siege_where];
 	if (has_enemy_fort(game.siege_where))
 		capture_enemy_fort_intact(game.siege_where);
-	else if (has_enemy_fortress(game.siege_where))
+	else
 		capture_enemy_fortress(game.siege_where);
+	// TODO: RESPONSE - Massacre!
 	set_active(enemy());
 	game.state = 'surrender';
 	game.surrender = find_closest_friendly_unbesieged_fortification(game.siege_where);
