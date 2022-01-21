@@ -34,7 +34,7 @@
 		[x] blockhouses
 	in friendly movement:
 		[x] amphibious_landing
-		[ ] george_croghan
+		[x] george_croghan
 	in enemy movement:
 		[ ] foul weather
 		[ ] lake schooner
@@ -1881,7 +1881,8 @@ function search_land_move(who, start_space, start_cost, max_cost) {
 			if (current !== game.move.start_space && !c_ff) {
 				// Drilled Troops that pass through wilderness must stop in the next space.
 				if (has_dt && !has_ax && is_wilderness(current))
-					n_cost = 9; // may not continue
+					if (!game.events.george_croghan)
+						n_cost = 9; // may not continue
 
 				// Auxiliaries that pass through enemy cultivated must stop in the next space.
 				if (has_ax && !has_dt && is_originally_enemy(current))
@@ -2552,6 +2553,10 @@ states.move = {
 		case 'naval': view.prompt += " (naval)"; break;
 		}
 		if (game.move.start_cost === 0) {
+			if (game.active === BRITAIN && player.hand.includes(GEORGE_CROGHAN)) {
+				if (force_has_drilled_troops(who))
+					gen_action('play_event', GEORGE_CROGHAN);
+			}
 			if (!is_only_port_space(from)) {
 				gen_action_x('boat_move', game.move.type !== 'boat');
 				gen_action_x('land_move', game.move.type !== 'land');
@@ -2587,7 +2592,12 @@ states.move = {
 	play_event(card) {
 		push_undo();
 		play_card(card);
-		game.state = 'amphibious_landing';
+		if (card === GEORGE_CROGHAN) {
+			game.events.george_croghan = 1;
+			resume_move();
+		} else {
+			game.state = 'amphibious_landing';
+		}
 	},
 	boat_move() {
 		game.move.type = 'boat';
