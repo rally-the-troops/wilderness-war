@@ -1836,7 +1836,7 @@ function search_boat_move(who, start_space, start_cost, max_cost) {
 			if (n_cost >= max_cost)
 				must_stop = true;
 
-			console.log("SEARCH BOAT MOVE", space_name(current), ">", space_name(next), c_cost, n_cost);
+			console.log("SEARCH BOAT MOVE", space_name(current), ">", space_name(next), c_cost, n_cost, c_ff, n_ff);
 
 			if (!(next in move_cost) || (n_cost < move_cost[next])) {
 				move_cost[next] = n_cost;
@@ -2443,9 +2443,7 @@ states.define_force = {
 // MOVE
 
 function goto_move_piece(who) {
-	// TODO: RESPONSE - Foul Weather
-
-console.log("GOTO_MOVE_PIECE", piece_name(who));
+	clear_undo();
 	log(`Move ${piece_name(who)}.`);
 	let from = piece_space(who);
 	game.state = 'move';
@@ -2468,7 +2466,39 @@ console.log("GOTO_MOVE_PIECE", piece_name(who));
 		from: {},
 		aux: list_auxiliary_units_in_force(who)
 	}
-	if (is_piece_inside(who))
+	// TODO: play RESPONSE George Croghan here?
+	if (is_card_available(FOUL_WEATHER)) {
+		set_active(enemy());
+		game.state = 'foul_weather';
+	} else {
+		start_move();
+	}
+}
+
+states.foul_weather = {
+	prompt() {
+		let p = moving_piece();
+		view.prompt = `${piece_name(p)} is about to move. You may play "Foul Weather" if available.`;
+		view.who = p;
+		if (player.hand.includes(FOUL_WEATHER))
+			gen_action('play_event', FOUL_WEATHER);
+		gen_action_pass();
+	},
+	play_event(c) {
+		play_card(c);
+		game.events.foul_weather = 1;
+		set_active(enemy());
+		start_move();
+	},
+	pass() {
+		set_active(enemy());
+		start_move();
+	}
+}
+
+function start_move() {
+	if (is_piece_inside(moving_piece()))
+		// TODO: play RESPONSE Foul Weather after breaking siege?
 		goto_break_siege();
 	else
 		resume_move();
@@ -2482,6 +2512,8 @@ function goto_break_siege() {
 }
 
 function may_naval_move(who) {
+	if (game.events.foul_weather)
+		return false;
 	if (game.active === FRANCE && game.no_fr_naval)
 		return false;
 	if (is_leader(who) && count_pieces_in_force(who) > 0)
@@ -2507,10 +2539,10 @@ console.log("RESUME_MOVE_UNIT is_lone_ax=" + is_lone_ax + " is_lone_ld=" + is_lo
 
 	switch (game.move.type) {
 	case 'boat':
-		search_boat_move(who, piece_space(who), game.move.start_cost, 9);
+		search_boat_move(who, piece_space(who), game.move.start_cost, game.events.foul_weather ? 2 : 9);
 		break;
 	case 'land':
-		search_land_move(who, piece_space(who), game.move.start_cost, movement_allowance(who));
+		search_land_move(who, piece_space(who), game.move.start_cost, game.events.foul_weather ? 2 : movement_allowance(who));
 		break;
 	case 'naval':
 		if (may_naval_move(who))
