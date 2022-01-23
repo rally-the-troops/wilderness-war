@@ -38,7 +38,7 @@
 		[x] george_croghan
 	in enemy movement:
 		[ ] foul weather
-		[ ] lake schooner
+		[x] lake schooner
 		[ ] massacre
 */
 
@@ -680,6 +680,14 @@ function department_militia(space) {
 
 function space_name(s) {
 	return spaces[s].name;
+}
+
+function is_lake_connection(from, to) {
+	let exits = spaces[from].lakeshore;
+	for (let i = 0; i < exits.length; ++i)
+		if (exits[i] === to)
+			return true;
+	return false;
 }
 
 function is_wilderness_or_mountain(space) {
@@ -2653,17 +2661,28 @@ states.move = {
 		let cost = game.move.cost[to];
 		game.move.start_cost = game.move.cost[to];
 
+		let from = game.move.path[to];
+
 		// remember where we came from so we can retreat after battle
-		game.raid.from[to] = game.move.path[to];
+		game.raid.from[to] = from;
 
-		// TODO: RESPONSE - Lake Schooner
-
-		// TODO: except space moved into, if it is guarded!
+		// TODO: except space moved into, if it is guarded or lake schooner happens!
 		if (force_has_drilled_troops(who))
 			remove_enemy_forts_uc_in_path(game.move.path, to);
 
 		move_piece_to(who, to);
 		lift_sieges_and_amphib();
+
+		// TODO: RESPONSE - Lake Schooner
+		if (is_card_available(LAKE_SCHOONER)) {
+			if (has_enemy_fortifications(to) && is_lake_connection(from, to)) {
+				clear_undo();
+				set_active(enemy());
+				game.state = 'lake_schooner';
+				return;
+			}
+		}
+
 		goto_intercept();
 	},
 	piece(who) {
@@ -2678,6 +2697,35 @@ states.move = {
 		// TODO
 		end_move();
 	},
+}
+
+states.lake_schooner = {
+	prompt() {
+		let p = moving_piece();
+		let to = piece_space(p);
+		let from = game.move.path[to];
+		view.prompt = `${piece_name(p)} moved from ${space_name(from)} to ${space_name(to)}. You may play "Lake Schooner" if available.`;
+		view.who = p;
+		view.where = from;
+		if (player.hand.includes(LAKE_SCHOONER))
+			gen_action('play_event', LAKE_SCHOONER);
+		gen_action_pass();
+	},
+	play_event(c) {
+		play_card(c);
+		let who = moving_piece();
+		let to = piece_space(who);
+		let from = game.move.path[to];
+		move_piece_to(who, from);
+		log(`${piece_name(who)} stops in ${space_name(from)}.`);
+		game.move.start_cost = 18; // enemy stops in previously occupied space
+		set_active(enemy());
+		resume_move();
+	},
+	pass() {
+		set_active(enemy());
+		goto_intercept();
+	}
 }
 
 states.amphibious_landing = {
