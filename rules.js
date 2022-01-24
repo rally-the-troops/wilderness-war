@@ -37,7 +37,7 @@
 		[x] amphibious_landing
 		[x] george_croghan
 	in enemy movement:
-		[ ] foul weather
+		[x] foul weather
 		[x] lake schooner
 		[ ] massacre
 */
@@ -2463,7 +2463,7 @@ function goto_move_piece(who) {
 		avoiding: null,
 		avoided: [],
 		start_space: from,
-		start_cost: 0,
+		start_cost: -1,
 		type: is_only_port_space(from) ? 'naval' : 'land',
 		cost: null,
 		path: null,
@@ -2473,40 +2473,12 @@ function goto_move_piece(who) {
 		battle: 0,
 		from: {},
 		aux: list_auxiliary_units_in_force(who)
-	}
-	// TODO: play RESPONSE George Croghan here?
-	if (is_card_available(FOUL_WEATHER)) {
-		set_active(enemy());
-		game.state = 'foul_weather';
-	} else {
-		start_move();
-	}
-}
-
-states.foul_weather = {
-	prompt() {
-		let p = moving_piece();
-		view.prompt = `${piece_name(p)} is about to move. You may play "Foul Weather" if available.`;
-		view.who = p;
-		if (player.hand.includes(FOUL_WEATHER))
-			gen_action('play_event', FOUL_WEATHER);
-		gen_action_pass();
-	},
-	play_event(c) {
-		play_card(c);
-		game.events.foul_weather = 1;
-		set_active(enemy());
-		start_move();
-	},
-	pass() {
-		set_active(enemy());
-		start_move();
-	}
+	};
+	start_move();
 }
 
 function start_move() {
 	if (is_piece_inside(moving_piece()))
-		// TODO: play RESPONSE Foul Weather after breaking siege?
 		goto_break_siege();
 	else
 		resume_move();
@@ -2530,6 +2502,16 @@ function may_naval_move(who) {
 }
 
 function resume_move() {
+	// Interrupt for Foul Weather response at first opportunity to move.
+	if (game.move.start_cost < 0) {
+		if (is_card_available(FOUL_WEATHER)) {
+			set_active(enemy());
+			game.state = 'foul_weather';
+			return;
+		}
+		game.move.start_cost = 0;
+	}
+
 	game.state = 'move';
 
 	if (game.move.type === null) {
@@ -2673,7 +2655,6 @@ states.move = {
 		move_piece_to(who, to);
 		lift_sieges_and_amphib();
 
-		// TODO: RESPONSE - Lake Schooner
 		if (is_card_available(LAKE_SCHOONER)) {
 			if (has_enemy_fortifications(to) && is_lake_connection(from, to)) {
 				clear_undo();
@@ -2697,6 +2678,29 @@ states.move = {
 		// TODO
 		end_move();
 	},
+}
+
+states.foul_weather = {
+	prompt() {
+		let p = moving_piece();
+		view.prompt = `${piece_name(p)} is about to move. You may play "Foul Weather" if available.`;
+		view.who = p;
+		if (player.hand.includes(FOUL_WEATHER))
+			gen_action('play_event', FOUL_WEATHER);
+		gen_action_pass();
+	},
+	play_event(c) {
+		play_card(c);
+		game.events.foul_weather = 1;
+		game.move.start_cost = 0;
+		set_active(enemy());
+		resume_move();
+	},
+	pass() {
+		game.move.start_cost = 0;
+		set_active(enemy());
+		resume_move();
+	}
 }
 
 states.lake_schooner = {
