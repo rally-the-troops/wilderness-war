@@ -2345,18 +2345,6 @@ states.define_force = {
 
 		gen_action_next();
 
-		// Short-cut to Siege/Assault if activated force is highest commanding leader in space.
-		if (game.force.reason === 'move' && has_besieged_enemy_fortifications(space)) {
-			let commanding = find_friendly_commanding_leader_in_space(space);
-			if (main_leader === commanding && has_friendly_supplied_drilled_troops(space)) {
-				// TODO: gen_action_space(space);
-				if (is_assault_possible(space))
-					gen_action('assault');
-				else
-					gen_action('siege');
-			}
-		}
-
 		// select any leader in the map space
 		for_each_friendly_leader_in_space(space, p => {
 			if (p !== selected) {
@@ -2415,20 +2403,6 @@ states.define_force = {
 		game.force.selected = leader_box_leader(space);
 	},
 
-	siege() {
-		push_undo();
-		let where = piece_space(game.force.leader);
-		delete game.force;
-		goto_siege(where);
-	},
-
-	assault() {
-		push_undo();
-		let where = piece_space(game.force.leader);
-		delete game.force;
-		goto_assault(where);
-	},
-
 	next() {
 		push_undo();
 		let main_leader = game.force.leader;
@@ -2478,14 +2452,40 @@ function goto_move_piece(who) {
 }
 
 function start_move() {
-	if (is_piece_inside(moving_piece()))
+	if (can_moving_force_siege_or_assault()) {
+		game.state = 'siege_or_move';
+	} else if (is_piece_inside(moving_piece())) {
 		goto_break_siege();
-	else
+	} else {
 		resume_move();
+	}
+}
+
+states.siege_or_move = {
+	prompt() {
+		let where = moving_piece_space();
+		if (is_assault_possible(where)) {
+			view.prompt = `You may assault at ${space_name(where)} or move.`;
+			gen_action('assault');
+		} else {
+			view.prompt = `You may siege at ${space_name(where)} or move.`;
+			gen_action('siege');
+		}
+		gen_action('move');
+	},
+	siege() {
+		goto_siege(moving_piece_space());
+	},
+	assault() {
+		goto_assault(moving_piece_space());
+	},
+	move() {
+		resume_move();
+	},
 }
 
 function goto_break_siege() {
-	console.log("GOTO_BREAK_SIEGE");
+	console.log("BREAK SIEGE");
 	let here = moving_piece_space();
 	game.move.path = { [here]: here };
 	goto_avoid_battle();
@@ -2578,6 +2578,12 @@ states.move = {
 		case 'naval': view.prompt += " (naval)"; break;
 		}
 		if (game.move.start_cost === 0) {
+			if (game.events.foul_weather && can_moving_force_siege_or_assault()) {
+				if (is_assault_possible(from))
+					gen_action('assault');
+				else
+					gen_action('siege');
+			}
 			if (game.active === BRITAIN && player.hand.includes(GEORGE_CROGHAN)) {
 				if (force_has_drilled_troops(who))
 					gen_action('play_event', GEORGE_CROGHAN);
@@ -2673,6 +2679,12 @@ states.move = {
 		log(`drops off ${piece_name(who)}`);
 		move_piece_to(who, where);
 		resume_move();
+	},
+	siege() {
+		goto_siege(moving_piece_space());
+	},
+	assault() {
+		goto_assault(moving_piece_space());
 	},
 	next() {
 		// TODO
@@ -3916,6 +3928,18 @@ function end_retreat() {
 
 const SIEGE_TABLE = [ 0, 0, 0, 1, 1, 1, 2, 2 ];
 
+function can_moving_force_siege_or_assault() {
+	let leader = moving_piece();
+	let space = piece_space(leader);
+	if (has_besieged_enemy_fortifications(space)) {
+		let commanding = find_friendly_commanding_leader_in_space(space);
+		if (leader === commanding && has_friendly_supplied_drilled_troops(space)) {
+			return true;
+		}
+	}
+	return false;
+}
+
 function can_play_coehorns(space) {
 	return is_card_available(COEHORNS) && has_friendly_regulars(space);
 }
@@ -4361,6 +4385,7 @@ function goto_demolition_after_move() {
 
 function demolition_prompt() {
 	view.prompt = "You may demolish any friendly unbesieged fortification."
+	// TODO: remove friendly fieldworks too!
 	for (let s of player.stockades)
 		if (is_space_unbesieged(s))
 			gen_action_space(s);
