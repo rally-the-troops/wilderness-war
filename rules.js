@@ -2114,7 +2114,8 @@ states.action_phase = {
 		gen_action('demolish');
 	},
 	demolish() {
-		goto_demolition();
+		push_undo();
+		game.state = 'demolish_before_play';
 	},
 	play_event(card) {
 		push_undo();
@@ -2276,10 +2277,9 @@ states.activate_campaign = {
 
 function goto_pick_move() {
 	if (game.activation.list.length === 0) {
+		// TODO: click next after battles
 		delete game.activation;
-		// TODO: demolish here or by clicking button before ending move
-		goto_demolition_after_move();
-		// end_action_phase();
+		end_action_phase();
 	} else if (game.activation.list.length === 1) {
 		pick_move(game.activation.list.pop());
 	} else {
@@ -2501,6 +2501,14 @@ function may_naval_move(who) {
 	return true;
 }
 
+function max_movement_cost() {
+	switch (game.move.type) {
+	case 'boat': return (game.events.foul_weather ? 2 : 9) * 2; // use odd numbers for paths with one land connection
+	case 'land': return (game.events.foul_weather ? 2 : movement_allowance(moving_piece()));
+	case 'naval': return 1;
+	}
+}
+
 function resume_move() {
 	// Interrupt for Foul Weather response at first opportunity to move.
 	if (game.move.start_cost < 0) {
@@ -2529,10 +2537,10 @@ console.log("RESUME_MOVE_UNIT is_lone_ax=" + is_lone_ax + " is_lone_ld=" + is_lo
 
 	switch (game.move.type) {
 	case 'boat':
-		search_boat_move(who, piece_space(who), game.move.start_cost, game.events.foul_weather ? 2 : 9);
+		search_boat_move(who, piece_space(who), game.move.start_cost, max_movement_cost());
 		break;
 	case 'land':
-		search_land_move(who, piece_space(who), game.move.start_cost, game.events.foul_weather ? 2 : movement_allowance(who));
+		search_land_move(who, piece_space(who), game.move.start_cost, max_movement_cost());
 		break;
 	case 'naval':
 		if (may_naval_move(who))
@@ -2606,6 +2614,7 @@ states.move = {
 			}
 		}
 		gen_action_next();
+		gen_action('demolish');
 		if (game.move.cost) {
 			for (let space_id in game.move.cost) {
 				space_id = space_id | 0;
@@ -2685,6 +2694,10 @@ states.move = {
 	},
 	assault() {
 		goto_assault(moving_piece_space());
+	},
+	demolish() {
+		push_undo();
+		game.state = 'demolish_during_move';
 	},
 	next() {
 		// TODO
@@ -2813,9 +2826,11 @@ function end_move_step(final) {
 				// TODO: RESPONSE - Massacre!
 			}
 		}
-		end_move();
+		game.move.move_cost = 99;
+		resume_move();
 	} else if (final) {
-		end_move();
+		game.move.move_cost = 99;
+		resume_move();
 	} else {
 		resume_move();
 	}
@@ -4133,8 +4148,8 @@ function goto_assault(where) {
 // RAID
 
 function goto_pick_raid() {
-	clear_undo();
 	if (game.raid.list.length > 0) {
+		clear_undo();
 		game.state = 'pick_raid';
 	} else {
 		delete game.raid;
@@ -4374,32 +4389,7 @@ states.raiders_go_home = {
 
 // DEMOLITION
 
-function goto_demolition() {
-	push_undo();
-	game.state = 'demolition';
-}
-
-function goto_demolition_after_move() {
-	game.state = 'demolition_after_move';
-}
-
-function demolition_prompt() {
-	view.prompt = "You may demolish any friendly unbesieged fortification."
-	// TODO: remove friendly fieldworks too!
-	for (let s of player.stockades)
-		if (is_space_unbesieged(s))
-			gen_action_space(s);
-	for (let s of player.forts_uc)
-		if (is_space_unbesieged(s))
-			gen_action_space(s);
-	for (let s of player.forts)
-		if (is_space_unbesieged(s))
-			gen_action_space(s);
-	gen_action_next();
-}
-
-function demolition_space(s) {
-	push_undo();
+function demolish(s) {
 	if (has_friendly_stockade(s)) {
 		log(`Demolishes stockade at ${space_name(s)}.`);
 		remove_friendly_stockade(s);
@@ -4413,20 +4403,30 @@ function demolition_space(s) {
 	}
 }
 
-states.demolition = {
-	prompt: demolition_prompt,
-	space: demolition_space,
-	next() {
-		game.state = 'action_phase';
-	}
+function demolish_prompt() {
+	view.prompt = "You may demolish any friendly unbesieged fortification."
+	// TODO: remove friendly fieldworks too!
+	for (let s of player.stockades)
+		if (is_space_unbesieged(s))
+			gen_action_space(s);
+	for (let s of player.forts_uc)
+		if (is_space_unbesieged(s))
+			gen_action_space(s);
+	for (let s of player.forts)
+		if (is_space_unbesieged(s))
+			gen_action_space(s);
 }
 
-states.demolition_after_move = {
-	prompt: demolition_prompt,
-	space: demolition_space,
-	next() {
-		end_action_phase();
-	}
+states.demolish_before_play = {
+	prompt: demolish_prompt,
+	space(s) { demolish(s); game.state = 'action_phase'; },
+	next() { game.state = 'action_phase'; }
+}
+
+states.demolish_during_move = {
+	prompt: demolish_prompt,
+	space(s) { demolish(s); game.state = 'move'; },
+	next() { game.state = 'move'; }
 }
 
 // CONSTRUCTION
