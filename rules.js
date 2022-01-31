@@ -1,25 +1,19 @@
 "use strict";
 
-// INTERRUPT CARDS:
-// Card 13 - Blockhouses (before enemy rolls on raid table)
-// Card 14 - Foul Weather (when enemy is about to move)
-// Card 15 - Lake Schooner (when enemy moves into friendly fortification along lake etc)
+// TODO: rename node/space -> location/space or raw_space/space or box/space?
+// TODO: replace piece[p].type lookups with index range checks
+// TODO: move core of is_friendly/enemy to is_british/french and branch in is_friendly/enemy
+
+// TODO: add/remove 'next' steps at end of states
 
 // TODO: show british leader pool
 // TODO: show discard/removed card list in UI
 
-// TODO: re-evaluate fortress ownership and VP when pieces move or are eliminated
-// TODO: add/remove 'next' steps at end of states
-
-// TODO: rename node/space -> location/space or raw_space/space or box/space?
-// TODO: replace piece[p].type lookups with index range checks
-
 // TODO: track 'held'
-
-// TODO: move core of is_friendly/enemy to is_british/french and branch in is_friendly/enemy
-// TODO: update indian alliance markers when placing/eliminating indians
-
 // TODO: only move pieces once per campaign
+
+// TODO: re-evaluate fortress ownership and VP when pieces move or are eliminated
+// TODO: update indian alliance markers when placing/eliminating indians
 
 // REACTION CARDS
 
@@ -1783,8 +1777,6 @@ function pq_pop(queue) {
 }
 
 function search_boat_move(who, start_space, start_cost, max_cost) {
-	max_cost *= 2; // use odd numbers for paths with one land connection
-
 	let move_cost = game.move.cost = {};
 	let move_path = game.move.path = {};
 
@@ -3151,27 +3143,20 @@ function end_avoid_battle() {
 // BATTLE
 
 function for_each_attacking_piece(fn) {
-	let force;
-	if (game.battle.assault)
-		force = find_friendly_commanding_leader_in_space(game.battle.where);
-	else
-		force = game.move.moving;
-	for_each_piece_in_force(force, fn);
-	/*
-	let where = game.battle.where;
-	if (game.battle.breaking_siege) {
-	} else {
+	if (game.battle.assault) {
+		let where = game.battle.where;
 		if (game.battle.attacker === BRITAIN) {
 			for (let p = first_british_piece; p <= last_british_piece; ++p)
-				if (is_piece_unbesieged(p) && is_piece_in_space(p, where))
+				if (is_piece_in_space(p, where))
 					fn(p);
 		} else {
 			for (let p = first_french_piece; p <= last_french_piece; ++p)
-				if (is_piece_unbesieged(p) && is_piece_in_space(p, where))
+				if (is_piece_in_space(p, where))
 					fn(p);
 		}
+	} else {
+		for_each_piece_in_force(game.move.moving, fn);
 	}
-	*/
 }
 
 function for_each_defending_piece(fn) {
