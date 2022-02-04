@@ -13,7 +13,6 @@
 // TODO: only move pieces once per campaign
 
 // TODO: re-evaluate fortress ownership and VP when pieces move or are eliminated
-// TODO: update indian alliance markers when placing/eliminating indians
 
 // REACTION CARDS
 
@@ -1535,19 +1534,39 @@ function eliminate_piece(p) {
 	log(piece_name(p) + " is eliminated.");
 	isolate_piece_from_force(p);
 	set_unit_reduced(p, 0);
-	if (is_indian_unit(p)) {
-		// TODO: remove allied marker if necessary
-	}
 	if (is_leader(p))
 		game.pieces.location[p] = DEAD;
 	else
 		game.pieces.location[p] = UNUSED;
+	if (is_indian_unit(p)) {
+		let home = indian_home_settlement(p);
+		if (home) {
+			let tribe = indian_tribe[home];
+			if (is_indian_tribe_eliminated(tribe)) {
+				log(`Removed ${tribe} settlement.`);
+				if (pieces[p].faction === 'british')
+					remove_from_array(game.Britain.allied, home);
+				else
+					remove_from_array(game.France.allied, home);
+			}
+		}
+	}
 }
 
 function eliminate_indian_tribe(tribe) {
 	for (let p = first_enemy_unit; p <= last_enemy_unit; ++p)
 		if (is_indian_tribe(p, tribe) && is_piece_unbesieged(p))
 			eliminate_piece(p);
+}
+
+function is_indian_tribe_eliminated(tribe) {
+	for (let p = first_enemy_unit; p <= last_enemy_unit; ++p) {
+		if (is_indian_tribe(p, tribe)) {
+			if (is_piece_on_map(p))
+				return false;
+		}
+	}
+	return true;
 }
 
 function move_piece_to(who, to) {
@@ -1557,6 +1576,23 @@ function move_piece_to(who, to) {
 function place_piece(who, to) {
 	log(`${piece_name(who)} placed at ${space_name(to)}.`);
 	game.pieces.location[who] = to;
+	if (is_indian_unit(who)) {
+		let home = indian_home_settlement(who);
+		if (home) {
+			let tribe = indian_tribe[home];
+			if (pieces[who].faction === 'british') {
+				if (!game.Britain.allied.includes(home)) {
+					log(`Placed ${tribe} settlement.`);
+					game.Britain.allied.push(home);
+				}
+			} else {
+				if (!game.France.allied.includes(home)) {
+					log(`Placed ${tribe} settlement.`);
+					game.France.allied.push(home);
+				}
+			}
+		}
+	}
 }
 
 function move_pieces_from_node_to_node(from, to) {
@@ -4642,8 +4678,8 @@ events.iroquois_alliance = {
 	},
 }
 
-function find_unused_indian(tribe) {
-	for (let i = 0; i < pieces.length; ++i)
+function find_friendly_unused_indian(tribe) {
+	for (let i = first_friendly_unit; i <= last_friendly_unit; ++i)
 		if (pieces[i].name === tribe && game.pieces.location[i] === 0)
 			return i;
 	return 0;
@@ -4663,7 +4699,7 @@ states.indian_alliance = {
 			if (game.count >= 1) {
 				for (let s of indian_spaces[a]) {
 					if (!has_enemy_allied_settlement(s)) {
-						let p = find_unused_indian(indian_tribe[s]);
+						let p = find_friendly_unused_indian(indian_tribe[s]);
 						if (p && can_place_in_space(s)) {
 							can_place = true;
 							gen_action_space(s);
