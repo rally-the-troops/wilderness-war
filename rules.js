@@ -6222,9 +6222,9 @@ events.diplomatic_revolution = {
 		return !game.events.quiberon;
 	},
 	play() {
-		// TODO: pick a card from discard!
 		game.events.diplo = 1;
-		end_action_phase();
+		game.state = 'diplomatic_revolution';
+		game.count = 1;
 	}
 }
 
