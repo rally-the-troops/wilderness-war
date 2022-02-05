@@ -423,6 +423,7 @@ const NIAGARA = find_space("Niagara");
 const OSWEGO = find_space("Oswego");
 const ONEIDA_CARRY_WEST = find_space("Oneida Carry West");
 const ONEIDA_CARRY_EAST = find_space("Oneida Carry East");
+const PAYS_D_EN_HAUT = find_space("Pays d'en Haut");
 
 const ST_LAWRENCE_CANADIAN_MILITIAS = find_space("St. Lawrence Canadian Militias");
 const NORTHERN_COLONIAL_MILITIAS = find_space("Northern Colonial Militias");
@@ -791,7 +792,7 @@ function is_indian_unit(p) {
 }
 
 function is_indian_tribe(p, tribe) {
-	return pieces[p].name === tribe;
+	return pieces[p].type === 'indians' && pieces[p].name === tribe;
 }
 
 function indian_home_settlement(p) {
@@ -816,6 +817,10 @@ function is_3_4_regular_unit(p) {
 
 function is_western_indian_unit(p) {
 	return pieces[p].type === 'indians' && pieces[p].subtype === 'western';
+}
+
+function is_pays_d_en_haut_indian_unit(p) {
+	return pieces[p].type === 'indians' && pieces[p].subtype === 'pays-d-en-haut';
 }
 
 function is_rangers_unit(p) {
@@ -1555,7 +1560,7 @@ function eliminate_piece(p) {
 		if (home) {
 			let tribe = indian_tribe[home];
 			if (is_indian_tribe_eliminated(tribe)) {
-				log(`Removed ${tribe} settlement.`);
+				log(`Removed ${tribe} settlement at ${space_name(home)}.`);
 				if (pieces[p].faction === 'british')
 					remove_from_array(game.Britain.allied, home);
 				else
@@ -1566,18 +1571,18 @@ function eliminate_piece(p) {
 }
 
 function eliminate_indian_tribe(tribe) {
-	for (let p = first_enemy_unit; p <= last_enemy_unit; ++p)
+	// TODO: indian unit piece ranges
+	for (let p = 1; p < pieces.length; ++p)
 		if (is_indian_tribe(p, tribe) && is_piece_unbesieged(p))
 			eliminate_piece(p);
 }
 
 function is_indian_tribe_eliminated(tribe) {
-	for (let p = first_enemy_unit; p <= last_enemy_unit; ++p) {
-		if (is_indian_tribe(p, tribe)) {
+	// TODO: indian unit piece ranges
+	for (let p = 1; p < pieces.length; ++p)
+		if (is_indian_tribe(p, tribe))
 			if (is_piece_on_map(p))
 				return false;
-		}
-	}
 	return true;
 }
 
@@ -1594,12 +1599,12 @@ function place_piece(who, to) {
 			let tribe = indian_tribe[home];
 			if (pieces[who].faction === 'british') {
 				if (!game.Britain.allied.includes(home)) {
-					log(`Placed ${tribe} settlement.`);
+					log(`Placed ${tribe} settlement at ${space_name(home)}.`);
 					game.Britain.allied.push(home);
 				}
 			} else {
 				if (!game.France.allied.includes(home)) {
-					log(`Placed ${tribe} settlement.`);
+					log(`Placed ${tribe} settlement at ${space_name(home)}.`);
 					game.France.allied.push(home);
 				}
 			}
@@ -4689,10 +4694,17 @@ events.iroquois_alliance = {
 	},
 }
 
-function find_friendly_unused_indian(tribe) {
-	for (let i = first_friendly_unit; i <= last_friendly_unit; ++i)
-		if (pieces[i].name === tribe && game.pieces.location[i] === 0)
-			return i;
+function find_friendly_unused_indian(home) {
+	if (home === PAYS_D_EN_HAUT) {
+		for (let p = first_friendly_unit; p <= last_friendly_unit; ++p)
+			if (is_pays_d_en_haut_indian_unit(p) && is_piece_unused(p))
+				return p;
+	} else {
+		let tribe = indian_tribe[home];
+		for (let p = first_friendly_unit; p <= last_friendly_unit; ++p)
+			if (pieces[p].name === tribe && is_piece_unused(p))
+				return p;
+	}
 	return 0;
 }
 
@@ -4710,7 +4722,7 @@ states.indian_alliance = {
 			if (game.count >= 1) {
 				for (let s of indian_spaces[a]) {
 					if (!has_enemy_allied_settlement(s)) {
-						let p = find_friendly_unused_indian(indian_tribe[s]);
+						let p = find_friendly_unused_indian(s);
 						if (p && can_place_in_space(s)) {
 							can_place = true;
 							gen_action_space(s);
@@ -4734,7 +4746,7 @@ states.indian_alliance = {
 	},
 	space(s) {
 		push_undo();
-		let p = find_unused_unit(indian_tribe[s]);
+		let p = find_friendly_unused_indian(s);
 		if (p) {
 			place_piece(p, s);
 			game.count -= 1.0;
