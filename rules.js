@@ -1,18 +1,30 @@
 "use strict";
 
+// minor cleanups
 // TODO: rename node/space -> location/space or raw_space/space or box/space?
 // TODO: replace piece[p].type lookups with index range checks
 // TODO: move core of is_friendly/enemy to is_british/french and branch in is_friendly/enemy
-
+// TODO: make 'inside' negative location instead of separate array
+// TODO: abbreviate per-player (game.British.xxx) property name (game.b.xxx)
 // TODO: add/remove 'next' steps at end of states
-
 // TODO: show british leader pool
+// TODO: clean up handling of dead/unused french leaders (french regulars event)
 // TODO: show discard/removed card list in UI
 
+// crucial missing bits
+// TODO: massacre event
+// TODO: battle events
 // TODO: track 'held'
 // TODO: only move pieces once per campaign
-
 // TODO: re-evaluate fortress ownership and VP when pieces move or are eliminated
+// TODO: battle modifiers and VP awards
+// TODO: has_unbesieged_enemy_units_that_did_not_intercept
+// TODO: join relief force / breaking out of siege
+// TODO: define_force_lone_ax
+
+// "advanced" rules
+// TODO: trace supply
+// TODO: infiltration
 
 // REACTION CARDS
 
@@ -2164,7 +2176,6 @@ states.action_phase = {
 		goto_construct_forts(card);
 	},
 	pass() {
-		// TODO: can you build fortifications, pass, then build next turn?
 		log(game.active + " pass.");
 		player.passed = 1;
 		end_action_phase();
@@ -2728,7 +2739,6 @@ states.move = {
 		game.state = 'demolish_during_move';
 	},
 	next() {
-		// TODO
 		end_move();
 	},
 }
@@ -3914,7 +3924,6 @@ states.retreat_defender = {
 	},
 	next() {
 		clear_undo();
-		// TODO: eliminate non-retreated units
 		let from = battle_space();
 		for_each_friendly_piece_in_space(from, p => {
 			if (!is_piece_inside(p))
@@ -4174,6 +4183,7 @@ function goto_pick_raid() {
 		game.state = 'pick_raid';
 	} else {
 		delete game.raid;
+		// TODO: allow demolish before ending activation
 		end_activation();
 	}
 }
@@ -6179,7 +6189,6 @@ const william_pitt_cards = [
 
 events.william_pitt = {
 	play() {
-		// TODO: pick a card from discard!
 		game.events.pitt = 1;
 		game.state = 'william_pitt';
 		game.count = 1;
