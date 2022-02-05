@@ -1039,6 +1039,22 @@ function has_enemy_amphib(space) {
 	return game.active === FRANCE && game.Britain.amphib.includes(space);
 }
 
+function has_fieldworks(space) {
+	return game.fieldworks.includes(space);
+}
+
+function place_fieldworks(s) {
+	log(`Fieldworks placed at ${space_name(s)}.`);
+	game.fieldworks.push(s);
+}
+
+function remove_fieldworks(s) {
+	if (game.fieldworks.includes(s)) {
+		log(`Fieldworks removed at ${space_name(s)}.`);
+		remove_from_array(game.fieldworks, s);
+	}
+}
+
 function place_friendly_raided_marker(space) {
 	player.raids.push(space);
 }
@@ -3297,7 +3313,7 @@ function goto_battle(where, is_assault=false, is_breaking_siege=false) {
 	if (!game.battle.assault)
 		goto_battle_militia();
 	else
-		goto_battle_events();
+		goto_battle_relief();
 }
 
 function goto_battle_militia() {
@@ -3322,10 +3338,10 @@ function goto_battle_militia() {
 		// 7.3 exception: No Militia if there are enemy raided markers.
 		for (let i = 0; i < dept.length; ++i)
 			if (has_enemy_raided_marker(dept[i]))
-				return goto_battle_events();
+				return goto_battle_relief();
 		game.state = 'militia_in_battle';
 	} else {
-		goto_battle_events();
+		goto_battle_relief();
 	}
 }
 
@@ -3346,24 +3362,211 @@ states.militia_in_battle = {
 	},
 	next() {
 		clear_undo();
-		goto_battle_events();
+		goto_battle_relief();
 	},
 }
 
-function goto_battle_events() {
-	set_active(game.battle.attacker);
-
-	// TODO: attacker then defender play events
-	// TODO: RESPONSE - Ambush
-	// TODO: RESPONSE - Coehorns
-	// TODO: RESPONSE - Fieldworks
-
+function goto_battle_relief() {
 	// TODO: attacker MAY participate besieged units if breaking the siege
+	goto_battle_attacker_events();
+}
 
-	goto_battle_roll();
+function count_auxiliary_units_in_attack() {
+	let n = 0;
+	for_each_attacking_piece(p => {
+		if (is_auxiliary_unit(p))
+			++n;
+	});
+	return n;
+}
+
+function count_auxiliary_units_in_defense() {
+	let n = 0;
+	for_each_defending_piece(p => {
+		if (is_auxiliary_unit(p))
+			++n;
+	});
+	return n;
+}
+
+function has_light_infantry_in_attack() {
+	let n = 0;
+	for_each_attacking_piece(p => {
+		if (is_light_infantry_unit(p))
+			++n;
+	});
+	return n > 0;
+}
+
+function has_light_infantry_in_defense() {
+	let n = 0;
+	for_each_defending_piece(p => {
+		if (is_light_infantry_unit(p))
+			++n;
+	});
+	return n > 0;
+}
+
+function can_play_ambush_in_attack() {
+	let s = game.battle.where;
+	if (is_card_available(AMBUSH_1) || is_card_available(AMBUSH_2)) {
+		let n = count_auxiliary_units_in_attack();
+		if (is_wilderness_or_mountain(s) && n > 0) {
+			if (has_enemy_fort(s) || has_light_infantry_in_defense(s) || count_auxiliary_units_in_defense() > n)
+				return false;
+			return true;
+		}
+	}
+	return false;
+}
+
+function can_play_ambush_in_defense() {
+	let s = game.battle.where;
+	if (is_card_available(AMBUSH_1) || is_card_available(AMBUSH_2)) {
+		let n = count_auxiliary_units_in_defense();
+		if (is_wilderness_or_mountain(s) && n > 0) {
+			if (has_enemy_fort(s) || has_light_infantry_in_attack(s) || count_auxiliary_units_in_attack() > n)
+				return false;
+			return true;
+		}
+	}
+	return false;
+}
+
+function can_play_coehorns_in_attack() {
+	if (is_card_available(COEHORNS))
+		return game.battle.assault && has_friendly_regulars(game.battle.where);
+	return false;
+}
+
+function can_play_fieldworks_in_attack() {
+	if (is_card_available(FIELDWORKS_1) || is_card_available(FIELDWORKS_2)) {
+		if (has_fieldworks(game.battle.where)) {
+			if (game.battle.assault)
+				return has_friendly_drilled_troops(game.battle.where);
+			else
+				return force_has_drilled_troops(game.move.moving);
+		}
+	}
+	return false;
+}
+
+function can_play_fieldworks_in_defense() {
+	if (is_card_available(FIELDWORKS_1) || is_card_available(FIELDWORKS_2)) {
+		if (!has_fieldworks(game.battle.where)) {
+			return has_friendly_drilled_troops(game.battle.where);
+		}
+	}
+	return false;
+}
+
+function goto_battle_attacker_events() {
+	set_active(game.battle.attacker);
+	if (can_play_ambush_in_attack() || can_play_coehorns_in_attack() || can_play_fieldworks_in_attack()) {
+		game.state = 'attacker_events';
+	} else {
+		goto_battle_defender_events();
+	}
+}
+
+function goto_battle_defender_events() {
+	set_active(game.battle.defender);
+	if (can_play_ambush_in_defense() || can_play_fieldworks_in_defense()) {
+		game.state = 'defender_events';
+	} else {
+		goto_battle_roll();
+	}
+}
+
+states.attacker_events = {
+	prompt() {
+		view.prompt = "Attacker may play battle response cards.";
+		if (can_play_ambush_in_attack()) {
+			if (player.hand.includes(AMBUSH_1))
+				gen_action('play_event', AMBUSH_1);
+			if (player.hand.includes(AMBUSH_2))
+				gen_action('play_event', AMBUSH_2);
+		}
+		if (can_play_coehorns_in_attack()) {
+			if (player.hand.includes(COEHORNS))
+				gen_action('play_event', COEHORNS);
+		}
+		if (can_play_fieldworks_in_attack()) {
+			if (player.hand.includes(FIELDWORKS_1))
+				gen_action('play_event', FIELDWORKS_1);
+			if (player.hand.includes(FIELDWORKS_2))
+				gen_action('play_event', FIELDWORKS_2);
+		}
+		gen_action_next();
+	},
+	play_event(c) {
+		push_undo();
+		play_card(c);
+		switch (c) {
+		case AMBUSH_1:
+		case AMBUSH_2:
+			game.events.ambush = game.active;
+			break;
+		case COEHORNS:
+			game.events.coehorns = game.active;
+			break;
+		case FIELDWORKS_1:
+		case FIELDWORKS_2:
+			remove_fieldworks(game.battle.where);
+			break;
+		}
+	},
+	next() {
+		clear_undo();
+		goto_battle_defender_events();
+	},
+}
+
+states.defender_events = {
+	prompt() {
+		view.prompt = "Defender may play battle response cards.";
+		if (can_play_ambush_in_defense()) {
+			if (player.hand.includes(AMBUSH_1))
+				gen_action('play_event', AMBUSH_1);
+			if (player.hand.includes(AMBUSH_2))
+				gen_action('play_event', AMBUSH_2);
+		}
+		if (can_play_fieldworks_in_defense()) {
+			if (player.hand.includes(FIELDWORKS_1))
+				gen_action('play_event', FIELDWORKS_1);
+			if (player.hand.includes(FIELDWORKS_2))
+				gen_action('play_event', FIELDWORKS_2);
+		}
+		gen_action_next();
+	},
+	play_event(c) {
+		push_undo();
+		play_card(c);
+		switch (c) {
+		case AMBUSH_1:
+		case AMBUSH_2:
+			if (game.events.ambush)
+				delete game.events.ambush;
+			else
+				game.events.ambush = game.active;
+			break;
+		case FIELDWORKS_1:
+		case FIELDWORKS_2:
+			place_fieldworks(game.battle.where);
+			break;
+		}
+	},
+	next() {
+		clear_undo();
+		goto_battle_roll();
+	},
 }
 
 function goto_battle_roll() {
+	// TODO: Ambush fire first!
+
+	set_active(game.battle.attacker);
+
 	// TODO: modifiers
 	let atk_str = attacker_combat_strength();
 	let atk_mod = 0;
@@ -3697,6 +3900,9 @@ function determine_winner_battle() {
 
 	return_militia(game.battle.where);
 
+	if (victor === game.battle.attacker)
+		remove_fieldworks(where);
+
 	// Raid battle vs militia
 	if (game.raid && game.raid.where > 0) {
 		if (victor === game.battle.attacker) {
@@ -3751,6 +3957,7 @@ function determine_winner_assault() {
 		log("ATTACKER WON ASSAULT");
 		eliminate_enemy_pieces_inside(where);
 		remove_siege_marker(where);
+		remove_fieldworks(where);
 		if (has_enemy_fortress(where)) {
 			capture_enemy_fortress(where);
 			// TODO: RESPONSE - Massacre!
@@ -3990,14 +4197,14 @@ function can_moving_force_siege_or_assault() {
 	return false;
 }
 
-function can_play_coehorns(space) {
+function can_play_coehorns_in_siege(space) {
 	return is_card_available(COEHORNS) && has_friendly_regulars(space);
 }
 
 function goto_siege(space) {
 	clear_undo();
 	game.siege_where = space;
-	if (can_play_coehorns(game.siege_where))
+	if (can_play_coehorns_in_siege(game.siege_where))
 		game.state = 'siege_coehorns_attacker';
 	else
 		end_siege_coehorns_attacker();
@@ -4022,7 +4229,7 @@ states.siege_coehorns_attacker = {
 
 function end_siege_coehorns_attacker() {
 	set_active(enemy());
-	if (can_play_coehorns(game.siege_where))
+	if (can_play_coehorns_in_siege(game.siege_where))
 		game.state = 'siege_coehorns_defender';
 	else
 		end_siege_coehorns_defender();
@@ -6654,6 +6861,7 @@ exports.setup = function (seed, scenario, options) {
 			pool: [],
 		},
 		sieges: {},
+		fieldworks: [],
 		France: {
 			hand: [],
 			held: 0,
@@ -6802,6 +7010,7 @@ exports.view = function(state, current) {
 		events: game.events,
 		pieces: game.pieces,
 		sieges: game.sieges,
+		fieldworks: game.fieldworks,
 		markers: {
 			France: {
 				allied: game.France.allied,
