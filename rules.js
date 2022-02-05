@@ -4288,6 +4288,7 @@ function resolve_raid() {
 
 	let column = 'cultivated';
 	if (x_stockade || x_allied)
+		column = 'stockade';
 	if (game.events.blockhouses === enemy()) {
 		column = 'stockade';
 		log("vs. enemy blockhouses");
