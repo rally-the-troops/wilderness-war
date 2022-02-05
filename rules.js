@@ -184,9 +184,11 @@ function enemy_of(role) {
 }
 
 function set_active(new_active) {
-	console.log("ACTIVE =", game.state, new_active);
-	game.active = new_active;
-	update_active_aliases();
+	if (game.active !== new_active) {
+		console.log("ACTIVE =", game.state, new_active);
+		game.active = new_active;
+		update_active_aliases();
+	}
 }
 
 function update_active_aliases() {
@@ -1351,7 +1353,14 @@ function has_unbesieged_enemy_fort_or_fortress(space) {
 
 function has_unbesieged_friendly_units(space) {
 	for (let p = first_friendly_unit; p <= last_friendly_unit; ++p)
-		if (is_piece_in_space(p, space) && !is_piece_inside(p))
+		if (is_piece_in_space(p, space) && is_piece_unbesieged(p))
+			return true;
+	return false;
+}
+
+function has_besieged_friendly_units(space) {
+	for (let p = first_friendly_unit; p <= last_friendly_unit; ++p)
+		if (is_piece_in_space(p, space) && is_piece_inside(p))
 			return true;
 	return false;
 }
@@ -1786,31 +1795,32 @@ function gen_intercept(is_lone_ax, to) {
 				let has_ax = false;
 				let has_br_indians = false;
 				for_each_friendly_unit_in_space(from, p => {
-					// TODO: unbesieged
-					if (is_auxiliary_unit(p)) {
-						gen_action_piece(p);
-						if (is_british_iroquois_or_mohawk(p))
-							has_br_indians = true;
-						else
-							has_ax = true;
+					if (is_piece_unbesieged(p)) {
+						if (is_auxiliary_unit(p)) {
+							gen_action_piece(p);
+							if (is_british_iroquois_or_mohawk(p))
+								has_br_indians = true;
+							else
+								has_ax = true;
+						}
 					}
 				});
 				// allow leaders to accompany intercepting auxiliary unit
 				if (has_ax) {
 					for_each_friendly_leader_in_space(from, p => {
-						// TODO: unbesieged
-						gen_action_piece(p);
+						if (is_piece_unbesieged(p))
+							gen_action_piece(p);
 					});
 				} else if (has_br_indians) {
 					if (is_piece_in_space(JOHNSON, from)) {
-						// TODO: unbesieged
-						gen_action_piece(JOHNSON);
+						if (is_piece_unbesieged(JOHNSON))
+							gen_action_piece(JOHNSON);
 					}
 				}
 			} else {
 				for_each_friendly_piece_in_space(from, p => {
-					// TODO: unbesieged
-					gen_action_piece(p);
+					if (is_piece_unbesieged(p))
+						gen_action_piece(p);
 				});
 			}
 		});
@@ -2535,6 +2545,7 @@ states.siege_or_move = {
 	prompt() {
 		let where = moving_piece_space();
 		if (is_assault_possible(where)) {
+			// TODO: RESPONSE - Surrender! allow siege here too to allow surrender event?
 			view.prompt = `You may assault at ${space_name(where)} or move.`;
 			gen_action('assault');
 		} else {
@@ -3228,6 +3239,8 @@ function for_each_attacking_piece(fn) {
 		}
 	} else {
 		for_each_piece_in_force(game.move.moving, fn);
+		if (game.battle.sortie)
+			game.battle.sortie.forEach(fn);
 	}
 }
 
@@ -3346,7 +3359,7 @@ function goto_battle(where, is_assault=false, is_breaking_siege=false) {
 	if (!game.battle.assault)
 		goto_battle_militia();
 	else
-		goto_battle_relief();
+		goto_battle_sortie();
 }
 
 function goto_battle_militia() {
@@ -3371,10 +3384,10 @@ function goto_battle_militia() {
 		// 7.3 exception: No Militia if there are enemy raided markers.
 		for (let i = 0; i < dept.length; ++i)
 			if (has_enemy_raided_marker(dept[i]))
-				return goto_battle_relief();
+				return goto_battle_sortie();
 		game.state = 'militia_in_battle';
 	} else {
-		goto_battle_relief();
+		goto_battle_sortie();
 	}
 }
 
@@ -3395,13 +3408,39 @@ states.militia_in_battle = {
 	},
 	next() {
 		clear_undo();
-		goto_battle_relief();
+		goto_battle_sortie();
 	},
 }
 
-function goto_battle_relief() {
-	// TODO: attacker MAY participate besieged units if breaking the siege
-	goto_battle_attacker_events();
+function goto_battle_sortie() {
+	set_active(game.battle.attacker);
+	if (has_besieged_friendly_units(game.battle.where) && has_unbesieged_friendly_units(game.battle.where)) {
+		game.state = 'sortie';
+		game.battle.sortie = [];
+	} else {
+		goto_battle_attacker_events();
+	}
+}
+
+states.sortie = {
+	prompt() {
+		view.prompt = "Determine which besieged units will participate in the battle.";
+		view.where = game.battle.where;
+		for (let p = first_friendly_unit; p <= last_friendly_unit; ++p)
+			if (is_piece_in_space(p, game.battle.where) && is_piece_inside(p))
+				if (!game.battle.sortie.includes(p))
+					gen_action_piece(p);
+		gen_action_next();
+	},
+	piece(p) {
+		push_undo();
+		log(`${piece_name(p)} sorties.`);
+		game.battle.sortie.push(p);
+	},
+	next() {
+		clear_undo();
+		goto_battle_attacker_events();
+	},
 }
 
 function count_auxiliary_units_in_attack() {
