@@ -18,8 +18,6 @@
 // TODO: only move pieces once per campaign
 // TODO: re-evaluate fortress ownership and VP when pieces move or are eliminated
 // TODO: battle VP awards
-// TODO: has_unbesieged_enemy_units_that_did_not_intercept
-// TODO: join relief force / breaking out of siege
 // TODO: define_force_lone_ax
 // TODO: leaders alone - retreat and stomped by enemies
 // TODO: when to remove fieldworks (fully automatic or track ownership)
@@ -3742,7 +3740,8 @@ function goto_atk_fire() {
 	if (has_enemy_stockade(game.battle.where)) {
 		die = modify(die, -1, "vs stockade");
 	}
-	if (has_fieldworks(game.battle.where)) {
+	if (has_fieldworks(game.battle.where) && !game.battle.assault) {
+		// NOTE: Ignore fieldworks during assault, as they belong to the besieging forces.
 		log(`1 column left vs fieldworks`);
 		shift -= 1;
 	}
@@ -4826,7 +4825,9 @@ states.raiders_go_home = {
 // DEMOLITION
 
 function demolish(s) {
-	if (has_friendly_stockade(s)) {
+	if (has_fieldworks(s)) {
+		remove_fieldworks(s);
+	} else if (has_friendly_stockade(s)) {
 		log(`Demolishes stockade at ${space_name(s)}.`);
 		remove_friendly_stockade(s);
 	} else if (has_friendly_fort_uc(s)) {
@@ -4841,7 +4842,9 @@ function demolish(s) {
 
 function demolish_prompt() {
 	view.prompt = "You may demolish any friendly unbesieged fortification."
-	// TODO: remove friendly fieldworks too!
+	for (let s of game.fieldworks)
+		if (is_friendly_controlled_space(s) || has_unbesieged_friendly_units(s))
+			gen_action_space(s);
 	for (let s of player.stockades)
 		if (is_space_unbesieged(s))
 			gen_action_space(s);
