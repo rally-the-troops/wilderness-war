@@ -10,17 +10,19 @@
 // TODO: show british leader pool
 // TODO: clean up handling of dead/unused french leaders (french regulars event)
 // TODO: show discard/removed card list in UI
+// TODO: defender retreat procedure needs love
 
 // crucial missing bits
 // TODO: massacre event
-// TODO: battle events
 // TODO: track 'held'
 // TODO: only move pieces once per campaign
 // TODO: re-evaluate fortress ownership and VP when pieces move or are eliminated
-// TODO: battle modifiers and VP awards
+// TODO: battle VP awards
 // TODO: has_unbesieged_enemy_units_that_did_not_intercept
 // TODO: join relief force / breaking out of siege
 // TODO: define_force_lone_ax
+// TODO: leaders alone - retreat and stomped by enemies
+// TODO: when to remove fieldworks (fully automatic or track ownership)
 
 // "advanced" rules
 // TODO: trace supply
@@ -30,9 +32,9 @@
 
 /*
 	in battle:
-		[ ] coehorns
-		[ ] fieldworks
-		[ ] ambush
+		[x] coehorns
+		[x] fieldworks
+		[x] ambush
 	in siege:
 		[x] coehorns
 		[x] surrender
@@ -1235,6 +1237,13 @@ function has_unbesieged_enemy_units(space) {
 	return false;
 }
 
+function has_unbesieged_enemy_units_that_did_not_intercept(space) {
+	for (let p = first_enemy_unit; p <= last_enemy_unit; ++p)
+		if (is_piece_in_space(p, space) && !is_piece_inside(p) && !did_piece_intercept(p))
+			return true;
+	return false;
+}
+
 function is_friendly_controlled_space(space) {
 	if (is_space_unbesieged(space) && !has_enemy_units(space)) {
 		if (is_originally_enemy(space)) {
@@ -1482,6 +1491,7 @@ function find_friendly_commanding_leader_in_space(space) {
 	for (let p = first_friendly_leader; p <= last_friendly_leader; ++p)
 		if (is_piece_in_space(p, space))
 			if (!commander || leader_command(p) > leader_command(commander))
+				// TODO: prefer commander with higher tactics rating if same command rating
 				commander = p;
 	return commander;
 }
@@ -1587,14 +1597,14 @@ function eliminate_piece(p) {
 }
 
 function eliminate_indian_tribe(tribe) {
-	// TODO: indian unit piece ranges
+	// OPTIMIZE: indian unit piece ranges
 	for (let p = 1; p < pieces.length; ++p)
 		if (is_indian_tribe(p, tribe) && is_piece_unbesieged(p))
 			eliminate_piece(p);
 }
 
 function is_indian_tribe_eliminated(tribe) {
-	// TODO: indian unit piece ranges
+	// OPTIMIZE: indian unit piece ranges
 	for (let p = 1; p < pieces.length; ++p)
 		if (is_indian_tribe(p, tribe))
 			if (is_piece_on_map(p))
@@ -1681,9 +1691,9 @@ function add_raid(who) {
 
 function is_vacant_of_besieging_units(space) {
 	if (has_french_fort(space) || has_french_fortress(space))
-		return !has_french_units(space);
-	else
 		return !has_british_units(space);
+	else
+		return !has_french_units(space);
 }
 
 function lift_sieges_and_amphib() {
@@ -2885,10 +2895,10 @@ function end_move_step(final) {
 				// TODO: RESPONSE - Massacre!
 			}
 		}
-		game.move.move_cost = 99;
+		game.move.start_cost = 99;
 		resume_move();
 	} else if (final) {
-		game.move.move_cost = 99;
+		game.move.start_cost = 99;
 		resume_move();
 	} else {
 		resume_move();
@@ -3010,11 +3020,6 @@ function end_intercept_success() {
 
 // DECLARE INSIDE/OUTSIDE FORTIFICATION
 
-function has_unbesieged_enemy_units_that_did_not_intercept(where) {
-	// TODO
-	return has_unbesieged_enemy_units(where);
-}
-
 function goto_declare_inside() {
 	let where = moving_piece_space();
 	if (has_unbesieged_enemy_units_that_did_not_intercept(where)) {
@@ -3068,12 +3073,12 @@ function goto_avoid_battle() {
 	goto_battle_check(space);
 }
 
-function did_piece_intercept(piece) {
-	return game.move.intercepted.includes(piece);
+function did_piece_intercept(p) {
+	return game.move.intercepted.includes(p);
 }
 
-function did_piece_avoid_battle(piece) {
-	return game.move.avoided.includes(piece);
+function did_piece_avoid_battle(p) {
+	return game.move.avoided.includes(p);
 }
 
 states.avoid_who = {
@@ -3251,6 +3256,18 @@ function for_each_defending_piece(fn) {
 	}
 }
 
+function some_attacking_piece(fn) {
+	let r = false;
+	for_each_attacking_piece(p => { if (fn(p)) r = true });
+	return r;
+}
+
+function some_defending_piece(fn) {
+	let r = false;
+	for_each_attacking_piece(p => { if (fn(p)) r = true });
+	return r;
+}
+
 function attacker_combat_strength() {
 	let str = 0;
 	for_each_attacking_piece(p => {
@@ -3281,15 +3298,31 @@ const COMBAT_RESULT_TABLE = [
 	[ 16, [ 1, 2, 3, 3, 4, 4, 4, 5 ]],
 	[ 21, [ 2, 3, 3, 4, 4, 5, 5, 6 ]],
 	[ 27, [ 3, 4, 4, 4, 5, 5, 6, 7 ]],
-	[ 28, [ 3, 4, 5, 5, 6, 6, 7, 8 ]],
+	[ 1000, [ 3, 4, 5, 5, 6, 6, 7, 8 ]],
 ]
 
-function combat_result(str, die) {
+function combat_result(die, str, shift) {
 	die = clamp(die, 0, 7);
 	str = clamp(str, 0, 28);
-	for (let i = 0; i < COMBAT_RESULT_TABLE.length; ++i)
-		if (str <= COMBAT_RESULT_TABLE[i][0])
-			return COMBAT_RESULT_TABLE[i][1][die];
+	for (let i = 0; i < COMBAT_RESULT_TABLE.length; ++i) {
+		if (str <= COMBAT_RESULT_TABLE[i][0]) {
+			let k = clamp(i + shift, 0, COMBAT_RESULT_TABLE.length-1);
+			let r = COMBAT_RESULT_TABLE[k][1][die];
+			if (k === 0)
+				log(`Lookup ${die} on column 0: ${r}.`);
+			else if (k === COMBAT_RESULT_TABLE.length - 1)
+				log(`Lookup ${die} on column >= 28: ${r}.`);
+			else {
+				let a = COMBAT_RESULT_TABLE[k-1][0] + 1;
+				let b = COMBAT_RESULT_TABLE[k][0];
+				if (a === b)
+					log(`Lookup ${die} on column ${b}: ${r}.`);
+				else
+					log(`Lookup ${die} on column ${a}-${b}: ${r}.`);
+			}
+			return r;
+		}
+	}
 	return NaN;
 }
 
@@ -3562,32 +3595,42 @@ states.defender_events = {
 	},
 }
 
+/*
+	if ambush == attacker
+		attacker fires
+		defender step loss
+		defender fires
+		attacker step loss
+	else if ambush === defender
+		defender fires
+		attacker step loss
+		attacker fires
+		defender step loss
+	else
+		attacker fires
+		defender fires
+		attacker step loss
+		defender step loss
+	determine winner
+ */
+
 function goto_battle_roll() {
-	// TODO: Ambush fire first!
+	if (game.events.ambush === game.battle.attacker)
+		goto_atk_fire();
+	else if (game.events.ambush === game.battle.defender)
+		goto_def_fire();
+	else
+		goto_atk_fire();
+}
 
-	set_active(game.battle.attacker);
+function end_atk_fire() {
+	if (game.events.ambush)
+		goto_def_step_losses();
+	else
+		goto_def_fire();
+}
 
-	// TODO: modifiers
-	let atk_str = attacker_combat_strength();
-	let atk_mod = 0;
-	game.battle.atk_roll = roll_die("for attacker");
-	game.battle.atk_result = combat_result(atk_str, game.battle.atk_roll + atk_mod);
-	log("ATTACKER", "str="+atk_str, "roll="+game.battle.atk_roll, "+", atk_mod, "=", game.battle.atk_result);
-
-	// TODO: modifiers
-	let def_str = defender_combat_strength();
-	let def_mod = 0;
-	game.battle.def_roll = roll_die("for defender");
-	game.battle.def_result = combat_result(def_str, game.battle.def_roll + def_mod);
-	log("DEFENDER", "str="+def_str, "roll="+game.battle.def_roll, "+", def_mod, "=", game.battle.def_result);
-
-	// Next state sequence:
-	//   atk step losses
-	//     atk leader checks
-	//   def step losses
-	//     def leader checks
-	//   determine winner
-
+function end_def_fire() {
 	goto_atk_step_losses();
 }
 
@@ -3600,10 +3643,117 @@ function end_step_losses() {
 
 function end_leader_check() {
 	delete game.battle.leader_check;
-	if (game.active === game.battle.attacker)
-		goto_def_step_losses();
-	else
-		goto_determine_winner();
+	if (game.events.ambush === game.battle.attacker) {
+		if (game.active === game.battle.defender)
+			goto_def_fire();
+		else
+			goto_determine_winner();
+	} else if (game.events.ambush === game.battle.defender) {
+		if (game.active === game.battle.attacker)
+			goto_atk_fire();
+		else
+			goto_determine_winner();
+	} else {
+		if (game.active === game.battle.attacker)
+			goto_def_step_losses();
+		else
+			goto_determine_winner();
+	}
+}
+
+// FIRE
+
+function goto_atk_fire() {
+	set_active(game.battle.attacker);
+
+	log("");
+	log("ATTACKER");
+
+	let str = attacker_combat_strength();
+	let shift = 0;
+	if (game.events.ambush === game.battle.attacker) {
+		log(`Strength ${str} \xd7 2 for ambush.`);
+		str *= 2;
+	} else {
+		log(`Strength ${str}.`);
+	}
+
+	let die = game.battle.atk_die = roll_die("for attacker");
+	if (is_leader(game.move.moving)) {
+		die = modify(die, leader_tactics(game.move.moving), "leader tactics");
+	}
+	if (game.events.coehorns === game.battle.attacker) {
+		die = modify(die, 2, "for coehorns");
+	}
+	if (is_wilderness_or_mountain(game.battle.where)) {
+		let atk_has_ax = some_attacking_piece(p => is_auxiliary_unit(p) || is_light_infantry_unit(p));
+		let def_has_ax = some_defending_piece(p => is_auxiliary_unit(p) || is_light_infantry_unit(p));
+		if (!atk_has_ax && def_has_ax)
+			die = modify(die, -1, "vs auxiliaries in wilderness");
+	}
+	if (is_cultivated(game.battle.where)) {
+		let atk_has_reg = some_attacking_piece(p => is_regulars_unit(p));
+		let def_has_reg = some_defending_piece(p => is_regulars_unit(p));
+		if (!atk_has_reg && def_has_reg)
+			die = modify(die, -1, "vs regulars in cultivated");
+	}
+	if (has_amphib(game.battle.where) && game.move.type === 'naval') {
+		die = modify(die, -1, "amphibious landing");
+	}
+	if (has_enemy_stockade(game.battle.where)) {
+		die = modify(die, -1, "vs stockade");
+	}
+	if (has_fieldworks(game.battle.where)) {
+		log(`1 column left vs fieldworks`);
+		shift -= 1;
+	}
+	if (game.battle.assault) {
+		log(`1 column left for assaulting`);
+		shift -= 1;
+	}
+
+	game.battle.atk_result = combat_result(die, str, shift);
+	log(`Attacker result: ${game.battle.atk_result}.`);
+
+	end_atk_fire();
+}
+
+function goto_def_fire() {
+	set_active(game.battle.defender);
+
+	log("");
+	log("DEFENDER");
+
+	let str = defender_combat_strength();
+	let shift = 0;
+	if (game.events.ambush === game.battle.defender) {
+		log(`Strength ${str} \xd7 2 for ambush.`);
+		str *= 2;
+	} else {
+		log(`Strength ${str}.`);
+	}
+
+	let die = game.battle.def_die = roll_die("for defender");
+	let p = find_friendly_commanding_leader_in_space(game.battle.where);
+	if (p) {
+		die = modify(die, leader_tactics(p), "leader tactics");
+	}
+	if (is_wilderness_or_mountain(game.battle.where)) {
+		let atk_has_ax = some_attacking_piece(p => is_auxiliary_unit(p) || is_light_infantry_unit(p));
+		let def_has_ax = some_defending_piece(p => is_auxiliary_unit(p) || is_light_infantry_unit(p));
+		if (atk_has_ax && !def_has_ax)
+			die = modify(die, -1, "vs auxiliaries in wilderness");
+	}
+	if (is_cultivated(game.battle.where)) {
+		let atk_has_reg = some_attacking_piece(p => is_regulars_unit(p));
+		let def_has_reg = some_defending_piece(p => is_regulars_unit(p));
+		if (atk_has_reg && !def_has_reg)
+			die = modify(die, -1, "vs regulars in cultivated");
+	}
+	game.battle.def_result = combat_result(die, str, shift);
+	log(`Defender result: ${game.battle.def_result}.`);
+
+	end_def_fire();
 }
 
 // STEP LOSSES
@@ -3755,7 +3905,7 @@ states.raid_step_losses = {
 function goto_atk_leader_check() {
 	set_active(game.battle.attacker);
 	game.battle.leader_check = [];
-	if ((game.battle.def_result > 0) && (game.battle.def_roll === 1 || game.battle.def_roll === 6)) {
+	if ((game.battle.def_result > 0) && (game.battle.def_die === 1 || game.battle.def_die === 6)) {
 		log(`${game.battle.attacker} leader loss check`);
 		for_each_attacking_piece(p => {
 			if (is_leader(p))
@@ -3771,7 +3921,7 @@ function goto_atk_leader_check() {
 function goto_def_leader_check() {
 	set_active(game.battle.defender);
 	game.battle.leader_check = [];
-	if ((game.battle.atk_result > 0) && (game.battle.atk_roll === 1 || game.battle.atk_roll === 6)) {
+	if ((game.battle.atk_result > 0) && (game.battle.atk_die === 1 || game.battle.atk_die === 6)) {
 		log(`${game.battle.defender} leader loss check`);
 		for_each_defending_piece(p => {
 			if (is_leader(p))
@@ -3878,6 +4028,8 @@ function goto_determine_winner() {
 
 function determine_winner_battle() {
 	let where = game.battle.where;
+
+	log("");
 
 	// 7.8: Determine winner
 	let atk_surv = count_friendly_units_in_space(where);
@@ -4500,6 +4652,7 @@ function resolve_raid() {
 	let natural_die = roll_die("for raid");
 	let die = natural_die;
 
+	// TODO: only use leader that could command the force (johnson & indians, activation limit, etc?)
 	let commander = find_friendly_commanding_leader_in_space(where);
 	if (commander)
 		die = modify(die, leader_tactics(commander), "leader");
@@ -4976,7 +5129,7 @@ function place_and_restore_british_indian_tribe(s, tribe) {
 
 	// TODO: restore_mohawks/cherokee state for manual restoring?
 
-	// TODO: use mohawks piece list
+	// OPTIMIZE: use mohawks piece list
 	for (let p = first_british_unit; p <= last_british_unit; ++p) {
 		if (is_indian_tribe(p, tribe)) {
 			if (is_piece_unused(p))
@@ -5416,7 +5569,7 @@ function count_reduced_unbesieged_provincial_units_from(dept) {
 
 function count_unbesieged_provincial_units_from(dept) {
 	let n = 0;
-	// TODO: use provincial unit numbers
+	// OPTIMIZE: use provincial unit numbers
 	for (let p = first_british_unit; p <= last_british_unit; ++p)
 		if (is_provincial_unit_from(p, dept) && is_piece_on_map(p))
 			if (is_piece_unbesieged(p))
@@ -5426,7 +5579,7 @@ function count_unbesieged_provincial_units_from(dept) {
 
 function count_provincial_units_from(dept) {
 	let n = 0;
-	// TODO: use provincial unit numbers
+	// OPTIMIZE: use provincial unit numbers
 	for (let p = first_british_unit; p <= last_british_unit; ++p)
 		if (is_provincial_unit_from(p, dept) && is_piece_on_map(p))
 			++n;
@@ -5481,7 +5634,7 @@ states.stingy_provincial_assembly = {
 	prompt() {
 		view.prompt = `Stingy Provincial Assembly \u2014 remove a ${game.department} provincial unit.`;
 		if (game.count > 0) {
-			// TODO: use provincial unit numbers
+			// OPTIMIZE: use provincial unit numbers
 			for (let p = first_british_unit; p <= last_british_unit; ++p)
 				if (is_provincial_unit_from(p, game.department) && is_piece_unbesieged(p))
 					gen_action_piece(p);
@@ -5562,7 +5715,7 @@ states.enforce_provincial_limits = {
 		console.log("British Colonial Politics", num_s, max_s, num_n, max_n);
 		let can_remove = false;
 		if (num_s > max_s || num_n > max_n) {
-			// TODO: use provincial unit numbers
+			// OPTIMIZE: use provincial unit numbers
 			for (let p = first_british_unit; p <= last_british_unit; ++p) {
 				if (num_s > max_s && is_provincial_unit_from(p, 'southern') && is_piece_unbesieged(p)) {
 					gen_action_piece(p);
@@ -6312,7 +6465,7 @@ states.royal_americans = {
 			view.prompt = `Place ${game.count} Royal American units at any fortress in the departments.`;
 		}
 		if (game.count > 0) {
-			// TODO: use a list of fortresses in the departments
+			// OPTIMIZE: use a list of fortresses in the departments
 			departments.northern.forEach(s => {
 				if (has_unbesieged_friendly_fortress(s))
 					gen_action_space(s);
