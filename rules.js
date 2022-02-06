@@ -14,7 +14,6 @@
 
 // crucial missing bits
 // TODO: track 'held'
-// TODO: re-evaluate fortress ownership and VP when pieces move or are eliminated
 // TODO: battle VP awards
 // TODO: leaders alone - retreat and stomped by enemies
 
@@ -1188,7 +1187,7 @@ function has_french_fortress(space) {
 	return is_fortress(space) && is_french_controlled_space(space);
 }
 
-function has_french_fortification(space) {
+function has_french_fortifications(space) {
 	return has_french_stockade(space) || has_french_fort(space) || has_french_fortress(space);
 }
 
@@ -2710,24 +2709,30 @@ function resume_move() {
 		throw Error("WHAT IS THIS");
 	}
 
-	let who = moving_piece();
+	console.log("RESUME_MOVE");
 
-	const is_lone_ax = is_lone_auxiliary(who);
-	const is_lone_ld = is_lone_leader(who);
-console.log("RESUME_MOVE_UNIT is_lone_ax=" + is_lone_ax + " is_lone_ld=" + is_lone_ld);
-	game.move.intercept = list_intercept_spaces(is_lone_ld, is_lone_ax);
-
-	switch (game.move.type) {
-	case 'boat':
-		search_boat_move(who, piece_space(who), game.move.start_cost, max_movement_cost());
-		break;
-	case 'land':
-		search_land_move(who, piece_space(who), game.move.start_cost, max_movement_cost());
-		break;
-	case 'naval':
-		if (may_naval_move(who))
-			search_naval_move(who, piece_space(who), game.move.start_cost);
-		break;
+	let max_cost = max_movement_cost();
+	if (game.move.start_cost < max_cost) {
+		let who = moving_piece();
+		const is_lone_ax = is_lone_auxiliary(who);
+		const is_lone_ld = is_lone_leader(who);
+		game.move.intercept = list_intercept_spaces(is_lone_ld, is_lone_ax);
+		switch (game.move.type) {
+		case 'boat':
+			search_boat_move(who, piece_space(who), game.move.start_cost, max_cost);
+			break;
+		case 'land':
+			search_land_move(who, piece_space(who), game.move.start_cost, max_cost);
+			break;
+		case 'naval':
+			if (may_naval_move(who))
+				search_naval_move(who, piece_space(who), game.move.start_cost);
+			break;
+			break;
+		}
+	} else {
+		game.move.cost = {};
+		game.move.path = {};
 	}
 }
 
