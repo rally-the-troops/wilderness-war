@@ -1495,18 +1495,28 @@ function find_enemy_commanding_leader_in_space(space) {
 
 // GAME STATE CHANGE HELPERS
 
-function award_vp(n) {
+function log_vp(n) {
 	if (game.active === FRANCE) {
 		if (n < 0)
 			log(`France loses ${-n} VP.`);
 		else
 			log(`France gains ${n} VP.`);
-		game.tracks.vp += n;
 	} else {
 		if (n < 0)
-			log(`Britain loses ${-n} VP.`);
+			log(`Britain gains ${-n} VP.`);
 		else
-			log(`Britain gains ${n} VP.`);
+			log(`Britain loses ${n} VP.`);
+	}
+}
+
+function award_vp(n) {
+	if (game.active === FRANCE) {
+		log_vp(n);
+		game.tracks.gvp += n;
+		game.tracks.vp += n;
+	} else {
+		log_vp(-n);
+		game.tracks.gvp -= n;
 		game.tracks.vp -= n;
 	}
 }
@@ -1696,7 +1706,7 @@ function is_vacant_of_besieging_units(space) {
 }
 
 function lift_sieges_and_amphib() {
-	console.log("LIFT SIEGES AND AMPHIB");
+	console.log("LIFT SIEGES AND AMPHIB AND RECALC VP");
 
 	for_each_siege(space => {
 		if (is_vacant_of_besieging_units(space)) {
@@ -1718,6 +1728,20 @@ function lift_sieges_and_amphib() {
 			}
 		}
 	}
+
+	update_vp();
+}
+
+function update_vp() {
+	let save_vp = game.tracks.vp;
+	game.tracks.vp = game.tracks.gvp - 6;
+	for (let i = 0; i < fortresses.length; ++i) {
+		let s = fortresses[i];
+		if (is_french_controlled_space(s))
+			game.tracks.vp += 2;
+	}
+	if (game.tracks.vp != save_vp)
+		log_vp(game.tracks.vp - save_vp);
 }
 
 // PATH FINDING
@@ -6889,6 +6913,7 @@ function setup_1757(end_year) {
 	game.tracks.end_year = end_year;
 	game.tracks.season = EARLY;
 	game.tracks.vp = 4;
+	game.tracks.gvp = 4;
 	game.tracks.pa = SUPPORTIVE;
 
 	// TODO: optional rule start at 2VP for balance
@@ -7061,6 +7086,7 @@ function setup_1755() {
 	game.tracks.year = 1755;
 	game.tracks.season = EARLY;
 	game.tracks.vp = 0;
+	game.tracks.gvp = 0;
 	game.tracks.pa = SUPPORTIVE;
 
 	for (let i = 1; i <= 70; ++i)
@@ -7195,7 +7221,8 @@ exports.setup = function (seed, scenario, options) {
 			year: 1755,
 			end_year: 1762,
 			season: 0,
-			vp: 0,
+			gvp: 0, // gained vp
+			vp: 0, // fortress vp + gained vp
 			pa: 0,
 		},
 		events: {},
