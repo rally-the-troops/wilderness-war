@@ -17,7 +17,6 @@
 // TODO: only move pieces once per campaign
 // TODO: re-evaluate fortress ownership and VP when pieces move or are eliminated
 // TODO: battle VP awards
-// TODO: define_force_lone_ax
 // TODO: leaders alone - retreat and stomped by enemies
 
 // TODO: end of season
@@ -2482,12 +2481,87 @@ states.define_force = {
 		delete game.force;
 		if (reason === 'move') {
 			goto_move_piece(main_leader);
-		} else if (reason === 'intercept' ) {
+		} else if (reason === 'intercept') {
 			attempt_intercept();
-		} else if (reason === 'avoid' ) {
+		} else if (reason === 'avoid') {
 			attempt_avoid_battle();
-		} else if (reason === 'retreat_defender' ) {
+		} else if (reason === 'retreat_defender') {
 			game.state = 'retreat_defender';
+		} else {
+			throw Error("unknown reason state: " + game.reason);
+		}
+	},
+}
+
+states.define_force_lone_ax = {
+	prompt() {
+		let main_leader = game.force.leader;
+		let selected = game.force.selected;
+		let space = piece_space(main_leader);
+		let n = count_units_in_force(main_leader);
+
+		view.prompt = `Define lone auxiliary force to ${game.force.reason} with ${piece_name(main_leader)} from ${space_name(space)}.`;
+		view.prompt += " (" + piece_name(selected) + ")";
+		view.who = selected;
+
+		// pick up subordinate leaders
+		for_each_friendly_leader_in_node(space, p => {
+			if (p !== selected) {
+				if (p !== main_leader && leader_command(p) <= leader_command(selected))
+					gen_action_piece(p);
+			}
+		});
+
+		// drop off subordinate leaders
+		for_each_friendly_leader_in_node(leader_box(selected), p => {
+			if (p !== selected) {
+				gen_action_piece(p);
+			}
+		});
+
+		// pick up units (max 1 auxiliary)
+		if (n === 0) {
+			for_each_friendly_unit_in_node(space, p => {
+				if (is_auxiliary_unit(p)) {
+					if (is_british_iroquois_or_mohawk(p)) {
+						// 5.534 Only Johnson can command British Iroquois and Mohawk (and for free)
+						if (selected === JOHNSON)
+							gen_action_piece(p);
+					} else {
+						gen_action_piece(p);
+					}
+				}
+			});
+		}
+
+		if (n === 1) {
+			gen_action_next();
+		}
+
+		// drop off units
+		for_each_friendly_unit_in_node(leader_box(selected), p => {
+			gen_action_piece(p);
+		});
+	},
+
+	piece(piece) {
+		push_undo();
+		let main_leader = game.force.leader;
+		let selected = game.force.selected;
+		let space = piece_space(main_leader);
+		if (piece_node(piece) === leader_box(selected))
+			move_piece_to(piece, space);
+		else
+			move_piece_to(piece, leader_box(selected));
+	},
+
+	next() {
+		push_undo();
+		let main_leader = game.force.leader;
+		let reason = game.force.reason;
+		delete game.force;
+		if (reason === 'intercept') {
+			attempt_intercept();
 		} else {
 			throw Error("unknown reason state: " + game.reason);
 		}
@@ -2972,10 +3046,12 @@ states.intercept_who = {
 				selected: piece,
 				reason: 'intercept',
 			};
-			if (is_moving_piece_lone_ax_in_wilderness_or_mountain())
-				game.state = 'define_force_lone_ax'; // TODO
-			else
+			if (is_moving_piece_lone_ax_in_wilderness_or_mountain()) {
+				isolate_piece_from_force(piece);
+				game.state = 'define_force_lone_ax';
+			} else {
 				game.state = 'define_force';
+			}
 		} else {
 			game.move.intercepting = piece;
 			attempt_intercept();
