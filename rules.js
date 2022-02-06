@@ -13,39 +13,18 @@
 // TODO: defender retreat procedure needs love
 
 // crucial missing bits
-// TODO: massacre event
 // TODO: track 'held'
 // TODO: only move pieces once per campaign
 // TODO: re-evaluate fortress ownership and VP when pieces move or are eliminated
 // TODO: battle VP awards
 // TODO: define_force_lone_ax
 // TODO: leaders alone - retreat and stomped by enemies
-// TODO: when to remove fieldworks (fully automatic or track ownership)
+
+// TODO: end of season
 
 // "advanced" rules
 // TODO: trace supply
 // TODO: infiltration
-
-// REACTION CARDS
-
-/*
-	in battle:
-		[x] coehorns
-		[x] fieldworks
-		[x] ambush
-	in siege:
-		[x] coehorns
-		[x] surrender
-	in raid:
-		[x] blockhouses
-	in friendly movement:
-		[x] amphibious_landing
-		[x] george_croghan
-	in enemy movement:
-		[x] foul weather
-		[x] lake schooner
-		[ ] massacre
-*/
 
 const { spaces, pieces, cards } = require("./data");
 
@@ -181,12 +160,14 @@ function enemy_of(role) {
 	return role === FRANCE ? BRITAIN : FRANCE;
 }
 
+function set_enemy_active(new_state) {
+	game.state = new_state;
+	set_active(enemy());
+}
+
 function set_active(new_active) {
-	if (game.active !== new_active) {
-		console.log("ACTIVE =", game.state, new_active);
-		game.active = new_active;
-		update_active_aliases();
-	}
+	game.active = new_active;
+	update_active_aliases();
 }
 
 function update_active_aliases() {
@@ -213,11 +194,6 @@ function update_active_aliases() {
 	first_friendly_unit = last_friendly_leader + 1;
 	last_enemy_unit = last_enemy_piece;
 	last_friendly_unit = last_friendly_piece;
-}
-
-function set_enemy_active(new_state) {
-	game.state = new_state;
-	set_active(enemy());
 }
 
 // LISTS
@@ -1323,6 +1299,13 @@ function has_friendly_coureurs(space) {
 	return false;
 }
 
+function has_friendly_indians(space) {
+	for (let p = first_friendly_unit; p <= last_friendly_unit; ++p)
+		if (is_indian_unit(p) && is_piece_in_space(p, space))
+			return true;
+	return false;
+}
+
 function has_unbesieged_enemy_auxiliary(space) {
 	for (let p = first_enemy_unit; p <= last_enemy_unit; ++p)
 		if (is_auxiliary_unit(p) && is_piece_in_space(p, space) && !is_piece_inside(p))
@@ -1592,8 +1575,11 @@ function eliminate_piece(p) {
 		let home = indian_home_settlement(p);
 		if (home) {
 			let tribe = indian_tribe[home];
-			if (is_indian_tribe_eliminated(tribe)) {
-				log(`Removed ${tribe} settlement at ${space_name(home)}.`);
+			if (is_indian_tribe_eliminated(home)) {
+				if (home == PAYS_D_EN_HAUT)
+					log(`Removed settlement at ${space_name(home)}.`);
+				else
+					log(`Removed ${tribe} settlement at ${space_name(home)}.`);
 				if (pieces[p].faction === 'british')
 					remove_from_array(game.Britain.allied, home);
 				else
@@ -1610,12 +1596,20 @@ function eliminate_indian_tribe(tribe) {
 			eliminate_piece(p);
 }
 
-function is_indian_tribe_eliminated(tribe) {
+function is_indian_tribe_eliminated(home) {
 	// OPTIMIZE: indian unit piece ranges
-	for (let p = 1; p < pieces.length; ++p)
-		if (is_indian_tribe(p, tribe))
-			if (is_piece_on_map(p))
-				return false;
+	if (home === PAYS_D_EN_HAUT) {
+		for (let p = 1; p < pieces.length; ++p)
+			if (is_pays_d_en_haut_indian_unit(p))
+				if (is_piece_on_map(p))
+					return false;
+	} else {
+		let tribe = indian_tribe[home];
+		for (let p = 1; p < pieces.length; ++p)
+			if (is_indian_tribe(p, tribe))
+				if (is_piece_on_map(p))
+					return false;
+	}
 	return true;
 }
 
@@ -2895,21 +2889,34 @@ function end_move_step(final) {
 	delete game.battle;
 	game.move.did_attempt_intercept = 0; // reset flag for next move step
 	if (has_unbesieged_enemy_fortifications(where)) {
+		game.move.start_cost = 99;
 		if (has_enemy_fort(where) || is_fortress(where)) {
 			place_siege_marker(where);
 		}
 		if (has_enemy_stockade(where)) {
 			if (force_has_drilled_troops(who)) {
 				capture_enemy_stockade(where)
-				// TODO: RESPONSE - Massacre!
+				if (can_play_massacre())
+					return goto_massacre('massacre_after_move');
 			}
 		}
-		game.move.start_cost = 99;
 		resume_move();
 	} else if (final) {
 		game.move.start_cost = 99;
 		resume_move();
 	} else {
+		resume_move();
+	}
+}
+
+states.massacre_after_move = {
+	prompt: massacre_prompt,
+	play_event(c) {
+		massacre_play(c);
+		resume_move();
+	},
+	next() {
+		set_active(enemy());
 		resume_move();
 	}
 }
@@ -4150,17 +4157,31 @@ function determine_winner_assault() {
 		remove_fieldworks(where);
 		if (has_enemy_fortress(where)) {
 			capture_enemy_fortress(where);
-			// TODO: RESPONSE - Massacre!
+			if (can_play_massacre())
+				return goto_massacre('massacre_after_assault');
 		}
 		if (has_enemy_fort(where)) {
 			capture_enemy_fort(where);
-			// TODO: RESPONSE - Massacre!
+			if (can_play_massacre())
+				return goto_massacre('massacre_after_assault');
 		}
 	} else {
 		log("DEFENDER WON ASSAULT");
 	}
 
 	end_activation();
+}
+
+states.massacre_after_assault = {
+	prompt: massacre_prompt,
+	play_event(c) {
+		massacre_play(c);
+		end_activation();
+	},
+	next() {
+		set_active(enemy());
+		end_activation();
+	}
 }
 
 // RETREAT
@@ -4479,7 +4500,24 @@ function goto_surrender() {
 		capture_enemy_fort_intact(game.siege_where);
 	else
 		capture_enemy_fortress(game.siege_where);
-	// TODO: RESPONSE - Massacre!
+	if (can_play_massacre())
+		return goto_massacre('massacre_after_surrender');
+	goto_surrender_place();
+}
+
+states.massacre_after_surrender = {
+	prompt: massacre_prompt,
+	play_event(c) {
+		massacre_play(c);
+		goto_surrender_place();
+	},
+	next() {
+		set_active(enemy());
+		goto_surrender_place();
+	}
+}
+
+function goto_surrender_place() {
 	set_active(enemy());
 	game.state = 'surrender';
 	game.surrender = find_closest_friendly_unbesieged_fortification(game.siege_where);
@@ -4965,6 +5003,37 @@ states.construct_forts = {
 }
 
 // EVENTS
+
+function can_play_massacre() {
+	let s = moving_piece_space();
+	if (is_card_available(MASSACRE))
+		return has_friendly_indians(s) && has_friendly_drilled_troops(s);
+	return false;
+}
+
+function goto_massacre(st) {
+	clear_undo();
+	set_active(enemy());
+	game.state = st;
+}
+
+function massacre_prompt() {
+	view.prompt = `You may play "Massacre!".`;
+	if (player.hand.includes(MASSACRE))
+		gen_action('play_event', MASSACRE);
+	gen_action_next();
+}
+
+function massacre_play(c) {
+	// TODO: massacre state for manual elimination?
+	play_card(c);
+	let s = moving_piece_space();
+	for (let p = 1; p < pieces.length; ++p)
+		if (is_indian_unit(p) && is_piece_in_space(p, s))
+			eliminate_piece(p);
+	award_vp(1);
+	set_active(enemy());
+}
 
 function can_place_in_space(s) {
 	if (has_enemy_units(s))
