@@ -14,7 +14,6 @@
 
 // crucial missing bits
 // TODO: track 'held'
-// TODO: only move pieces once per campaign
 // TODO: re-evaluate fortress ownership and VP when pieces move or are eliminated
 // TODO: battle VP awards
 // TODO: leaders alone - retreat and stomped by enemies
@@ -2442,6 +2441,9 @@ states.define_force = {
 
 		// pick up units
 		for_each_friendly_unit_in_node(space, p => {
+			// Can't move pieces twice in a campaign:
+			if (game.activation.moved && game.activation.moved.includes(p))
+				return; // continue
 			if (is_british_iroquois_or_mohawk(p)) {
 				// 5.534 Only Johnson can command British Iroquois and Mohawk (and for free)
 				if (selected === JOHNSON)
@@ -2479,6 +2481,15 @@ states.define_force = {
 		let main_leader = game.force.leader;
 		let reason = game.force.reason;
 		delete game.force;
+
+		// Remember which units have moved if we played a campaign card.
+		if (game.activation.list.length > 0) {
+			game.activation.moved = [];
+			for_each_piece_in_force(main_leader, p => {
+				game.activation.moved.push(p);
+			});
+		}
+
 		if (reason === 'move') {
 			goto_move_piece(main_leader);
 		} else if (reason === 'intercept') {
