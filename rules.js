@@ -258,6 +258,23 @@ const fortresses = [
 	"Québec",
 ].map(name => spaces.findIndex(space => space.name === name));
 
+const originally_french_fortresses = [
+	"Louisbourg",
+	"Montréal",
+	"Québec",
+].map(name => spaces.findIndex(space => space.name === name));
+
+const originally_british_fortresses = [
+	"Albany",
+	"Alexandria",
+	"Baltimore",
+	"Boston",
+	"Halifax",
+	"New Haven",
+	"New York",
+	"Philadelphia",
+].map(name => spaces.findIndex(space => space.name === name));
+
 const departments = {
 	st_lawrence: [
 		"Baie-St-Paul",
@@ -1066,12 +1083,12 @@ function has_friendly_stockade(space) {
 	return player.stockades.includes(space);
 }
 
-function has_friendly_fortress(space) {
-	return is_fortress(space) && is_friendly_controlled_space(space);
+function has_enemy_fortress(space) {
+	return enemy_player.fortresses.includes(space);
 }
 
-function has_enemy_fortress(space) {
-	return is_fortress(space) && is_enemy_controlled_space(space);
+function has_friendly_fortress(space) {
+	return player.fortresses.includes(space);
 }
 
 function has_enemy_fort(space) {
@@ -1511,13 +1528,21 @@ function log_vp(n) {
 function award_vp(n) {
 	if (game.active === FRANCE) {
 		log_vp(n);
-		game.tracks.gvp += n;
 		game.tracks.vp += n;
 	} else {
 		log_vp(-n);
-		game.tracks.gvp -= n;
 		game.tracks.vp -= n;
 	}
+}
+
+function award_french_vp(n) {
+	log_vp(n);
+	game.tracks.vp += n;
+}
+
+function award_british_vp(n) {
+	log_vp(-n);
+	game.tracks.vp -= n;
 }
 
 function remove_friendly_stockade(space) {
@@ -1566,7 +1591,7 @@ function reduce_unit(p) {
 		return true;
 	}
 	set_unit_reduced(p, 1);
-	log(piece_name(p) + " is reduced.")
+	log(piece_name(p) + " is reduced.");
 	return false;
 }
 
@@ -1653,15 +1678,31 @@ function move_pieces_from_node_to_node(from, to) {
 	}
 }
 
-function capture_enemy_fortress(space) {
+function capture_enemy_fortress(s) {
 	log("captures fortress");
+	remove_from_array(enemy_player.fortresses, s);
+	player.fortresses.push(s);
 	award_vp(3);
 }
 
-function capture_enemy_fort_intact(space) {
+function recapture_french_fortress(s) {
+	log(`France recaptures fortress at ${space_name(s)}.`);
+	remove_from_array(game.Britain.fortresses, s);
+	game.France.fortresses.push(s);
+	award_french_vp(3);
+}
+
+function recapture_british_fortress(s) {
+	log(`Britain recaptures fortress at ${space_name(s)}.`);
+	remove_from_array(game.France.fortresses, s);
+	game.Britain.fortresses.push(s);
+	award_british_vp(3);
+}
+
+function capture_enemy_fort_intact(s) {
 	log(`captures enemy fort intact`);
-	remove_from_array(enemy_player.forts, space);
-	player.forts.push(space);
+	remove_from_array(enemy_player.forts, s);
+	player.forts.push(s);
 	award_vp(2);
 }
 
@@ -1705,7 +1746,7 @@ function is_vacant_of_besieging_units(space) {
 }
 
 function lift_sieges_and_amphib() {
-	console.log("LIFT SIEGES AND AMPHIB AND RECALC VP");
+	console.log("LIFT SIEGES AND AMPHIB AND RECAPTURE FORTRESSES");
 
 	for_each_siege(space => {
 		if (is_vacant_of_besieging_units(space)) {
@@ -1728,19 +1769,13 @@ function lift_sieges_and_amphib() {
 		}
 	}
 
-	update_vp();
-}
-
-function update_vp() {
-	let save_vp = game.tracks.vp;
-	game.tracks.vp = game.tracks.gvp - 6;
-	for (let i = 0; i < fortresses.length; ++i) {
-		let s = fortresses[i];
-		if (is_french_controlled_space(s))
-			game.tracks.vp += 2;
-	}
-	if (game.tracks.vp != save_vp)
-		log_vp(game.tracks.vp - save_vp);
+	// Recapture abandoned enemy fortresses.
+	for (let s of originally_french_fortresses)
+		if (game.Britain.fortresses.includes(s) && is_french_controlled_space(s))
+			recapture_french_fortress(s);
+	for (let s of originally_british_fortresses)
+		if (game.France.fortresses.includes(s) && is_british_controlled_space(s))
+			recapture_british_fortress(s);
 }
 
 // PATH FINDING
@@ -2731,6 +2766,7 @@ function resume_move() {
 			break;
 		}
 	} else {
+		game.move.intercept = {};
 		game.move.cost = {};
 		game.move.path = {};
 	}
@@ -2977,6 +3013,7 @@ function remove_siege_marker(where) {
 }
 
 function place_siege_marker(where) {
+	log(`Siege begun at ${space_name(where)}.`);
 	game.sieges[where] = 0;
 }
 
@@ -6918,7 +6955,6 @@ function setup_1757(end_year) {
 	game.tracks.end_year = end_year;
 	game.tracks.season = EARLY;
 	game.tracks.vp = 4;
-	game.tracks.gvp = 4;
 	game.tracks.pa = SUPPORTIVE;
 
 	// TODO: optional rule start at 2VP for balance
@@ -7091,7 +7127,6 @@ function setup_1755() {
 	game.tracks.year = 1755;
 	game.tracks.season = EARLY;
 	game.tracks.vp = 0;
-	game.tracks.gvp = 0;
 	game.tracks.pa = SUPPORTIVE;
 
 	for (let i = 1; i <= 70; ++i)
@@ -7226,8 +7261,7 @@ exports.setup = function (seed, scenario, options) {
 			year: 1755,
 			end_year: 1762,
 			season: 0,
-			gvp: 0, // gained vp
-			vp: 0, // fortress vp + gained vp
+			vp: 0,
 			pa: 0,
 		},
 		events: {},
@@ -7253,6 +7287,7 @@ exports.setup = function (seed, scenario, options) {
 			stockades: [],
 			forts_uc: [],
 			forts: [],
+			fortresses: originally_french_fortresses.slice(),
 			raids: [],
 		},
 		Britain: {
@@ -7263,6 +7298,7 @@ exports.setup = function (seed, scenario, options) {
 			stockades: [],
 			forts_uc: [],
 			forts: [],
+			fortresses: originally_british_fortresses.slice(),
 			raids: [],
 			amphib: [],
 		},
