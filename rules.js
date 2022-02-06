@@ -1180,16 +1180,9 @@ function is_originally_british(space) {
 }
 
 function is_french_controlled_space(space) {
-	if (is_space_unbesieged(space) && !has_british_units(space)) {
-		if (is_originally_british(space)) {
-			if (has_french_units(space))
-				return true;
-		} else {
-			// TODO: neutral spaces?
-			return true;
-		}
-	}
-	return false;
+	if (game.active === FRANCE)
+		return is_friendly_controlled_space(space);
+	return is_enemy_controlled_space(space);
 }
 
 function has_french_stockade(space) {
@@ -1237,14 +1230,15 @@ function has_unbesieged_enemy_units_that_did_not_intercept(space) {
 function is_friendly_controlled_space(space) {
 	if (is_space_unbesieged(space) && !has_enemy_units(space)) {
 		if (is_originally_enemy(space)) {
-			if (has_friendly_units(space))
+			if (has_friendly_units(space) || has_friendly_stockade(space) || has_friendly_fort(space))
 				return true;
 			if (has_friendly_amphib(space))
 				return true;
-		} else {
-			// TODO: neutral spaces?
-			// return !is_originally_friendly(space);
+		} else if (is_originally_friendly(space)) {
 			return true;
+		} else {
+			if (has_friendly_units(space) || has_friendly_stockade(space) || has_friendly_fort(space))
+				return true;
 		}
 	}
 	return false;
@@ -1253,14 +1247,15 @@ function is_friendly_controlled_space(space) {
 function is_enemy_controlled_space(space) {
 	if (is_space_unbesieged(space) && !has_friendly_units(space)) {
 		if (is_originally_friendly(space)) {
-			if (has_enemy_units(space))
+			if (has_enemy_units(space) || has_enemy_stockade(space) || has_enemy_fort(space))
 				return true;
 			if (has_enemy_amphib(space))
 				return true;
-		} else {
-			// TODO: neutral spaces?
-			// return !is_originally_enemy(space);
+		} else if (is_originally_enemy(space)) {
 			return true;
+		} else {
+			if (has_enemy_units(space) || has_enemy_stockade(space) || has_enemy_fort(space))
+				return true;
 		}
 	}
 	return false;
@@ -1776,6 +1771,22 @@ function lift_sieges_and_amphib() {
 	for (let s of originally_british_fortresses)
 		if (game.France.fortresses.includes(s) && is_british_controlled_space(s))
 			recapture_british_fortress(s);
+
+	// Check ownership of other VP locations:
+	update_vp("niagara", NIAGARA);
+	update_vp("ohio_forks", OHIO_FORKS);
+}
+
+function update_vp(name, s) {
+	let save = game[name];
+	let v = 0;
+	if (is_french_controlled_space(s))
+		v = 1;
+	else if (is_british_controlled_space(s))
+		v = -1;
+	if (v !== save)
+		award_french_vp(v - save);
+	game[name] = v;
 }
 
 // PATH FINDING
@@ -7279,6 +7290,8 @@ exports.setup = function (seed, scenario, options) {
 		},
 		sieges: {},
 		fieldworks: [],
+		niagara: 1,
+		ohio_forks: 1,
 		France: {
 			hand: [],
 			held: 0,
