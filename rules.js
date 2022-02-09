@@ -1,6 +1,6 @@
 "use strict";
 
-// minor cleanups
+// cleanups
 // TODO: rename node/space -> location/space or raw_space/space or box/space?
 // TODO: replace piece[p].type lookups with index range checks
 // TODO: move core of is_friendly/enemy to is_british/french and branch in is_friendly/enemy
@@ -8,18 +8,17 @@
 // TODO: abbreviate per-player (game.British.xxx) property name (game.b.xxx)
 // TODO: add/remove 'next' steps at end of states
 // TODO: show british leader pool
+// TODO: show badge on leader boxes if they're dead or in pool
 // TODO: clean up handling of dead/unused french leaders (french regulars event)
 // TODO: show discard/removed card list in UI
 // TODO: defender retreat procedure needs love
 
-// crucial missing bits
+// features
 // TODO: track 'held'
 // TODO: battle VP awards
-// TODO: leaders alone - retreat and stomped by enemies
-
-// TODO: end of season
-
-// "advanced" rules
+// TODO: leaders alone - stop search in space
+// TODO: leaders alone - retreat
+// TODO: end of late season
 // TODO: trace supply
 // TODO: infiltration
 
@@ -4148,8 +4147,6 @@ states.leader_check = {
 		view.prompt = "Roll for leader losses.";
 		for (let i = 0; i < game.battle.leader_check.length; ++i)
 			gen_action_piece(game.battle.leader_check[i]);
-		if (game.battle.leader_check.length === 0)
-			gen_action_next();
 	},
 	piece(piece) {
 		let die = roll_die("for leader check");
@@ -4160,9 +4157,8 @@ states.leader_check = {
 			log(`${piece_name(piece)} rolls ${die} and survives`);
 		}
 		remove_from_array(game.battle.leader_check, piece);
-	},
-	next() {
-		end_leader_check();
+		if (game.battle.leader_check.length === 0)
+			end_leader_check();
 	},
 }
 
@@ -4176,7 +4172,7 @@ function goto_raid_leader_check() {
 		if (game.raid.leader_check.length > 0) {
 			game.state = 'raid_leader_check';
 		} else {
-			game.raid.leader_check = 0;
+			delete game.raid.leader_check;
 			raiders_go_home();
 		}
 	} else {
@@ -4189,8 +4185,6 @@ states.raid_leader_check = {
 		view.prompt = "Roll for leader losses.";
 		for (let i = 0; i < game.raid.leader_check.length; ++i)
 			gen_action_piece(game.raid.leader_check[i]);
-		if (game.raid.leader_check.length === 0)
-			gen_action_next();
 	},
 	piece(piece) {
 		let die = roll_die("for leader check");
@@ -4201,10 +4195,10 @@ states.raid_leader_check = {
 			log(`${piece_name(piece)} rolls ${die} and survives`);
 		}
 		remove_from_array(game.raid.leader_check, piece);
-	},
-	next() {
-		delete game.raid.leader_check;
-		raiders_go_home();
+		if (game.raid.leader_check.length === 0) {
+			delete game.raid.leader_check;
+			raiders_go_home();
+		}
 	},
 }
 
