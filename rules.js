@@ -13,6 +13,8 @@
 // TODO: show discard/removed card list in UI
 // TODO: defender retreat procedure needs love
 
+// naming: France/Britain or "The French"/"The British"
+
 // features
 // TODO: track 'held'
 // TODO: battle VP awards
@@ -21,7 +23,7 @@
 // TODO: trace supply
 // TODO: infiltration
 
-// check rules/implementation:
+// TODO: 10.413 leaders and coureurs may follow indians home
 // TODO: leaders alone - retreat (reinforcement events that place units)
 
 // GRAPHICS: badge for pool/dead leaders
@@ -155,10 +157,6 @@ function friendly() {
 
 function enemy() {
 	return game.active === FRANCE ? BRITAIN : FRANCE;
-}
-
-function enemy_of(role) {
-	return role === FRANCE ? BRITAIN : FRANCE;
 }
 
 function set_enemy_active(new_state) {
@@ -1292,6 +1290,13 @@ function has_friendly_supplied_drilled_troops(space) {
 	return false;
 }
 
+function has_enemy_supplied_drilled_troops(space) {
+	for (let p = first_enemy_unit; p <= last_enemy_unit; ++p)
+		if (is_drilled_troops(p) && is_piece_in_space(p, space) && is_in_enemy_supply(space))
+			return true;
+	return false;
+}
+
 function has_friendly_drilled_troops(space) {
 	for (let p = first_friendly_unit; p <= last_friendly_unit; ++p)
 		if (is_drilled_troops(p) && is_piece_in_space(p, space))
@@ -1810,6 +1815,11 @@ function is_in_supply(space) {
 	return true;
 }
 
+function is_in_enemy_supply(space) {
+	// TODO: trace supply
+	return true;
+}
+
 function list_intercept_spaces(is_lone_ld, is_lone_ax) {
 	let intercept = {};
 
@@ -2170,9 +2180,6 @@ function start_season() {
 }
 
 function end_season() {
-	log("");
-	log(".h2 End Season");
-	log("");
 
 	if (game.Britain.hand.length > 0)
 		game.Britain.held = 1;
@@ -2189,13 +2196,26 @@ function end_season() {
 	delete player.passed;
 	delete enemy_player.passed;
 
-	game.tracks.season ++;
-	start_season();
+	if (game.tracks.season === EARLY) {
+		game.tracks.season = LATE;
+		start_season();
+	} else {
+		end_late_season();
+	}
 }
 
-function end_year() {
+function end_late_season() {
+	log("");
+	log(".h2 End Late Season");
+	log("");
 	delete game.events.no_amphib;
 	delete game.events.blockhouses;
+	set_active(FRANCE);
+	game.state = 'indians_and_leaders_go_home';
+	game.go_home = {
+		indians: {}
+	};
+	resume_indians_and_leaders_go_home();
 }
 
 function start_action_phase() {
@@ -5055,8 +5075,8 @@ function next_raider_in_space(from) {
 }
 
 function raiders_go_home() {
-	// RULE: raiders go home -- can go to separate locations if many available?
 	// Leaders, coureurs and rangers go to nearest fortification
+	// TODO: 10.413 Leaders and coureurs may follow Indians
 	// Indians may follow leader
 	// Indians go to home settlement
 
@@ -5125,6 +5145,179 @@ states.raiders_go_home = {
 		delete game.go_home;
 		goto_pick_raid();
 	}
+}
+
+// LATE SEASON - INDIANS AND LEADERS GO HOME
+
+function next_indian_and_leader_to_go_home() {
+	// Indians go home first
+	for (let p = first_friendly_unit; p <= last_friendly_unit; ++p) {
+		if (is_indian_unit(p) && !is_piece_inside(p)) {
+			let s = piece_space(p);
+			if (s && s != indian_home_settlement(p) && !has_unbesieged_friendly_fortifications(s))
+				return p;
+		}
+	}
+
+	// Then leaders who are left alone in the wilderness
+	for (let p = first_friendly_leader; p <= last_friendly_leader; ++p) {
+		if (!is_piece_inside(p)) {
+			let s = piece_space(p);
+			if (s && is_wilderness_or_mountain(s) && !has_friendly_units(s) && !has_unbesieged_friendly_fortifications(s))
+				return p;
+		}
+	}
+}
+
+function resume_indians_and_leaders_go_home() {
+	let who = game.go_home.who = next_indian_and_leader_to_go_home();
+	if (who && is_leader(who))
+		game.go_home.closest = find_closest_friendly_unbesieged_fortification(piece_space(who));
+}
+
+states.indians_and_leaders_go_home = {
+	prompt() {
+		let who = game.go_home.who;
+
+		if (who)
+			view.prompt = "Indians and leaders go home \u2014 " + piece_name(who) + ".";
+		else
+			view.prompt = "Indians and leaders go home \u2014 done.";
+		view.who = who;
+
+		if (!who) {
+			gen_action('next');
+		} else if (is_indian_unit(who)) {
+			// 10.412: Cherokee have no home settlement (home=0)
+			let home = indian_home_settlement(who);
+			if (home && has_friendly_allied_settlement(home) && !has_enemy_units(home))
+				gen_action_space(home);
+			else
+				gen_action('eliminate');
+		} else {
+			let from = piece_space(who);
+			game.go_home.closest.forEach(gen_action_space);
+			if (from in game.go_home.indians)
+				game.go_home.indians[from].forEach(gen_action_space);
+		}
+	},
+	space(s) {
+		push_undo();
+		let who = game.go_home.who;
+		if (is_indian_unit(who)) {
+			let from = piece_space(who);
+			if (!(s in game.go_home.indians))
+				game.go_home.indians[from] = [];
+			game.go_home.indians[from].push(s);
+		}
+		log(`${piece_name(who)} goes home to ${space_name(s)}.`);
+		move_piece_to(who, s);
+		resume_indians_and_leaders_go_home();
+	},
+	eliminate() {
+		push_undo();
+		eliminate_piece(game.go_home.who);
+		resume_indians_and_leaders_go_home();
+	},
+	next() {
+		clear_undo();
+		if (game.active === FRANCE) {
+			set_active(BRITAIN);
+			resume_indians_and_leaders_go_home();
+		} else {
+			set_active(FRANCE);
+			delete game.go_home;
+			goto_remove_raided_markers();
+		}
+	}
+}
+
+// LATE SEASON - REMOVE RAIDED MARKERS
+
+function goto_remove_raided_markers() {
+	// TODO
+	goto_winter_attrition();
+}
+
+// LATE SEASON - WINTER ATTRITION
+
+function goto_winter_attrition() {
+	// TODO
+	goto_victory_check();
+}
+
+// LATE SEASON - VICTORY CHECK
+
+function are_all_british_controlled_spaces(list) {
+	for (let i = 0; i < list.length; ++i) {
+		let s = list[i];
+		if (!is_british_controlled_space(s))
+			return false;
+	}
+	return true;
+}
+
+function are_all_british_controlled_spaces_unless_besieged(list) {
+	for (let i = 0; i < list.length; ++i) {
+		let s = list[i];
+		// TODO: 13.12 exception -- originally-British fortresses are friendly
+		if (!is_british_controlled_space(s))
+			return false;
+	}
+	return true;
+}
+
+function count_british_controlled_spaces(list) {
+	let n = 0;
+	for (let i = 0; i < list.length; ++i) {
+		let s = list[i];
+		if (is_british_controlled_space(s))
+			++n;
+	}
+	return n;
+}
+
+function goto_victory_check() {
+	if (are_all_british_controlled_spaces(fortresses) && are_all_british_controlled_spaces([NIAGARA, OHIO_FORKS]))
+		return goto_game_over(BRITAIN, "Sudden Death: The British control all fortresses, Niagara, and Ohio Forks.");
+	if (game.tracks.vp >= 11)
+		return goto_game_over(FRANCE, "Sudden Death: France has 11 or more VP.");
+	if (game.tracks.vp <= -11)
+		return goto_game_over(BRITAIN, "Sudden Death: Britain has 11 or more VP.");
+	if (game.tracks.year === 1760 && game.tracks.vp >= 8)
+		return goto_game_over(FRANCE, "Sudden Death: France has 8 or more VP in 1760.");
+	if (game.tracks.year === 1761 && game.tracks.vp >= 8)
+		return goto_game_over(FRANCE, "Sudden Death: France has 5 or more VP in 1761.");
+	if (game.tracks.year === game.tracks.end_year) {
+		if (game.tracks.year === 1759) {
+			if (are_all_british_controlled_spaces_unless_besieged(originally_british_fortresses) &&
+				count_british_controlled_spaces([QUEBEC, MONTREAL, NIAGARA, OHIO_FORKS]) >= 2)
+				return goto_game_over(BRITAIN, "Britain control all originally-British fortresses and two of Québec, Montréal, Niagara, and Ohio Forks.");
+			if (game.tracks.vp >= 1)
+				return goto_game_over(FRANCE, "France has at least 1 VP.");
+			if (game.tracks.vp <= -1)
+				return goto_game_over(BRITAIN, "Britain has at least 1 VP.");
+		}
+		if (game.tracks.year === 1762) {
+			if (game.tracks.vp >= 1)
+				return goto_game_over(FRANCE, "France has at least 1 VP.");
+			if (game.tracks.vp <= -5)
+				return goto_game_over(BRITAIN, "Britain has at least 5 VP.");
+		}
+		return goto_game_over(FRANCE, "Draw.");
+	} else {
+		game.tracks.year++;
+		start_year();
+	}
+}
+
+function goto_game_over(result, victory) {
+	log("");
+	log(victory);
+	game.state = 'game_over';
+	game.active = 'None';
+	game.result = result;
+	game.victory = victory;
 }
 
 // DEMOLITION
@@ -6244,7 +6437,7 @@ events.quiberon_bay = {
 			return true;
 		if (is_friendly_controlled_space(LOUISBOURG))
 			return true;
-		if (game.year > 1759)
+		if (game.tracks.year > 1759)
 			return true;
 		return false;
 	},
@@ -6382,7 +6575,7 @@ events.troop_transports_and_local_enlistments = {
 
 events.victories_in_germany_release_troops_and_finances_for_new_world = {
 	can_play() {
-		if (game.year <= 1755)
+		if (game.tracks.year <= 1755)
 			return false;
 		if (game.active === FRANCE) {
 			if (game.events.quiberon)
@@ -6750,7 +6943,7 @@ function find_unused_highland_unit() {
 events.highlanders = {
 	can_play() {
 		// TODO: check available ports
-		if (game.events.pitt || game.year > 1758)
+		if (game.events.pitt || game.tracks.year > 1758)
 			return true;
 		return false;
 	},
@@ -7512,15 +7705,8 @@ function load_game_state(state) {
 
 exports.resign = function (state, current) {
 	load_game_state(state);
-	if (game.state !== 'game_over') {
-		log("");
-		log(current + " resigned.");
-		game.active = current;
-		game.state = 'game_over';
-		game.victory = current + " resigned.";
-		game.result = enemy(current);
-		game.active = 'None';
-	}
+	if (game.state !== 'game_over')
+		goto_game_over(enemy(), current + " resigned.");
 	return state;
 }
 
