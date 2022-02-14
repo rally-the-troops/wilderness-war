@@ -16,11 +16,16 @@
 // features
 // TODO: track 'held'
 // TODO: battle VP awards
-// TODO: leaders alone - stop search in space
-// TODO: leaders alone - retreat
 // TODO: end of late season
+// TODO: french_regulars event played - montcalm not entered or dead separate state (merge DEAD/UNUSED consts)
 // TODO: trace supply
 // TODO: infiltration
+
+// check rules/implementation:
+// TODO: leaders alone - retreat (reinforcement events that place units)
+
+// GRAPHICS: badge for pool/dead leaders
+// GRAPHICS: tooltip for leader stack and strength
 
 const { spaces, pieces, cards } = require("./data");
 
@@ -1212,6 +1217,13 @@ function count_enemy_units_in_space(space) {
 	return n;
 }
 
+function has_unbesieged_enemy_leader(space) {
+	for (let p = first_enemy_leader; p <= last_enemy_leader; ++p)
+		if (is_piece_in_space(p, space) && !is_piece_inside(p))
+			return true;
+	return false;
+}
+
 function has_unbesieged_enemy_units(space) {
 	for (let p = first_enemy_unit; p <= last_enemy_unit; ++p)
 		if (is_piece_in_space(p, space) && !is_piece_inside(p))
@@ -1979,6 +1991,10 @@ function search_boat_move(who, start_space, start_cost, max_cost) {
 				n_cost = 18; // may not continue
 			}
 
+			// Stop when entering a space with a lone enemy leader(s) to force a retreat
+			if (!is_lone_ld && has_unbesieged_enemy_leader(next))
+				must_stop = true; // May continue after retreat
+
 			// No movement points left.
 			if (n_cost >= max_cost)
 				must_stop = true;
@@ -2060,6 +2076,10 @@ function search_land_move(who, start_space, start_cost, max_cost) {
 				// TODO: Infiltration
 				n_cost = 9; // may not continue
 			}
+
+			// Stop when entering a space with a lone enemy leader(s) to force a retreat
+			if (!is_lone_ld && has_unbesieged_enemy_leader(next))
+				must_stop = true; // May continue after retreat
 
 			// No movement points left.
 			if (n_cost >= max_cost)
@@ -3056,18 +3076,18 @@ function end_move_step(final) {
 		}
 		if (has_enemy_stockade(where)) {
 			if (force_has_drilled_troops(who)) {
-				capture_enemy_stockade(where)
+				capture_enemy_stockade(where);
 				if (can_play_massacre())
 					return goto_massacre('massacre_after_move');
 			}
 		}
-		resume_move();
 	} else if (final) {
 		game.move.start_cost = 99;
-		resume_move();
-	} else {
-		resume_move();
 	}
+	if (!is_lone_leader(who) && has_unbesieged_enemy_leader(where))
+		goto_retreat_lone_leader();
+	else
+		resume_move();
 }
 
 states.massacre_after_move = {
@@ -4476,6 +4496,7 @@ function can_defender_retreat_from(p, from) {
 	return can_retreat;
 }
 
+// TODO: auto-select pieces to retreat?
 states.retreat_defender = {
 	prompt() {
 		let from = battle_space();
@@ -4548,6 +4569,73 @@ states.retreat_defender_to = {
 function end_retreat() {
 	set_active(game.battle.attacker);
 	end_move_step(true);
+}
+
+function goto_retreat_lone_leader() {
+	clear_undo();
+	set_active(enemy());
+	game.state = 'retreat_lone_leader';
+}
+
+function pick_unbesieged_leader(s) {
+	for (let p = first_friendly_leader; p <= last_friendly_leader; ++p)
+		if (is_piece_in_space(p, s) && !is_piece_inside(p))
+			return p;
+	return 0;
+}
+
+states.retreat_lone_leader = {
+	prompt() {
+		let from = moving_piece_space();
+		let who = pick_unbesieged_leader(from);
+		view.prompt = `Retreat lone leader ${piece_name(who)} from ${space_name(from)}.`;
+		view.who = who;
+		let can_retreat = false;
+		if (game.active === BRITAIN && has_amphib(from)) {
+			for_each_british_controlled_port(to => {
+				can_retreat = true;
+				gen_action_space(to)
+			});
+		}
+		if (can_defender_retreat_inside(who, from)) {
+			can_retreat = true;
+			gen_action_space(from);
+		}
+		for_each_exit(from, to => {
+			if (can_defender_retreat_from_to(who, from, to)) {
+				can_retreat = true;
+				gen_action_space(to);
+			}
+		});
+		if (!can_retreat)
+			gen_action('eliminate');
+	},
+	eliminate() {
+		let from = moving_piece_space();
+		let who = pick_unbesieged_leader(from);
+		eliminate_piece(who);
+		resume_retreat_lone_leader(from);
+	},
+	space(to) {
+		let from = moving_piece_space();
+		let who = pick_unbesieged_leader(from);
+		if (from === to) {
+			log("retreats inside fortification");
+			set_force_inside(who);
+		} else {
+			log("retreats to " + space_name(to));
+			move_piece_to(who, to);
+		}
+		resume_retreat_lone_leader(from);
+	},
+}
+
+function resume_retreat_lone_leader(from) {
+	let who = pick_unbesieged_leader(from);
+	if (!who) {
+		set_active(enemy());
+		resume_move();
+	}
 }
 
 // SIEGE
