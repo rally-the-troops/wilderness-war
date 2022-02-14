@@ -1375,7 +1375,7 @@ function enemy_department_has_at_least_n_militia(where, n) {
 
 // Is a leader moving alone without a force.
 function is_lone_leader(who) {
-	return is_leader(who) && count_pieces_in_force(who) === 0;
+	return is_leader(who) && count_pieces_in_force(who) === 1;
 }
 
 // Is a single auxiliary unit (with or without leaders)
@@ -1802,7 +1802,7 @@ function list_intercept_spaces(is_lone_ld, is_lone_ax) {
 	if (is_lone_ld)
 		return intercept;
 
-	console.log("INTERCEPT SEARCH is_lone_ax=", is_lone_ax);
+	console.log("INTERCEPT SEARCH is_lone_ax", is_lone_ax, "is_lone_ld", is_lone_ld);
 
 	for (let from = first_space; from <= last_space; ++from) {
 		if (has_unbesieged_enemy_units(from)) {
@@ -2722,7 +2722,7 @@ function may_naval_move(who) {
 		return false;
 	if (game.active === FRANCE && game.no_fr_naval)
 		return false;
-	if (is_leader(who) && count_pieces_in_force(who) > 0)
+	if (is_leader(who) && count_pieces_in_force(who) > 1)
 		return cards[game.cards.current].activation === 3;
 	return true;
 }
