@@ -538,13 +538,16 @@ function deal_cards() {
 	log("Dealt " + fn + " cards to France.");
 	log("Dealt " + bn + " cards to Britain.");
 
-	while (fn > 0 && bn > 0) {
+	while (fn > 0 || bn > 0) {
+		let c;
 		if (fn > 0) {
-			game.France.hand.push(deal_card());
+			game.France.hand.push(c=deal_card());
+			log("DEAL", c, "to France");
 			--fn;
 		}
 		if (bn > 0) {
-			game.Britain.hand.push(deal_card());
+			game.Britain.hand.push(c=deal_card());
+			log("DEAL", c, "to Britain");
 			--bn;
 		}
 	}
@@ -2171,6 +2174,16 @@ function end_season() {
 	log(".h2 End Season");
 	log("");
 
+	if (game.Britain.hand.length > 0)
+		game.Britain.held = 1;
+	else
+		game.Britain.held = 0;
+
+	if (game.France.hand.length > 0)
+		game.France.held = 1;
+	else
+		game.France.held = 0;
+
 	delete game.events.french_regulars;
 	delete game.events.british_regulars;
 	delete player.passed;
@@ -2198,13 +2211,21 @@ function end_action_phase() {
 	clear_undo();
 	game.count = 0;
 
-	// TODO: skip if next player has no cards or passed
-	// TODO: end season
-	if (enemy_player.passed && player.passed)
-		return end_season();
-	if (!enemy_player.passed)
+	if (!enemy_player.passed && enemy_player.hand.length > 0) {
+		console.log("END ACTION PHASE - NEXT PLAYER");
 		set_active(enemy());
-	start_action_phase();
+		start_action_phase();
+		return;
+	}
+
+	if (!player.passed && player.hand.length > 0) {
+		console.log("END ACTION PHASE - SAME PLAYER");
+		start_action_phase();
+		return;
+	}
+
+	console.log("END ACTION PHASE - END SEASON");
+	end_season();
 }
 
 function can_play_event(card) {
