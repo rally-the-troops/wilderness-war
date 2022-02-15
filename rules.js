@@ -5285,15 +5285,19 @@ states.indians_and_leaders_go_home = {
 // LATE SEASON - REMOVE RAIDED MARKERS
 
 function goto_remove_raided_markers() {
-	log("");
-	log(`France removes ${game.France.raids.length} raided markers.`);
-	award_french_vp(Math.ceil(game.France.raids.length / 2));
-	game.France.raids = [];
+	if (game.France.raids.length > 0) {
+		log("");
+		log(`France removes ${game.France.raids.length} raided markers.`);
+		award_french_vp(Math.ceil(game.France.raids.length / 2));
+		game.France.raids = [];
+	}
 
-	log("");
-	log(`Britain removes ${game.Britain.raids.length} raided markers.`);
-	award_british_vp(Math.ceil(game.Britain.raids.length / 2));
-	game.Britain.raids = [];
+	if (game.Britain.raids.length > 0) {
+		log("");
+		log(`Britain removes ${game.Britain.raids.length} raided markers.`);
+		award_british_vp(Math.ceil(game.Britain.raids.length / 2));
+		game.Britain.raids = [];
+	}
 
 	goto_winter_attrition();
 }
@@ -5301,8 +5305,96 @@ function goto_remove_raided_markers() {
 // LATE SEASON - WINTER ATTRITION
 
 function goto_winter_attrition() {
-	// TODO
-	goto_victory_check();
+	set_active(FRANCE);
+	game.state = 'winter_attrition';
+	resume_winter_attrition();
+}
+
+function resume_winter_attrition() {
+	let done = true;
+	game.winter_attrition = {};
+	for (let s = 1; s < spaces.length; ++s) {
+		if (has_friendly_drilled_troops(s)) {
+			let safe = false;
+			if (is_originally_friendly(s))
+				safe = true;
+			if (has_friendly_fortress(s))
+				safe = true;
+			if (has_friendly_fort(s) || has_friendly_stockade(s))
+				if (count_friendly_units_in_space(s) <= 4)
+					safe = true;
+			let stack = { n: 0, dt: [] };
+			for_each_friendly_unit_in_space(s, p => {
+				if (is_drilled_troops(p)) {
+					if (is_piece_inside(p) || !safe) {
+						stack.dt.push(p);
+						if (is_unit_reduced(p))
+							stack.n++;
+					}
+				}
+			});
+			if (stack.dt.length > 0) {
+				// Never remove the last friendly step in a space.
+				if (stack.n !== 1 || count_friendly_units_in_space(s) !== 1) {
+					stack.n = Math.ceil(stack.n / 2);
+					game.winter_attrition[s] = stack;
+					done = false;
+				}
+			}
+		}
+	}
+	if (done)
+		end_winter_attrition();
+}
+
+function end_winter_attrition() {
+	clear_undo();
+	if (game.active === FRANCE) {
+		set_active(BRITAIN);
+		resume_winter_attrition();
+	} else {
+		set_active(FRANCE);
+		goto_victory_check();
+	}
+}
+
+states.winter_attrition = {
+	prompt() {
+		let done = true;
+		for (let s in game.winter_attrition) {
+			let stack = game.winter_attrition[s];
+			for (let p of stack.dt) {
+				if (is_unit_reduced(p)) {
+					if (stack.n > 0) {
+						done = false;
+						gen_action_piece(p);
+					}
+				} else {
+					if (stack.n === 0) {
+						done = false;
+						gen_action_piece(p);
+					}
+				}
+			}
+		}
+		if (done) {
+			view.prompt = "Winter Attrition \u2014 done.";
+			gen_action_next();
+		} else {
+			view.prompt = "Winter Attrition.";
+		}
+	},
+	piece(p) {
+		let stack = game.winter_attrition[piece_space(p)];
+		push_undo();
+		if (is_unit_reduced(p))
+			stack.n--;
+		reduce_unit(p);
+		remove_from_array(stack.dt, p);
+	},
+	next() {
+		end_winter_attrition();
+	}
 }
 
 // LATE SEASON - VICTORY CHECK
