@@ -2317,12 +2317,11 @@ states.action_phase = {
 			gen_card_menu(player.hand[i]);
 		if (player.hand.length === 1 && !player.held)
 			gen_action_pass();
-		gen_action('demolish');
+		gen_action_demolish();
 	},
-	demolish() {
-		push_undo();
-		game.state = 'demolish_before_play';
-	},
+	demolish_fort: goto_demolish_fort,
+	demolish_stockade: goto_demolish_stockade,
+	demolish_fieldworks: goto_demolish_fieldworks,
 	play_event(card) {
 		push_undo();
 		player.did_construct = 0;
@@ -2914,7 +2913,7 @@ states.move = {
 			}
 		}
 		gen_action_next();
-		gen_action('demolish');
+		gen_action_demolish();
 		if (game.move.cost) {
 			for (let space_id in game.move.cost) {
 				space_id = space_id | 0;
@@ -2995,10 +2994,9 @@ states.move = {
 	assault() {
 		goto_assault(moving_piece_space());
 	},
-	demolish() {
-		push_undo();
-		game.state = 'demolish_during_move';
-	},
+	demolish_fort: goto_demolish_fort,
+	demolish_stockade: goto_demolish_stockade,
+	demolish_fieldworks: goto_demolish_fieldworks,
 	next() {
 		end_move();
 	},
@@ -5337,48 +5335,96 @@ function goto_game_over(result, victory) {
 
 // DEMOLITION
 
-function demolish(s) {
-	if (has_fieldworks(s)) {
-		remove_fieldworks(s);
-	} else if (has_friendly_stockade(s)) {
-		log(`Demolishes stockade at ${space_name(s)}.`);
-		remove_friendly_stockade(s);
-	} else if (has_friendly_fort_uc(s)) {
-		log(`Demolishes fort U/C at ${space_name(s)}.`);
-		remove_friendly_fort_uc(s);
-	} else if (has_friendly_fort(s)) {
-		log(`Demolishes fort at ${space_name(s)}.`);
-		award_vp(-1);
-		remove_friendly_fort(s);
+function gen_action_demolish() {
+	for (let s of player.forts) {
+		if (is_space_unbesieged(s)) {
+			gen_action('demolish_fort');
+			break;
+		}
+	}
+	if (player.forts_uc.length > 0) {
+		gen_action('demolish_fort');
+	}
+	if (player.stockades.length > 0) {
+		gen_action('demolish_stockade');
+	}
+	for (let s of game.fieldworks) {
+		if (is_friendly_controlled_space(s) || has_unbesieged_friendly_units(s)) {
+			gen_action('demolish_fieldworks');
+			break;
+		}
 	}
 }
 
-function demolish_prompt() {
-	view.prompt = "You may demolish any friendly unbesieged fortification."
-	for (let s of game.fieldworks)
-		if (is_friendly_controlled_space(s) || has_unbesieged_friendly_units(s))
-			gen_action_space(s);
-	for (let s of player.stockades)
-		if (is_space_unbesieged(s))
-			gen_action_space(s);
-	for (let s of player.forts_uc)
-		if (is_space_unbesieged(s))
-			gen_action_space(s);
-	for (let s of player.forts)
-		if (is_space_unbesieged(s))
-			gen_action_space(s);
+function goto_demolish_fort() {
+	push_undo();
+	game.demolish_state = game.state;
+	game.state = 'demolish_fort';
 }
 
-states.demolish_before_play = {
-	prompt: demolish_prompt,
-	space(s) { demolish(s); game.state = 'action_phase'; },
-	next() { game.state = 'action_phase'; }
+function goto_demolish_stockade() {
+	push_undo();
+	game.demolish_state = game.state;
+	game.state = 'demolish_stockade';
 }
 
-states.demolish_during_move = {
-	prompt: demolish_prompt,
-	space(s) { demolish(s); game.state = 'move'; },
-	next() { game.state = 'move'; }
+function goto_demolish_fieldworks() {
+	push_undo();
+	game.demolish_state = game.state;
+	game.state = 'demolish_fieldworks';
+}
+
+function end_demolish() {
+	game.state = game.demolish_state;
+	delete game.demolish_state;
+}
+
+states.demolish_fort = {
+	prompt() {
+		view.prompt = "You may demolish any friendly fort.";
+		for (let s of player.forts)
+			if (is_space_unbesieged(s))
+				gen_action_space(s);
+		for (let s of player.forts_uc)
+			gen_action_space(s);
+	},
+	space(s) {
+		if (has_friendly_fort_uc(s)) {
+			log(`Demolishes fort U/C at ${space_name(s)}.`);
+			remove_friendly_fort_uc(s);
+		} else if (has_friendly_fort(s)) {
+			log(`Demolishes fort at ${space_name(s)}.`);
+			award_vp(-1);
+			remove_friendly_fort(s);
+		}
+		end_demolish();
+	}
+}
+
+states.demolish_stockade = {
+	prompt() {
+		view.prompt = "You may demolish any friendly stockades.";
+		for (let s of player.stockades)
+			gen_action_space(s);
+	},
+	space(s) {
+		log(`Demolishes stockade at ${space_name(s)}.`);
+		remove_friendly_stockade(s);
+		end_demolish();
+	}
+}
+
+states.demolish_fieldworks = {
+	prompt() {
+		view.prompt = "You may demolish any friendly fieldworks.";
+		for (let s of game.fieldworks)
+			if (is_friendly_controlled_space(s) || has_unbesieged_friendly_units(s))
+				gen_action_space(s);
+	},
+	space(s) {
+		remove_fieldworks(s);
+		end_demolish();
+	}
 }
 
 // CONSTRUCTION
