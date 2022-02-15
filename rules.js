@@ -20,7 +20,6 @@
 // put leaders in pool in their own box?
 // TODO: trace supply
 // TODO: infiltration
-// TODO: only 2 british 7 leaders
 
 // TODO: campaign and stacking - define forces first, then move
 // TODO: flat force definition - use sum of leader command rating
@@ -29,6 +28,8 @@
 
 // TODO: 10.413 leaders and coureurs may follow indians home
 // TODO: leaders alone - retreat (reinforcement events that place units)
+
+// TODO: remove old 7 command leader(s) before placing reinforcements
 
 // GRAPHICS: badge for pool/dead leaders
 // GRAPHICS: tooltip for leader stack and strength
@@ -403,6 +404,10 @@ define_indian_settlement("Pays d'en Haut", "Potawatomi");
 define_indian_settlement("Pays d'en Haut", "Huron");
 
 const JOHNSON = find_leader("Johnson");
+const ABERCROMBY = find_leader("Abercromby");
+const AMHERST = find_leader("Amherst");
+const BRADDOCK = find_leader("Braddock");
+const LOUDOUN = find_leader("Loudoun");
 const MONTCALM = find_leader("Montcalm");
 const LEVIS = find_leader("Lévis");
 const BOUGAINVILLE = find_leader("Bougainville");
@@ -559,6 +564,20 @@ function draw_leader_from_pool() {
 	if (game.pieces.pool.length > 0) {
 		let i = random(game.pieces.pool.length);
 		let p = game.pieces.pool[i];
+
+		// 5.55 If both on-map 7 leaders are besieged, return the third to the pool without substitution.
+		if (is_seven_command_leader(p)) {
+			let n = 0;
+			if (is_piece_on_map(ABERCROMBY) && is_piece_inside(ABERCROMBY)) ++n;
+			if (is_piece_on_map(AMHERST) && is_piece_inside(AMHERST)) ++n;
+			if (is_piece_on_map(BRADDOCK) && is_piece_inside(BRADDOCK)) ++n;
+			if (is_piece_on_map(LOUDOUN) && is_piece_inside(LOUDOUN)) ++n;
+			if (n >= 2) {
+				log(`${piece_name(p)} returned to pool.`);
+				return 0;
+			}
+		}
+
 		game.pieces.pool.splice(i, 1);
 		move_piece_to(p, leader_box(p));
 		return p;
@@ -1683,8 +1702,23 @@ function move_piece_to(who, to) {
 	game.pieces.location[who] = to;
 }
 
+function is_seven_command_leader(who) {
+	return who === ABERCROMBY || who === AMHERST || who === BRADDOCK || who === LOUDOUN;
+}
+
 function place_piece(who, to) {
 	log(`${piece_name(who)} placed at ${space_name(to)}.`);
+
+	// remember last placed 7-command leader(s)
+	if (is_seven_command_leader(who)) {
+		if (count_7_command_leaders_in_play() >= 2) {
+			if (game.seven)
+				game.seven.push(who);
+			else
+				game.seven = [ who ];
+		}
+	}
+
 	game.pieces.location[who] = to;
 	if (is_indian_unit(who)) {
 		let home = indian_home_settlement(who);
@@ -5693,6 +5727,52 @@ states.construct_forts = {
 	},
 }
 
+// MAX TWO 7 COMMAND LEADERS
+
+function count_7_command_leaders_in_play() {
+	let n = 0;
+	if (is_piece_on_map(ABERCROMBY)) ++n;
+	if (is_piece_on_map(AMHERST)) ++n;
+	if (is_piece_on_map(BRADDOCK)) ++n;
+	if (is_piece_on_map(LOUDOUN)) ++n;
+	return n;
+}
+
+function end_british_reinforcement() {
+	delete game.leader;
+	if (count_7_command_leaders_in_play() > 2) {
+		game.state = 'max_two_7_command_leaders_in_play'
+	} else {
+		delete game.seven;
+		end_action_phase();
+	}
+}
+
+states.max_two_7_command_leaders_in_play = {
+	prompt() {
+		if (count_7_command_leaders_in_play() > 2) {
+			view.prompt = `Remove a 7 command leader from play.`;
+			if (!game.seven.includes(ABERCROMBY)) gen_action_piece(ABERCROMBY);
+			if (!game.seven.includes(AMHERST)) gen_action_piece(AMHERST);
+			if (!game.seven.includes(BRADDOCK)) gen_action_piece(BRADDOCK);
+			if (!game.seven.includes(LOUDOUN)) gen_action_piece(LOUDOUN);
+		} else {
+			view.prompt = `Remove one 7 command leader from play \u2014 done.`;
+			gen_action_next();
+		}
+	},
+	piece(p) {
+		push_undo();
+		isolate_piece_from_force(p);
+		eliminate_piece(p);
+		delete game.seven;
+	},
+	next() {
+		end_action_phase();
+	}
+}
+
+
 // EVENTS
 
 function can_play_massacre() {
@@ -7098,8 +7178,7 @@ states.light_infantry = {
 		}
 	},
 	next() {
-		delete game.leader;
-		end_action_phase();
+		end_british_reinforcement();
 	},
 }
 
@@ -7159,8 +7238,7 @@ states.british_regulars = {
 	},
 	next() {
 		game.events.british_regulars = 1;
-		delete game.leader;
-		end_action_phase();
+		end_british_reinforcement();
 	},
 }
 
@@ -7232,8 +7310,7 @@ states.highlanders = {
 		}
 	},
 	next() {
-		delete game.leader;
-		end_action_phase();
+		end_british_reinforcement();
 	},
 }
 
@@ -7296,8 +7373,7 @@ states.royal_americans = {
 		}
 	},
 	next() {
-		delete game.leader;
-		end_action_phase();
+		end_british_reinforcement();
 	},
 }
 
