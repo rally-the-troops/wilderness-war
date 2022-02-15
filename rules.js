@@ -17,17 +17,16 @@
 
 // features
 // TODO: french_regulars event played - montcalm not entered or dead separate state (merge DEAD/UNUSED consts)
+// put leaders in pool in their own box?
 // TODO: battle VP awards
-// TODO: winter attrition
 // TODO: trace supply
 // TODO: infiltration
+// TODO: only 2 british 7 leaders
 
 // TODO: campaign and stacking - define forces first, then move
 // TODO: flat force definition - use sum of leader command rating
 //    (only allow dropping subordinate if stacking limit allows)
 // TODO: indians and raiders go home - new process (coureurs and leaders follow indians, etc)
-
-// TODO: demolish separate fort/stockade/fieldworks states
 
 // TODO: 10.413 leaders and coureurs may follow indians home
 // TODO: leaders alone - retreat (reinforcement events that place units)
@@ -570,6 +569,22 @@ function draw_leader_from_pool() {
 
 function is_card_available(c) {
 	return !game.cards.discarded.includes(c) && !game.cards.removed.includes(c);
+}
+
+function is_enemy_card_available(c) {
+	return enemy_player.hand.length > 0 && is_card_available(c);
+}
+
+function is_friendly_card_available(c) {
+	return player.hand.length > 0 && is_card_available(c);
+}
+
+function is_card_available_for_attacker(c) {
+	return game[game.battle.attacker].hand.length > 0 && is_card_available(c);
+}
+
+function is_card_available_for_defender(c) {
+	return game[game.battle.defender].hand.length > 0 && is_card_available(c);
 }
 
 // ITERATORS
@@ -2449,6 +2464,7 @@ states.activate_force = {
 		goto_pick_move();
 	},
 	pass() {
+		delete game.activation;
 		end_action_phase();
 	},
 }
@@ -2804,7 +2820,7 @@ function max_movement_cost() {
 function resume_move() {
 	// Interrupt for Foul Weather response at first opportunity to move.
 	if (game.move.start_cost < 0) {
-		if (is_card_available(FOUL_WEATHER)) {
+		if (is_enemy_card_available(FOUL_WEATHER)) {
 			set_active(enemy());
 			game.state = 'foul_weather';
 			return;
@@ -2969,7 +2985,7 @@ states.move = {
 		move_piece_to(who, to);
 		lift_sieges_and_amphib();
 
-		if (is_card_available(LAKE_SCHOONER)) {
+		if (is_enemy_card_available(LAKE_SCHOONER)) {
 			if (has_enemy_fortifications(to) && is_lake_connection(from, to)) {
 				clear_undo();
 				set_active(enemy());
@@ -3005,10 +3021,13 @@ states.move = {
 states.foul_weather = {
 	prompt() {
 		let p = moving_piece();
-		view.prompt = `${piece_name(p)} is about to move. You may play "Foul Weather" if available.`;
 		view.who = p;
-		if (player.hand.includes(FOUL_WEATHER))
+		if (player.hand.includes(FOUL_WEATHER)) {
+			view.prompt = `${piece_name(p)} is about to move. You may play "Foul Weather".`;
 			gen_action('play_event', FOUL_WEATHER);
+		} else {
+			view.prompt = `${piece_name(p)} is about to move. You don't have "Foul Weather".`;
+		}
 		gen_action_pass();
 	},
 	play_event(c) {
@@ -3030,11 +3049,14 @@ states.lake_schooner = {
 		let p = moving_piece();
 		let to = piece_space(p);
 		let from = game.move.path[to];
-		view.prompt = `${piece_name(p)} moved from ${space_name(from)} to ${space_name(to)}. You may play "Lake Schooner" if available.`;
 		view.who = p;
 		view.where = from;
-		if (player.hand.includes(LAKE_SCHOONER))
+		if (player.hand.includes(LAKE_SCHOONER)) {
+			view.prompt = `${piece_name(p)} moved from ${space_name(from)} to ${space_name(to)}. You may play "Lake Schooner".`;
 			gen_action('play_event', LAKE_SCHOONER);
+		} else {
+			view.prompt = `${piece_name(p)} moved from ${space_name(from)} to ${space_name(to)}. You don't have "Lake Schooner".`;
+		}
 		gen_action_pass();
 	},
 	play_event(c) {
@@ -3714,7 +3736,7 @@ function has_light_infantry_in_defense() {
 
 function can_play_ambush_in_attack() {
 	let s = game.battle.where;
-	if (is_card_available(AMBUSH_1) || is_card_available(AMBUSH_2)) {
+	if (is_card_available_for_attacker(AMBUSH_1) || is_card_available_for_attacker(AMBUSH_2)) {
 		let n = count_auxiliary_units_in_attack();
 		if (is_wilderness_or_mountain(s) && n > 0) {
 			if (has_enemy_fort(s) || has_light_infantry_in_defense(s) || count_auxiliary_units_in_defense() > n)
@@ -3727,7 +3749,7 @@ function can_play_ambush_in_attack() {
 
 function can_play_ambush_in_defense() {
 	let s = game.battle.where;
-	if (is_card_available(AMBUSH_1) || is_card_available(AMBUSH_2)) {
+	if (is_card_available_for_defender(AMBUSH_1) || is_card_available_for_defender(AMBUSH_2)) {
 		let n = count_auxiliary_units_in_defense();
 		if (is_wilderness_or_mountain(s) && n > 0) {
 			if (has_enemy_fort(s) || has_light_infantry_in_attack(s) || count_auxiliary_units_in_attack() > n)
@@ -3739,13 +3761,13 @@ function can_play_ambush_in_defense() {
 }
 
 function can_play_coehorns_in_attack() {
-	if (is_card_available(COEHORNS))
+	if (is_card_available_for_attacker(COEHORNS))
 		return game.battle.assault && has_friendly_regulars(game.battle.where);
 	return false;
 }
 
 function can_play_fieldworks_in_attack() {
-	if (is_card_available(FIELDWORKS_1) || is_card_available(FIELDWORKS_2)) {
+	if (is_card_available_for_attacker(FIELDWORKS_1) || is_card_available_for_attacker(FIELDWORKS_2)) {
 		if (has_fieldworks(game.battle.where)) {
 			if (game.battle.assault)
 				return has_friendly_drilled_troops(game.battle.where);
@@ -3757,7 +3779,7 @@ function can_play_fieldworks_in_attack() {
 }
 
 function can_play_fieldworks_in_defense() {
-	if (is_card_available(FIELDWORKS_1) || is_card_available(FIELDWORKS_2)) {
+	if (is_card_available_for_defender(FIELDWORKS_1) || is_card_available_for_defender(FIELDWORKS_2)) {
 		if (!has_fieldworks(game.battle.where)) {
 			return has_friendly_drilled_troops(game.battle.where);
 		}
@@ -4700,7 +4722,7 @@ function can_moving_force_siege_or_assault() {
 }
 
 function can_play_coehorns_in_siege(space) {
-	return is_card_available(COEHORNS) && has_friendly_regulars(space);
+	return is_friendly_card_available(COEHORNS) && has_friendly_regulars(space);
 }
 
 function goto_siege(space) {
@@ -4714,9 +4736,12 @@ function goto_siege(space) {
 
 states.siege_coehorns_attacker = {
 	prompt() {
-		view.prompt = `Siege in ${space_name(game.siege_where)}. You may play "Coehorns & Howitzers" if available.`;
-		if (player.hand.includes(COEHORNS))
+		if (player.hand.includes(COEHORNS)) {
+			view.prompt = `Siege in ${space_name(game.siege_where)}. You may play "Coehorns & Howitzers".`;
 			gen_action('play_event', COEHORNS);
+		} else {
+			view.prompt = `Siege in ${space_name(game.siege_where)}. You don't have "Coehorns & Howitzers".`;
+		}
 		gen_action_pass();
 	},
 	play_event(c) {
@@ -4739,9 +4764,12 @@ function end_siege_coehorns_attacker() {
 
 states.siege_coehorns_defender = {
 	prompt() {
-		view.prompt = `Siege in ${space_name(game.siege_where)}. You may play "Coehorns & Howitzers" if available.`;
-		if (player.hand.includes(COEHORNS))
+		if (player.hand.includes(COEHORNS)) {
+			view.prompt = `Siege in ${space_name(game.siege_where)}. You may play "Coehorns & Howitzers".`;
 			gen_action('play_event', COEHORNS);
+		} else {
+			view.prompt = `Siege in ${space_name(game.siege_where)}. You don't have "Coehorns & Howitzers".`;
+		}
 		gen_action_pass();
 	},
 	play_event(c) {
@@ -4756,7 +4784,7 @@ states.siege_coehorns_defender = {
 
 function end_siege_coehorns_defender() {
 	set_active(enemy());
-	if (is_card_available(SURRENDER)) {
+	if (is_friendly_card_available(SURRENDER)) {
 		if (game.siege_where === LOUISBOURG && game.sieges[LOUISBOURG] !== 1 && game.sieges[LOUISBOURG] !== 2)
 			resolve_siege();
 		else
@@ -4768,9 +4796,12 @@ function end_siege_coehorns_defender() {
 
 states.siege_surrender = {
 	prompt() {
-		view.prompt = `Siege in ${space_name(game.siege_where)}. You may play "Surrender!" if available.`;
-		if (player.hand.includes(SURRENDER))
+		if (player.hand.includes(SURRENDER)) {
+			view.prompt = `Siege in ${space_name(game.siege_where)}. You may play "Surrender!".`;
 			gen_action('play_event', SURRENDER);
+		} else {
+			view.prompt = `Siege in ${space_name(game.siege_where)}. You don't have "Surrender!".`;
+		}
 		gen_action_pass();
 	},
 	play_event(c) {
@@ -4984,7 +5015,7 @@ const RAID_TABLE = {
 };
 
 function goto_raid_events() {
-	if (is_card_available(BLOCKHOUSES)) {
+	if (is_enemy_card_available(BLOCKHOUSES)) {
 		set_active(enemy());
 		game.state = 'raid_blockhouses';
 	} else {
@@ -4994,9 +5025,12 @@ function goto_raid_events() {
 
 states.raid_blockhouses = {
 	prompt() {
-		view.prompt = `Raid in ${space_name(game.raid.where)}. You may play "Blockhouses" if available.`;
-		if (player.hand.includes(BLOCKHOUSES))
+		if (player.hand.includes(BLOCKHOUSES)) {
+			view.prompt = `Raid in ${space_name(game.raid.where)}. You may play "Blockhouses".`;
 			gen_action('play_event', BLOCKHOUSES);
+		} else {
+			view.prompt = `Raid in ${space_name(game.raid.where)}. You don't have "Blockhouses".`;
+		}
 		gen_action_pass();
 	},
 	play_event(c) {
@@ -5381,7 +5415,7 @@ function end_demolish() {
 
 states.demolish_fort = {
 	prompt() {
-		view.prompt = "You may demolish any friendly fort.";
+		view.prompt = "Demolish an unbesieged friendly fort.";
 		for (let s of player.forts)
 			if (is_space_unbesieged(s))
 				gen_action_space(s);
@@ -5403,7 +5437,7 @@ states.demolish_fort = {
 
 states.demolish_stockade = {
 	prompt() {
-		view.prompt = "You may demolish any friendly stockades.";
+		view.prompt = "Demolish a friendly stockade.";
 		for (let s of player.stockades)
 			gen_action_space(s);
 	},
@@ -5416,7 +5450,7 @@ states.demolish_stockade = {
 
 states.demolish_fieldworks = {
 	prompt() {
-		view.prompt = "You may demolish any friendly fieldworks.";
+		view.prompt = "Demolish friendly fieldworks.";
 		for (let s of game.fieldworks)
 			if (is_friendly_controlled_space(s) || has_unbesieged_friendly_units(s))
 				gen_action_space(s);
@@ -5527,7 +5561,7 @@ states.construct_forts = {
 
 function can_play_massacre() {
 	let s = moving_piece_space();
-	if (is_card_available(MASSACRE))
+	if (is_enemy_card_available(MASSACRE))
 		return has_friendly_indians(s) && has_friendly_drilled_troops(s);
 	return false;
 }
@@ -5708,7 +5742,7 @@ function is_indian_alliance(p, alliance) {
 
 states.indian_alliance = {
 	prompt() {
-		view.prompt = `Place at indians at their settlements or restore to full (${game.count} left).`;
+		view.prompt = `Place indians at their settlements or restore to full (${game.count} left).`;
 		let can_place = false;
 		for (let a of game.alliance) {
 			if (game.count >= 1) {
