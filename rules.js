@@ -18,7 +18,6 @@
 // features
 // TODO: french_regulars event played - montcalm not entered or dead separate state (merge DEAD/UNUSED consts)
 // put leaders in pool in their own box?
-// TODO: battle VP awards
 // TODO: trace supply
 // TODO: infiltration
 // TODO: only 2 british 7 leaders
@@ -3598,7 +3597,31 @@ function goto_battle(where, is_assault=false, is_breaking_siege=false) {
 		defender: enemy(),
 		assault: is_assault,
 		breaking_siege: is_breaking_siege,
+		atk_worth_vp: 0,
+		def_worth_vp: 0,
 	};
+
+	if (!game.battle.assault) {
+		let n_atk = 0;
+		for_each_attacking_piece(p => {
+			if (is_unit(p))
+				++n_atk;
+			if (is_regulars_unit(p))
+				game.battle.atk_worth_vp = 1;
+		});
+		if (n_atk > 4)
+			game.battle.atk_worth_vp = 1;
+
+		let n_def = 0;
+		for_each_defending_piece(p => {
+			if (is_unit(p))
+				++n_def;
+			if (is_regulars_unit(p))
+				game.battle.def_worth_vp = 1;
+		});
+		if (n_def > 4)
+			game.battle.def_worth_vp = 1;
+	}
 
 	if (game.raid)
 		game.raid.battle = where;
@@ -4331,9 +4354,18 @@ function determine_winner_battle() {
 	else
 		victor = game.battle.defender;
 
-	// TODO: 7.64 leaders retreat if all units lost
-
-	// TODO: 7.8: Award vp
+	if (victor === game.battle.attacker && game.battle.atk_worth_vp) {
+		if (victor === FRANCE)
+			award_french_vp(1);
+		else
+			award_british_vp(1);
+	}
+	if (victor === game.battle.defender && game.battle.def_worth_vp) {
+		if (victor === FRANCE)
+			award_french_vp(1);
+		else
+			award_british_vp(1);
+	}
 
 	return_militia(game.battle.where);
 
