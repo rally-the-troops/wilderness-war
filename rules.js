@@ -6922,7 +6922,7 @@ events.light_infantry = {
 	play() {
 		clear_undo(); // drawing leader from pool
 		game.state = 'light_infantry';
-		game.count = 1;
+		game.count = 2;
 		game.leader = draw_leader_from_pool();
 	}
 }
