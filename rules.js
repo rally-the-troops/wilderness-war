@@ -2231,12 +2231,7 @@ function end_late_season() {
 	log("");
 	delete game.events.no_amphib;
 	delete game.events.blockhouses;
-	set_active(FRANCE);
-	game.state = 'indians_and_leaders_go_home';
-	game.go_home = {
-		indians: {}
-	};
-	resume_indians_and_leaders_go_home();
+	goto_indians_and_leaders_go_home();
 }
 
 function start_action_phase() {
@@ -5187,6 +5182,37 @@ states.raiders_go_home = {
 
 // LATE SEASON - INDIANS AND LEADERS GO HOME
 
+function goto_indians_and_leaders_go_home() {
+	set_active(FRANCE);
+	game.state = 'indians_and_leaders_go_home';
+	game.go_home = {
+		indians: {}
+	};
+	resume_indians_and_leaders_go_home();
+	if (!game.go_home.who)
+		end_indians_and_leaders_go_home();
+}
+
+function resume_indians_and_leaders_go_home() {
+	let who = game.go_home.who = next_indian_and_leader_to_go_home();
+	if (who && is_leader(who))
+		game.go_home.closest = find_closest_friendly_unbesieged_fortification(piece_space(who));
+}
+
+function end_indians_and_leaders_go_home() {
+	clear_undo();
+	if (game.active === FRANCE) {
+		set_active(BRITAIN);
+		resume_indians_and_leaders_go_home();
+		if (!game.go_home.who)
+			end_indians_and_leaders_go_home();
+	} else {
+		set_active(FRANCE);
+		delete game.go_home;
+		goto_remove_raided_markers();
+	}
+}
+
 function next_indian_and_leader_to_go_home() {
 	// Indians go home first
 	for (let p = first_friendly_unit; p <= last_friendly_unit; ++p) {
@@ -5205,12 +5231,6 @@ function next_indian_and_leader_to_go_home() {
 				return p;
 		}
 	}
-}
-
-function resume_indians_and_leaders_go_home() {
-	let who = game.go_home.who = next_indian_and_leader_to_go_home();
-	if (who && is_leader(who))
-		game.go_home.closest = find_closest_friendly_unbesieged_fortification(piece_space(who));
 }
 
 states.indians_and_leaders_go_home = {
@@ -5258,15 +5278,7 @@ states.indians_and_leaders_go_home = {
 		resume_indians_and_leaders_go_home();
 	},
 	next() {
-		clear_undo();
-		if (game.active === FRANCE) {
-			set_active(BRITAIN);
-			resume_indians_and_leaders_go_home();
-		} else {
-			set_active(FRANCE);
-			delete game.go_home;
-			goto_remove_raided_markers();
-		}
+		end_indians_and_leaders_go_home();
 	}
 }
 
