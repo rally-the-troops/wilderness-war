@@ -16,12 +16,18 @@
 // naming: France/Britain or "The French"/"The British"
 
 // features
-// TODO: track 'held'
-// TODO: battle VP awards
-// TODO: end of late season
 // TODO: french_regulars event played - montcalm not entered or dead separate state (merge DEAD/UNUSED consts)
+// TODO: battle VP awards
+// TODO: winter attrition
 // TODO: trace supply
 // TODO: infiltration
+
+// TODO: campaign and stacking - define forces first, then move
+// TODO: flat force definition - use sum of leader command rating
+//    (only allow dropping subordinate if stacking limit allows)
+// TODO: indians and raiders go home - new process (coureurs and leaders follow indians, etc)
+
+// TODO: demolish separate fort/stockade/fieldworks states
 
 // TODO: 10.413 leaders and coureurs may follow indians home
 // TODO: leaders alone - retreat (reinforcement events that place units)
@@ -5235,7 +5241,16 @@ states.indians_and_leaders_go_home = {
 // LATE SEASON - REMOVE RAIDED MARKERS
 
 function goto_remove_raided_markers() {
-	// TODO
+	log("");
+	log(`France removes ${game.France.raids.length} raided markers.`);
+	award_french_vp(Math.ceil(game.France.raids.length / 2));
+	game.France.raids = [];
+
+	log("");
+	log(`Britain removes ${game.Britain.raids.length} raided markers.`);
+	award_british_vp(Math.ceil(game.Britain.raids.length / 2));
+	game.Britain.raids = [];
+
 	goto_winter_attrition();
 }
 
