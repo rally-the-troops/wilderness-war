@@ -22,6 +22,12 @@
 
 // FEATURES
 // TODO: infiltration
+//	infiltrator must retreat after battle of fort/fortress space (per 6.712)
+//		may not stop on fort/fortress (despite rule 6.64)
+//		defenders may not retreat inside
+// STEP 1 - only check if 1 MP left (instead of searching) rather than enough MP to reach non-infiltration
+
+// 5.36 -- unit or leader may not be activated if it participated in combat or assault - remove from activation list
 
 // BUGS
 // TODO: 13.12 victory check exception -- originally-British fortresses are friendly
@@ -1180,6 +1186,13 @@ function has_unbesieged_friendly_fortress(space) {
 	return is_space_unbesieged(space) && has_friendly_fortress(space);
 }
 
+function has_friendly_pieces(space) {
+	for (let p = first_friendly_piece; p <= last_friendly_piece; ++p)
+		if (is_piece_in_space(p, space))
+			return true;
+	return false;
+}
+
 function has_friendly_units(space) {
 	for (let p = first_friendly_unit; p <= last_friendly_unit; ++p)
 		if (is_piece_in_space(p, space))
@@ -2079,6 +2092,7 @@ function search_boat_move(who, start_space, start_cost, max_cost) {
 	move_path[start_space] = null;
 
 	const is_lone_ld = is_lone_leader(who);
+	const is_lone_ax = is_lone_auxiliary(who);
 	const has_dt = force_has_drilled_troops(who);
 
 	while (queue.length > 0) {
@@ -2089,6 +2103,9 @@ function search_boat_move(who, start_space, start_cost, max_cost) {
 			let n_ff = has_friendly_fortifications(next) || is_originally_friendly(next);
 			let n_cost = c_cost + 2;
 			let must_stop = false;
+
+			// TODO: check actual MP required to reach safe space
+			let may_infiltrate = is_lone_ax && n_cost < max_cost;
 
 			if (connection === 'land') {
 				if (c_ff && n_ff && (c_cost & 1) === 0) {
@@ -2106,20 +2123,26 @@ function search_boat_move(who, start_space, start_cost, max_cost) {
 			if (has_unbesieged_enemy_units(next)) {
 				if (is_lone_ld)
 					return; // Lone leaders can never enter an enemy occupied space
-				// TODO: Infiltration
+				if (may_infiltrate)
+					game.move.infiltrate[next] = 1;
 				must_stop = true; // May continue if over-run
 			}
 
 			if (has_enemy_stockade(next)) {
-				// TODO: Infiltration
-				n_cost = 18; // may not continue
+				if (may_infiltrate)
+					game.move.infiltrate[next] = 1;
+				else
+					n_cost = 18; // may not continue
 			}
 
 			if (has_unbesieged_enemy_fort_or_fortress(next)) {
-				if (!has_dt)
-					return; // Must have Drilled Troops to enter an enemy fort or fortress space.
-				// TODO: Infiltration
-				n_cost = 18; // may not continue
+				if (may_infiltrate) {
+					game.move.infiltrate[next] = 1;
+				} else {
+					if (!has_dt)
+						return; // Must have Drilled Troops to enter an enemy fort or fortress space.
+					n_cost = 18; // may not continue
+				}
 			}
 
 			// Stop when entering a space with a lone enemy leader(s) to force a retreat
@@ -2156,6 +2179,7 @@ function search_land_move(who, start_space, start_cost, max_cost) {
 	move_path[start_space] = null;
 
 	const is_lone_ld = is_lone_leader(who);
+	const is_lone_ax = is_lone_auxiliary(who);
 	const has_dt = force_has_drilled_troops(who);
 	const has_ax = force_has_auxiliary_unit(who);
 
@@ -2167,6 +2191,9 @@ function search_land_move(who, start_space, start_cost, max_cost) {
 			let n_ff = has_friendly_fortifications(next);
 			let n_cost = c_cost + 1;
 			let must_stop = false;
+
+			// TODO: check actual MP required to reach safe space
+			let may_infiltrate = is_lone_ax && n_cost < max_cost;
 
 			// Must stop on mountains.
 			if (is_mountain(next) && !n_ff)
@@ -2192,20 +2219,26 @@ function search_land_move(who, start_space, start_cost, max_cost) {
 			if (has_unbesieged_enemy_units(next)) {
 				if (is_lone_ld)
 					return; // Lone leaders can never enter an enemy occupied space
-				// TODO: Infiltration
+				if (may_infiltrate)
+					game.move.infiltrate[next] = 1;
 				must_stop = true; // May continue if over-run
 			}
 
 			if (has_enemy_stockade(next)) {
-				// TODO: Infiltration
-				n_cost = 9; // may not continue
+				if (may_infiltrate)
+					game.move.infiltrate[next] = 1;
+				else
+					n_cost = 9; // may not continue
 			}
 
 			if (has_unbesieged_enemy_fort_or_fortress(next)) {
-				if (!has_dt)
-					return; // Must have Drilled Troops to enter an enemy fort or fortress space.
-				// TODO: Infiltration
-				n_cost = 9; // may not continue
+				if (may_infiltrate) {
+					game.move.infiltrate[next] = 1;
+				} else {
+					if (!has_dt)
+						return; // Must have Drilled Troops to enter an enemy fort or fortress space.
+					n_cost = 9; // may not continue
+				}
 			}
 
 			// Stop when entering a space with a lone enemy leader(s) to force a retreat
@@ -2216,7 +2249,7 @@ function search_land_move(who, start_space, start_cost, max_cost) {
 			if (n_cost >= max_cost)
 				must_stop = true;
 
-			console.log("SEARCH LAND MOVE", space_name(current), ">", space_name(next), c_cost, n_cost, must_stop);
+			console.log("SEARCH LAND MOVE", space_name(current), ">", space_name(next), c_cost, n_cost, must_stop, game.move.infiltrate[next]);
 
 			if (!(next in move_cost) || (n_cost < move_cost[next])) {
 				move_cost[next] = n_cost;
@@ -2833,6 +2866,7 @@ function goto_move_piece(who) {
 		intercepting: null,
 		intercepted: [],
 		did_attempt_intercept: 0,
+		infiltrate: {},
 		avoiding: null,
 		avoided: [],
 		start_space: from,
@@ -3106,7 +3140,17 @@ states.move = {
 	demolish_stockade: goto_demolish_stockade,
 	demolish_fieldworks: goto_demolish_fieldworks,
 	next() {
-		end_move();
+		let where = moving_piece_space();
+		if (game.move.infiltrate[where]) {
+			game.move.infiltrate = {};
+			game.move.start_cost = 99;
+			if (has_unbesieged_enemy_units(where))
+				goto_avoid_battle();
+			else
+				end_move();
+		} else {
+			end_move();
+		}
 	},
 }
 
@@ -3228,6 +3272,8 @@ function end_move_step(final) {
 	console.log("END MOVE STEP");
 	delete game.battle;
 	game.move.did_attempt_intercept = 0; // reset flag for next move step
+	if (game.move.infiltrate[where])
+		return resume_move();
 	if (has_unbesieged_enemy_fortifications(where)) {
 		game.move.start_cost = 99;
 		if (has_enemy_fort(where) || is_fortress(where)) {
@@ -3380,6 +3426,8 @@ function end_intercept_success() {
 
 function goto_declare_inside() {
 	let where = moving_piece_space();
+	if (game.move.infiltrate[where])
+		return end_move_step(false);
 	if (has_unbesieged_enemy_units_that_did_not_intercept(where)) {
 		if (is_fortress(where) || has_enemy_fort(where)) {
 			console.log("DECLARE INSIDE/OUTSIDE");
