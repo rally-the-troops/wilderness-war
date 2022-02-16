@@ -16,10 +16,13 @@
 // naming: France/Britain or "The French"/"The British"
 
 // features
-// TODO: french_regulars event played - montcalm not entered or dead separate state (merge DEAD/UNUSED consts)
-// put leaders in pool in their own box?
 // TODO: trace supply
 // TODO: infiltration
+
+// TODO: 13.12 victory check exception -- originally-British fortresses are friendly
+
+// TODO: french_regulars event played - montcalm not entered or dead separate state (merge DEAD/UNUSED consts)
+// put leaders in pool in their own box?
 
 // TODO: campaign and stacking - define forces first, then move
 // TODO: flat force definition - use sum of leader command rating
@@ -104,6 +107,7 @@ let events = {};
 
 let player; // aliased to game[friendly()] per-player state
 let enemy_player; // aliased to game[enemy()] per-player state
+let supply_cache; // cleared when setting active player and loading game state
 
 // These looping indices are updated with update_active_aliases()
 let first_enemy_leader;
@@ -175,6 +179,7 @@ function set_active(new_active) {
 }
 
 function update_active_aliases() {
+	supply_cache = null;
 	player = game[friendly()];
 	enemy_player = game[enemy()];
 	if (game.active === BRITAIN) {
@@ -281,6 +286,20 @@ const originally_british_fortresses = [
 	"New York",
 	"Philadelphia",
 ].map(name => spaces.findIndex(space => space.name === name));
+
+const originally_british_fortresses_and_ports = [
+	"Albany",
+	"Alexandria",
+	"Baltimore",
+	"Boston",
+	"Halifax",
+	"Louisbourg",
+	"New Haven",
+	"New York",
+	"Philadelphia",
+	"Québec",
+].map(name => spaces.findIndex(space => space.name === name));
+
 
 const departments = {
 	st_lawrence: [
@@ -1329,13 +1348,6 @@ function has_friendly_supplied_drilled_troops(space) {
 	return false;
 }
 
-function has_enemy_supplied_drilled_troops(space) {
-	for (let p = first_enemy_unit; p <= last_enemy_unit; ++p)
-		if (is_drilled_troops(p) && is_piece_in_space(p, space) && is_in_enemy_supply(space))
-			return true;
-	return false;
-}
-
 function has_friendly_drilled_troops(space) {
 	for (let p = first_friendly_unit; p <= last_friendly_unit; ++p)
 		if (is_drilled_troops(p) && is_piece_in_space(p, space))
@@ -1864,14 +1876,64 @@ function update_vp(name, s) {
 
 // PATH FINDING
 
-function is_in_supply(space) {
-	// TODO: trace supply
-	return true;
+function search_supply_spaces_imp(queue) {
+	console.log("======");
+	let reached = queue.slice();
+	while (queue.length > 0) {
+		let current = queue.shift();
+		// If we must have come here by water way:
+		let cultivated = is_cultivated(current) || has_friendly_fortifications(current) || has_friendly_amphib(current);
+		console.log("SUPPLY", space_name(current), cultivated);
+		for_each_exit(current, (next, type) => {
+			if (reached.includes(next))
+				return; // continue
+			if (has_unbesieged_enemy_units(next) || has_unbesieged_enemy_fortifications(next))
+				return; // continue
+			if (!cultivated) {
+				// came from wilderness by water, must continue by water
+				if (type !== 'land') {
+					console.log("    ", space_name(next), "(adjacent-water)");
+					reached.push(next);
+					queue.push(next);
+				}
+			} else {
+				// came from cultivated by any path, may continue to cultivated or by water
+				if (is_cultivated(next) || has_friendly_fortifications(next) || has_friendly_amphib(next) || type !== 'land') {
+					console.log("    ", space_name(next), "(from land)");
+					reached.push(next);
+					queue.push(next);
+				}
+			}
+		});
+	}
+	console.log("====\nSUPPLY", reached.map(space_name).join("\nSUPPLY "));
+	return reached;
 }
 
-function is_in_enemy_supply(space) {
-	// TODO: trace supply
-	return true;
+function search_supply_spaces() {
+	if (game.active === FRANCE) {
+		let list = originally_french_fortresses.filter(is_friendly_controlled_space);
+		supply_cache = search_supply_spaces_imp(list);
+	} else {
+		let list = originally_british_fortresses_and_ports.filter(is_friendly_controlled_space);
+		for (let s of game.Britain.amphib)
+			if (!list.includes(s) && is_friendly_controlled_space(s))
+				list.push(s);
+		supply_cache = search_supply_spaces_imp(list);
+	}
+}
+
+function is_in_supply(space) {
+	if (!supply_cache)
+		search_supply_spaces();
+	if (supply_cache.includes(space))
+		return true;
+	let x = false;
+	for_each_exit(space, s => {
+		if (supply_cache.includes(s))
+			x = true;
+	})
+	return x;
 }
 
 function list_intercept_spaces(is_lone_ld, is_lone_ax) {
