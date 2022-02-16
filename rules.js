@@ -1923,6 +1923,25 @@ function search_supply_spaces() {
 	}
 }
 
+function goto_debug_supply(role) {
+	if (game.state === 'debug_supply') {
+		pop_undo();
+	} else {
+		push_undo();
+		set_active(role);
+		game.state = 'debug_supply';
+	}
+}
+
+states.debug_supply = {
+	prompt() {
+		search_supply_spaces();
+		view.prompt = "Showing supply lines.";
+		supply_cache.forEach(gen_action_space);
+	},
+	space: pop_undo
+}
+
 function is_in_supply(space) {
 	if (!supply_cache)
 		search_supply_spaces();
@@ -8087,6 +8106,8 @@ exports.action = function (state, current, action, arg) {
 	} else {
 		if (action === 'undo' && game.undo && game.undo.length > 0)
 			pop_undo();
+		else if (action === 'supply')
+			goto_debug_supply(current);
 		else
 			throw new Error("Invalid action: " + action);
 	}
