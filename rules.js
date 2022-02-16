@@ -2742,8 +2742,7 @@ function gen_regular_move() {
 			if (can_move_by_boat(from, to))
 				gen_action_space(to);
 		} else {
-			if (can_move_to(who, to))
-				gen_action_space(to);
+			gen_action_space(to);
 		}
 	});
 }
@@ -3084,6 +3083,8 @@ states.massacre_after_move = {
 function end_move() {
 	let who = moving_piece();
 
+	isolate_piece_from_force(who);
+
 	console.log("END MOVE");
 	delete game.move;
 
@@ -3107,51 +3108,52 @@ function can_be_intercepted() {
 	if (is_lone_leader(who))
 		return false;
 
+	// 6.722 entering space with friendly units or fortifications
+	if (has_non_moving_unbesieged_friendly_units(here))
+		return false;
+	if (has_unbesieged_friendly_fortifications(here))
+		return false;
+
+	// 6.721 exception: can always intercept units infiltrating same space
+	// TODO: Infiltrate
+	if (false) {
+		if (has_unbesieged_enemy_units(here))
+			return true;
+	}
+
 	const is_lone_ax = is_lone_auxiliary(who);
-
-	// TODO: Infiltrate in same space
-	// 6.721 exception -- can always intercept units infiltrating same space
-
-console.log("INTERCEPT CHECK", piece_name(who), space_name(here), space_name(came_from), is_lone_ax);
 
 	for_each_exit(here, from => {
 		// 6.724 may not intercept an enemy leaving their own space
 		if (from === came_from)
 			return; // continue
 
-		// 6.722
-		if (has_non_moving_unbesieged_friendly_units(here))
-			return; // continue
-		if (has_unbesieged_friendly_fortifications(here))
-			return; // continue
-
-		// 6.721
+		// 6.721 Lone auxiliary in wilderness
 		if (is_lone_ax && is_wilderness_or_mountain(here)) {
-			if (has_unbesieged_enemy_auxiliary(from)) {
-				console.log("INTERCEPT TO", space_name(here), "(lone ax)");
+			if (has_unbesieged_enemy_auxiliary(from))
 				result = true;
-			}
 		} else {
-			console.log("INTERCEPT TO", space_name(here));
-			result = true;
+			if (has_unbesieged_enemy_units(from))
+				result = true;
 		}
 	});
-
-console.log("CAN INTERCEPT", result);
 
 	return result;
 }
 
-function gen_intercept(is_lone_ax, to) {
+function gen_intercept() {
+	let is_lone_ax = is_lone_auxiliary(moving_piece());
+	let to = moving_piece_space();
+
 	if (has_unbesieged_enemy_units(to)) {
 		// 6.721 exception -- can always intercept units infiltrating same space
-		// TODO: infiltration
-		/*
-		for_each_friendly_piece_in_space(to, p => {
-			// TODO: unbesieged
-			gen_action_piece(p);
-		});
-		 */
+		// TODO: Infiltrate
+		if (false) {
+			for_each_friendly_piece_in_space(to, p => {
+				if (is_piece_unbesieged(p))
+					gen_action_piece(p);
+			});
+		}
 
 		for_each_exit(to, from => {
 			// 6.721
@@ -3176,6 +3178,7 @@ function gen_intercept(is_lone_ax, to) {
 							gen_action_piece(p);
 					});
 				} else if (has_br_indians) {
+					// TODO: allow intercept with Johnson as sub-commander
 					if (is_piece_in_space(JOHNSON, from)) {
 						if (is_piece_unbesieged(JOHNSON))
 							gen_action_piece(JOHNSON);
@@ -3216,11 +3219,10 @@ states.intercept_who = {
 	prompt() {
 		let who = moving_piece();
 		let where = piece_space(who);
-		let is_lone_ax = is_lone_auxiliary(who);
 		view.prompt = "Select a force or unit to intercept into " + space_name(where) + ".";
 		view.where = where;
 		gen_action_pass();
-		gen_intercept(is_lone_ax, where);
+		gen_intercept();
 	},
 	piece(piece) {
 		console.log("INTERCEPT WITH", piece_name(piece));
@@ -3544,7 +3546,7 @@ function some_attacking_piece(fn) {
 
 function some_defending_piece(fn) {
 	let r = false;
-	for_each_attacking_piece(p => { if (fn(p)) r = true });
+	for_each_defending_piece(p => { if (fn(p)) r = true });
 	return r;
 }
 
