@@ -1053,8 +1053,7 @@ function set_force_inside(force) {
 
 function is_piece_on_map(p) {
 	// TODO: militia boxes?
-	let s = piece_node(p);
-	return s !== 0;
+	return piece_node(p) !== 0;
 }
 
 function is_piece_unused(p) {
@@ -5880,8 +5879,14 @@ function can_place_in_space(s) {
 }
 
 function can_restore_unit(p) {
-	// TODO: out-of-supply drilled troops
-	return is_piece_on_map(p) && is_piece_unbesieged(p) && is_unit_reduced(p);
+	if (is_piece_on_map(p) && is_piece_unbesieged(p) && is_unit_reduced(p)) {
+		if (is_militia_unit(p))
+			return true; // always in militia box
+		if (is_drilled_troops(p))
+			return is_in_supply(piece_space(p));
+		return true;
+	}
+	return false;
 }
 
 function count_french_raids_in_dept(dept) {
