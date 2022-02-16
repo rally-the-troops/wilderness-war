@@ -16,13 +16,8 @@
 // TODO: for_each_exit -> flat list of all exits
 
 // TODO: retreats with no survivors
-// TODO: johnson and mohawks if subcommander!
 // TODO: select leader for defense instead of automatically picking
-
-// TODO: flat force definition - use sum of leader command rating
-//    (only allow dropping subordinate if stacking limit allows)
-
-// TODO: retreat procedure is awkward (define then select then move)
+// TODO: keep moving after overrun if commanding leader died?
 
 // FEATURES
 // TODO: infiltration
@@ -40,6 +35,8 @@
 // TODO: campaign - define both forces first, then move
 // TODO: remove old 7 command leader(s) immediately as they're drawn, before placing reinforcements
 // TODO: unit 'inside' retreated from battle when leader eliminated
+
+// TODO: unstack from battle if taking losses?
 
 const { spaces, pieces, cards } = require("./data");
 
@@ -2207,10 +2204,7 @@ function goto_activate_individually(card) {
 	discard_card(card, " to activate auxiliaries and leaders");
 	game.state = 'activate_individually';
 	game.count = cards[card].activation;
-	game.activation = {
-		type: 'individually',
-		list: []
-	}
+	game.activation = [];
 }
 
 function goto_activate_force(card) {
@@ -2219,20 +2213,13 @@ function goto_activate_force(card) {
 	discard_card(card, " to activate a force");
 	game.state = 'activate_force';
 	game.count = cards[card].activation;
-	game.activation = {
-		type: 'force',
-		list: []
-	}
 }
 
 events.campaign = {
 	play() {
-		game.state = 'activate_campaign';
-		game.count = 2;
-		game.activation = {
-			type: 'force',
-			list: []
-		}
+		game.state = 'select_campaign_1';
+		game.count = 3;
+		game.activation = [];
 	}
 }
 
@@ -2259,7 +2246,7 @@ states.activate_individually = {
 						if (is_coureurs_unit(p))
 							gen_action_piece(p);
 						if (is_drilled_troops(p))
-							if (game.activation.list.length === 0)
+							if (game.activation.length === 0)
 								gen_action_piece(p);
 					}
 				}
@@ -2269,7 +2256,7 @@ states.activate_individually = {
 	piece(piece) {
 		push_undo();
 		log(`Activate ${piece_name(piece)}.`);
-		game.activation.list.push(piece);
+		game.activation.push(piece);
 		if (is_drilled_troops(piece))
 			game.count = 0;
 		else if (is_indian_unit(piece))
@@ -2288,58 +2275,69 @@ states.activate_force = {
 		view.prompt = "Activate a Force.";
 		for (let p = first_friendly_leader; p <= last_friendly_leader; ++p)
 			if (is_piece_on_map(p) && leader_initiative(p) <= game.count)
-				if (!game.activation.list.includes(p))
-					gen_action_piece(p);
+				gen_action_piece(p);
 		gen_action_pass();
 	},
 	piece(p) {
 		push_undo();
 		log(`Activate force led by ${piece_name(p)}.`);
-		game.activation.list.push(p);
-		game.count = 0;
-		goto_pick_move();
+		game.force = {
+			commander: p,
+			reason: 'move',
+		};
+		game.state = 'define_force';
 	},
 	pass() {
-		delete game.activation;
 		end_action_phase();
 	},
 }
 
-states.activate_campaign = {
+states.select_campaign_1 = {
 	prompt() {
-		if (game.count > 0) {
-			view.prompt = "Activate two leaders and their forces.";
-			for (let p = first_friendly_leader; p <= last_friendly_leader; ++p) {
-				if (is_piece_on_map(p))
-					if (!game.activation.list.includes(p))
-						gen_action_piece(p);
-			}
-		} else {
-			view.prompt = "Activate two leaders and their forces \u2014 done.";
-			gen_action_next();
+		view.prompt = "Campaign \u2014 select the first leader.";
+		for (let p = first_friendly_leader; p <= last_friendly_leader; ++p) {
+			if (is_piece_on_map(p))
+				if (!game.activation.includes(p))
+					gen_action_piece(p);
 		}
 	},
-	piece(leader) {
+	piece(p) {
 		push_undo();
-		log(`Activate force led by ${piece_name(leader)}.`);
-		game.activation.list.push(leader);
-		game.count--;
+		log(`Select force led by ${piece_name(p)}.`);
+		game.force = {
+			commander: p,
+			reason: 'campaign_1',
+		};
+		game.state = 'define_force';
 	},
-	next() {
+}
+
+states.select_campaign_2 = {
+	prompt() {
+		view.prompt = "Campaign \u2014 select the second leader.";
+		for (let p = first_friendly_leader; p <= last_friendly_leader; ++p) {
+			if (is_piece_on_map(p))
+				if (!game.activation.includes(p))
+					gen_action_piece(p);
+		}
+	},
+	piece(p) {
 		push_undo();
-		goto_pick_move();
+		log(`Select force led by ${piece_name(p)}.`);
+		game.force = {
+			commander: p,
+			reason: 'campaign_2',
+		};
+		game.state = 'define_force';
 	},
 }
 
 function goto_pick_move() {
-	if (game.activation.list.length === 0) {
-		// TODO: click next after battles
+	if (game.activation && game.activation.length > 0) {
+		game.state = 'pick_move';
+	} else {
 		delete game.activation;
 		end_action_phase();
-	} else if (game.activation.list.length === 1) {
-		pick_move(game.activation.list.pop());
-	} else {
-		game.state = 'pick_move';
 	}
 }
 
@@ -2347,28 +2345,16 @@ states.pick_move = {
 	prompt() {
 		view.prompt = "Select an activated force, leader, or unit to move."
 		gen_action_pass();
-		game.activation.list.forEach(gen_action_piece);
+		game.activation.forEach(gen_action_piece);
 	},
 	piece(p) {
 		push_undo();
-		remove_from_array(game.activation.list, p);
-		pick_move(p);
+		remove_from_array(game.activation, p);
+		goto_move_piece(p);
 	},
 	pass() {
 		end_action_phase();
 	},
-}
-
-function pick_move(p) {
-	if (game.activation.type === 'force') {
-		game.force = {
-			commander: p,
-			reason: 'move',
-		};
-		game.state = 'define_force';
-	} else {
-		goto_move_piece(p);
-	}
 }
 
 function end_activation() {
@@ -2468,14 +2454,25 @@ states.define_force = {
 		let commander = game.force.commander;
 		let reason = game.force.reason;
 		delete game.force;
-
-		if (reason === 'move') {
+		switch (reason) {
+		case 'campaign_1':
+			game.activation.push(commander);
+			game.state = 'select_campaign_2';
+			break;
+		case 'campaign_2':
+			game.activation.push(commander);
+			goto_pick_move();
+			break;
+		case 'move':
 			goto_move_piece(commander);
-		} else if (reason === 'intercept') {
+			break;
+		case 'intercept':
 			attempt_intercept();
-		} else if (reason === 'avoid') {
+			break;
+		case 'avoid':
 			attempt_avoid_battle();
-		} else {
+			break;
+		default:
 			throw Error("unknown reason state: " + game.reason);
 		}
 	},
@@ -3613,6 +3610,9 @@ function combat_result(die, str, shift) {
 function goto_battle(where, is_assault=false, is_breaking_siege=false) {
 	clear_undo();
 
+	log("");
+	log("BATTLE IN " + space_name(where));
+
 	game.battle = {
 		where: where,
 		attacker: game.active,
@@ -3622,6 +3622,17 @@ function goto_battle(where, is_assault=false, is_breaking_siege=false) {
 		atk_worth_vp: 0,
 		def_worth_vp: 0,
 	};
+
+	// 5.36 unit or leader may not be activated if it participated in combat or assault.
+	if (game.activation) {
+		for_each_attacking_piece(p => {
+			if (game.activation.includes(p)) {
+				log(`${piece_name(p)} deactivated.`);
+				remove_from_array(game.activation, p);
+				unstack_force(p);
+			}
+		});
+	}
 
 	if (!game.battle.assault) {
 		let n_atk = 0;
@@ -3647,8 +3658,6 @@ function goto_battle(where, is_assault=false, is_breaking_siege=false) {
 
 	if (game.raid)
 		game.raid.battle = where;
-
-	log("BATTLE IN " + space_name(where));
 
 	// No Militia take part in assaults
 	if (!game.battle.assault)
@@ -4096,6 +4105,7 @@ function goto_def_fire() {
 function goto_atk_step_losses() {
 	set_active(game.battle.attacker);
 	if (game.battle.def_result > 0) {
+		unstack_force(moving_piece());
 		game.state = 'step_losses';
 		game.battle.step_loss = game.battle.def_result;
 		if (game.battle.assault)
@@ -4439,6 +4449,8 @@ function determine_winner_assault() {
 	let where = game.battle.where;
 	let victor;
 
+	log("");
+
 	if (game.battle.atk_result > game.battle.def_result)
 		victor = game.battle.attacker;
 	else
@@ -4463,18 +4475,18 @@ function determine_winner_assault() {
 		log("DEFENDER WON ASSAULT");
 	}
 
-	end_activation();
+	end_move_step(true);
 }
 
 states.massacre_after_assault = {
 	prompt: massacre_prompt,
 	play_event(c) {
 		massacre_play(c);
-		end_activation();
+		end_move_step(true);
 	},
 	next() {
 		set_active(enemy());
-		end_activation();
+		end_move_step(true);
 	}
 }
 
@@ -4499,6 +4511,7 @@ function can_attacker_retreat_from_to(p, from, to) {
 
 function retreat_attacker(from, to) {
 	set_active(game.battle.attacker);
+	unstack_force(moving_piece());
 	game.state = 'retreat_attacker';
 	game.retreat = { from, to };
 }
