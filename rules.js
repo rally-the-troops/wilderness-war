@@ -15,6 +15,8 @@
 // TODO: defender retreat procedure needs love
 // TODO: for_each_exit -> flat list of all exits
 
+// TODO: retreats with no survivors
+
 // TODO: flat force definition - use sum of leader command rating
 //    (only allow dropping subordinate if stacking limit allows)
 
@@ -1410,6 +1412,17 @@ function has_unbesieged_enemy_fort_or_fortress(space) {
 	return is_space_unbesieged(space) && has_enemy_fort_or_fortress(space);
 }
 
+function has_non_moving_unbesieged_friendly_units(space) {
+	let force = moving_piece();
+	for (let p = first_friendly_unit; p <= last_friendly_unit; ++p) {
+		if (is_piece_in_space(p, space) && is_piece_unbesieged(p)) {
+			if (!is_piece_in_force(p, force))
+				return true;
+		}
+	}
+	return false;
+}
+
 function has_unbesieged_friendly_units(space) {
 	for (let p = first_friendly_unit; p <= last_friendly_unit; ++p)
 		if (is_piece_in_space(p, space) && is_piece_unbesieged(p))
@@ -1546,8 +1559,8 @@ function avoiding_piece() {
 	return game.move.avoiding;
 }
 
-function moving_piece_came_from(here) {
-	return game.move.path[here];
+function moving_piece_came_from() {
+	return game.move.came_from;
 }
 
 function battle_space() {
@@ -1990,79 +2003,6 @@ function list_intercept_spaces(is_lone_ld, is_lone_ax) {
 	}
 
 	return intercept;
-}
-
-function gen_intercept(is_lone_ax, to) {
-	if (has_unbesieged_enemy_units(to)) {
-		// 6.721 exception -- can always intercept units infiltrating same space
-		// TODO: infiltration
-		/*
-		for_each_friendly_piece_in_space(to, p => {
-			// TODO: unbesieged
-			gen_action_piece(p);
-		});
-		 */
-
-		for_each_exit(to, from => {
-			// 6.721
-			if (is_lone_ax && is_wilderness_or_mountain(to)) {
-				let has_ax = false;
-				let has_br_indians = false;
-				for_each_friendly_unit_in_space(from, p => {
-					if (is_piece_unbesieged(p)) {
-						if (is_auxiliary_unit(p)) {
-							gen_action_piece(p);
-							if (is_british_iroquois_or_mohawk(p))
-								has_br_indians = true;
-							else
-								has_ax = true;
-						}
-					}
-				});
-				// allow leaders to accompany intercepting auxiliary unit
-				if (has_ax) {
-					for_each_friendly_leader_in_space(from, p => {
-						if (is_piece_unbesieged(p))
-							gen_action_piece(p);
-					});
-				} else if (has_br_indians) {
-					if (is_piece_in_space(JOHNSON, from)) {
-						if (is_piece_unbesieged(JOHNSON))
-							gen_action_piece(JOHNSON);
-					}
-				}
-			} else {
-				for_each_friendly_piece_in_space(from, p => {
-					if (is_piece_unbesieged(p))
-						gen_action_piece(p);
-				});
-			}
-		});
-	}
-}
-
-function search_naval_move(who, start_space, start_cost) {
-	let move_cost = game.move.cost = {};
-	let move_path = game.move.path = {};
-	let candidates = (game.active === FRANCE) ? french_ports : ports;
-
-	if (start_cost > 0)
-		return;
-
-	let from = piece_space(who);
-
-	if (!candidates.includes(from) || !is_friendly_controlled_space(from))
-		return;
-
-	game.move.path[from] = null;
-	candidates.forEach(space => {
-		if (space === from)
-			return;
-		if (is_friendly_controlled_space(space)) {
-			game.move.cost[space] = 1;
-			game.move.path[space] = from;
-		}
-	})
 }
 
 // Use Breadth First Search to find all paths.
@@ -2863,17 +2803,17 @@ function goto_move_piece(who) {
 	game.state = 'move';
 	game.move = {
 		moving: who,
+		came_from: 0,
+		infiltrated: 0,
 		intercepting: null,
 		intercepted: [],
 		did_attempt_intercept: 0,
-		infiltrate: {},
 		avoiding: null,
 		avoided: [],
 		start_space: from,
-		start_cost: -1,
-		type: is_only_port_space(from) ? 'naval' : 'land',
-		cost: null,
-		path: null,
+		used: -1,
+		did_carry: 0,
+		type: is_only_port_space(from) ? 'naval' : 'boat',
 	};
 	game.raid = {
 		where: 0,
@@ -2921,7 +2861,7 @@ states.siege_or_move = {
 function goto_break_siege() {
 	console.log("BREAK SIEGE");
 	let here = moving_piece_space();
-	game.move.path = { [here]: here };
+	game.move.came_from = here;
 	goto_avoid_battle();
 }
 
@@ -2935,98 +2875,199 @@ function may_naval_move(who) {
 	return true;
 }
 
+function land_movement_cost() {
+	return game.events.foul_weather ? 2 : movement_allowance(moving_piece());
+}
+
 function max_movement_cost() {
 	switch (game.move.type) {
-	case 'boat': return (game.events.foul_weather ? 2 : 9) * 2; // use odd numbers for paths with one land connection
-	case 'land': return (game.events.foul_weather ? 2 : movement_allowance(moving_piece()));
+	case 'boat': return game.events.foul_weather ? 2 : 9;
+	case 'land': return land_movement_cost();
 	case 'naval': return 1;
 	}
 }
 
 function resume_move() {
 	// Interrupt for Foul Weather response at first opportunity to move.
-	if (game.move.start_cost < 0) {
+	if (game.move.used < 0) {
 		if (is_enemy_card_available(FOUL_WEATHER)) {
 			set_active(enemy());
 			game.state = 'foul_weather';
 			return;
 		}
-		game.move.start_cost = 0;
+		game.move.used = 0;
 	}
 
 	game.state = 'move';
 
-	if (game.move.type === null) {
-		game.move.cost = {};
-		game.move.path = {};
-		throw Error("WHAT IS THIS");
-	}
-
 	console.log("RESUME_MOVE");
+}
 
-	let max_cost = max_movement_cost();
-	if (game.move.start_cost < max_cost) {
-		let who = moving_piece();
-		const is_lone_ax = is_lone_auxiliary(who);
-		const is_lone_ld = is_lone_leader(who);
-		game.move.intercept = list_intercept_spaces(is_lone_ld, is_lone_ax);
-		switch (game.move.type) {
-		case 'boat':
-			search_boat_move(who, piece_space(who), game.move.start_cost, max_cost);
-			break;
-		case 'land':
-			search_land_move(who, piece_space(who), game.move.start_cost, max_cost);
-			break;
-		case 'naval':
-			if (may_naval_move(who))
-				search_naval_move(who, piece_space(who), game.move.start_cost);
-			break;
-			break;
-		}
-	} else {
-		game.move.intercept = {};
-		game.move.cost = {};
-		game.move.path = {};
+function remove_enemy_forts_uc_in_path(s) {
+	if (has_enemy_fort_uc(s)) {
+		log(`remove fort u/c in ${space_name(s)}`);
+		remove_enemy_fort_uc(s);
 	}
 }
 
-function print_path(path, destination, first) {
-	function print_path_rec(prev, next) {
-		if (path[prev] !== null)
-			print_path_rec(path[prev], prev);
-		else if (first)
-			log("moves from " + space_name(prev));
-		log("moves to " + space_name(next));
-	}
-	print_path_rec(path[destination], destination);
+function is_land_path(from, to) {
+	return spaces[from].land.includes(to);
 }
 
-function remove_enemy_forts_uc_in_path(path, space) {
-	for (;;) {
-		if (has_enemy_fort_uc(space)) {
-			log(`remove fort u/c in ${space_name(space)}`);
-			remove_enemy_fort_uc(space);
-		}
-		let next = path[space];
-		if (next === null)
-			break;
-		space = next;
+function has_friendly_fortifications_or_cultivated(s) {
+	return has_friendly_fortifications(s) || is_originally_friendly(s);
+}
+
+function stop_move() {
+	game.move.used = 9;
+}
+
+function gen_naval_move() {
+	let from = moving_piece_space();
+	let candidates = (game.active === FRANCE) ? french_ports : ports;
+	if (!candidates.includes(from) || !is_friendly_controlled_space(from))
+		return;
+	candidates.forEach(to => {
+		if (to === from)
+			return;
+		if (is_friendly_controlled_space(to))
+			gen_action_space(to);
+	});
+}
+
+function is_carry_connection(from, to) {
+	const from_ff = has_friendly_fortifications_or_cultivated(from);
+	const to_ff = has_friendly_fortifications_or_cultivated(to);
+	return (from_ff && to_ff);
+}
+
+function can_move_by_boat(from, to) {
+	if (game.move.used < land_movement_cost())
+		return true;
+	if (is_land_path(from, to)) {
+		if (!game.move.did_carry)
+			return is_carry_connection();
+		return false;
 	}
+	return true;
+}
+
+function gen_regular_move() {
+	let who = moving_piece();
+	let from = moving_piece_space();
+	let is_lone_ld = is_lone_leader(who);
+	let has_dt = force_has_drilled_troops(who);
+	for_each_exit(from, to => {
+		if (is_lone_ld) {
+			// Lone leaders can never enter an enemy occupied space
+			if (has_unbesieged_enemy_units(to) || has_unbesieged_enemy_fortifications(to))
+				return; // continue;
+		} else {
+			// Must have Drilled Troops to enter an enemy fort or fortress space.
+			// TODO: Infiltrate
+			if (has_unbesieged_enemy_fort_or_fortress(to)) {
+				if (!has_dt)
+					return;
+			}
+		}
+
+		if (game.move.type === 'boat') {
+			if (can_move_by_boat(from, to))
+				gen_action_space(to);
+		} else {
+			if (can_move_to(who, to))
+				gen_action_space(to);
+		}
+	});
+}
+
+function apply_move(to) {
+	let who = moving_piece();
+	let from = moving_piece_space();
+
+	game.move.used ++;
+	game.move.came_from = from;
+	game.raid.from[to] = from; // remember where raiders came from so they can retreat after battle
+
+	// Downgrade from Boat to Land movement if not going by river or carries.
+	if (game.move.type === 'boat') {
+		if (is_land_path(from, to)) {
+			if (!game.move.did_carry) {
+				if (is_carry_connection(from, to))
+					game.move.did_carry = 1;
+				else
+					game.move.type = 'land'
+			} else {
+				game.move.type = 'land'
+			}
+		}
+	}
+
+	if (game.move.type === 'land') {
+		const from_ff = has_friendly_fortifications_or_cultivated(from);
+		const to_ff = has_friendly_fortifications_or_cultivated(to);
+		const has_dt = force_has_drilled_troops(who);
+		const has_ax = force_has_auxiliary_unit(who);
+
+		// Must stop on mountains.
+		if (is_mountain(to) && !to_ff)
+			stop_move();
+
+		// Must stop in the next space after passing through...
+		if (game.move.used > 1 && !from_ff) {
+			// Drilled Troops that pass through wilderness must stop in the next space.
+			if (has_dt && !has_ax && is_wilderness(to))
+				if (!game.events.george_croghan)
+					stop_move();
+
+			// Auxiliaries that pass through enemy cultivated must stop in the next space.
+			if (has_ax && !has_dt && is_originally_enemy(to))
+				stop_move();
+		}
+	}
+
+	if (has_enemy_stockade(to)) {
+		// TODO: Infiltrate
+		stop_move();
+	}
+
+	if (has_unbesieged_enemy_fort_or_fortress(to)) {
+		// TODO: Infiltrate
+		stop_move();
+	}
+
+	move_piece_to(who, to);
+	lift_sieges_and_amphib();
+}
+
+function apply_naval_move(to) {
+	let who = moving_piece();
+	let from = moving_piece_space();
+	game.move.used = 1;
+	game.move.came_from = from;
+	game.raid.from[to] = from; // remember where raiders came from so they can retreat after battle
 }
 
 states.move = {
 	prompt() {
 		let who = moving_piece();
 		let from = piece_space(who);
-		view.prompt = "Move " + piece_name(who) + ".";
-		view.who = who;
-		switch (game.move.type) {
-		default: view.prompt += " Select a movement type."; break;
-		case 'boat': view.prompt += " (boat)"; break;
-		case 'land': view.prompt += " (land)"; break;
-		case 'naval': view.prompt += " (naval)"; break;
+
+		view.prompt = `Move ${piece_name(who)} (${space_name(from)})`;
+		if (game.move.type === 'boat') {
+			if (game.move.used < land_movement_cost())
+				view.prompt += " by boat or land";
+			else
+				view.prompt += " by boat";
+			if (game.move.did_carry)
+				view.prompt += " (carried)";
+		} else {
+			view.prompt += ` by ${game.move.type}`;
 		}
-		if (game.move.start_cost === 0) {
+		view.prompt += ` \u2014 ${game.move.used}/${max_movement_cost()}.`;
+
+		view.who = who;
+		if (game.move.used === 0) {
 			if (game.events.foul_weather && can_moving_force_siege_or_assault()) {
 				if (is_assault_possible(from))
 					gen_action('assault');
@@ -3037,32 +3078,31 @@ states.move = {
 				if (force_has_drilled_troops(who))
 					gen_action('play_event', GEORGE_CROGHAN);
 			}
-			if (!is_only_port_space(from)) {
-				gen_action_x('boat_move', game.move.type !== 'boat');
-				gen_action_x('land_move', game.move.type !== 'land');
-			}
 			if (is_port(from)) {
-				// TODO: check valid destinations too
-				if (may_naval_move(who))
-					gen_action_x('naval_move', game.move.type !== 'naval');
-				if (!game.events.no_amphib) {
-					if (game.active === BRITAIN && has_amphibious_arrow(from)) {
-						for (let card = first_amphib_card; card <= last_amphib_card; ++card)
-							if (player.hand.includes(card))
-								gen_action('play_event', card);
+				if (game.move.type !== 'naval') {
+					gen_action('naval_move');
+				} else {
+					// TODO: split to naval_move state
+					if (!game.events.no_amphib) {
+						if (game.active === BRITAIN && has_amphibious_arrow(from)) {
+							for (let card = first_amphib_card; card <= last_amphib_card; ++card)
+								if (player.hand.includes(card))
+									gen_action('play_event', card);
+						}
 					}
 				}
 			}
 		}
 		gen_action_next();
 		gen_action_demolish();
-		if (game.move.cost) {
-			for (let space_id in game.move.cost) {
-				space_id = space_id | 0;
-				if (space_id !== from)
-					gen_action_space(space_id);
-			}
+
+		if (game.move.used < max_movement_cost()) {
+			if (game.move.type === 'naval')
+				gen_naval_move();
+			else
+				gen_regular_move();
 		}
+
 		if (is_leader(who)) {
 			for_each_piece_in_force(who, p => {
 				if (p !== who)
@@ -3080,38 +3120,18 @@ states.move = {
 			game.state = 'amphibious_landing';
 		}
 	},
-	boat_move() {
-		game.move.type = 'boat';
-		resume_move();
-	},
-	land_move() {
-		game.move.type = 'land';
-		resume_move();
-	},
 	naval_move() {
+		push_undo();
 		game.move.type = 'naval';
 		resume_move();
 	},
 	space(to) {
 		push_undo();
-		print_path(game.move.path, to, game.move.start_cost === 0);
-		let who = moving_piece();
-		let cost = game.move.cost[to];
-		game.move.start_cost = game.move.cost[to];
 
-		let from = game.move.path[to];
-
-		// remember where we came from so we can retreat after battle
-		game.raid.from[to] = from;
-
-		// TODO: except space moved into, if it is guarded or lake schooner happens!
-		if (force_has_drilled_troops(who))
-			remove_enemy_forts_uc_in_path(game.move.path, to);
-
-		move_piece_to(who, to);
-		lift_sieges_and_amphib();
+		apply_move(to);
 
 		if (is_enemy_card_available(LAKE_SCHOONER)) {
+			let from = moving_piece_came_from();
 			if (has_enemy_fortifications(to) && is_lake_connection(from, to)) {
 				clear_undo();
 				set_active(enemy());
@@ -3140,17 +3160,7 @@ states.move = {
 	demolish_stockade: goto_demolish_stockade,
 	demolish_fieldworks: goto_demolish_fieldworks,
 	next() {
-		let where = moving_piece_space();
-		if (game.move.infiltrate[where]) {
-			game.move.infiltrate = {};
-			game.move.start_cost = 99;
-			if (has_unbesieged_enemy_units(where))
-				goto_avoid_battle();
-			else
-				end_move();
-		} else {
-			end_move();
-		}
+		end_move();
 	},
 }
 
@@ -3169,12 +3179,12 @@ states.foul_weather = {
 	play_event(c) {
 		play_card(c);
 		game.events.foul_weather = 1;
-		game.move.start_cost = 0;
+		game.move.used = 0;
 		set_active(enemy());
 		resume_move();
 	},
 	pass() {
-		game.move.start_cost = 0;
+		game.move.used = 0;
 		set_active(enemy());
 		resume_move();
 	}
@@ -3184,7 +3194,7 @@ states.lake_schooner = {
 	prompt() {
 		let p = moving_piece();
 		let to = piece_space(p);
-		let from = game.move.path[to];
+		let from = moving_piece_came_from();
 		view.who = p;
 		view.where = from;
 		if (player.hand.includes(LAKE_SCHOONER)) {
@@ -3198,11 +3208,10 @@ states.lake_schooner = {
 	play_event(c) {
 		play_card(c);
 		let who = moving_piece();
-		let to = piece_space(who);
-		let from = game.move.path[to];
+		let from = moving_piece_came_from();
 		move_piece_to(who, from);
 		log(`${piece_name(who)} stops in ${space_name(from)}.`);
-		game.move.start_cost = 18; // enemy stops in previously occupied space
+		stop_move();
 		set_active(enemy());
 		resume_move();
 	},
@@ -3233,7 +3242,7 @@ states.amphibious_landing = {
 		let who = moving_piece();
 		let from = piece_space(who);
 		game.move.path[to] = from;
-		game.move.start_cost = 1;
+		stop_move();
 		move_piece_to(who, to);
 		lift_sieges_and_amphib();
 		game.state = 'move';
@@ -3272,10 +3281,8 @@ function end_move_step(final) {
 	console.log("END MOVE STEP");
 	delete game.battle;
 	game.move.did_attempt_intercept = 0; // reset flag for next move step
-	if (game.move.infiltrate[where])
-		return resume_move();
 	if (has_unbesieged_enemy_fortifications(where)) {
-		game.move.start_cost = 99;
+		stop_move();
 		if (has_enemy_fort(where) || is_fortress(where)) {
 			place_siege_marker(where);
 		}
@@ -3287,7 +3294,7 @@ function end_move_step(final) {
 			}
 		}
 	} else if (final) {
-		game.move.start_cost = 99;
+		stop_move();
 	}
 	if (!is_lone_leader(who) && has_unbesieged_enemy_leader(where))
 		goto_retreat_lone_leader();
@@ -3322,13 +3329,113 @@ function end_move() {
 
 // INTERCEPT
 
+function can_be_intercepted() {
+	let result = false;
+
+	let who = moving_piece();
+	let here = moving_piece_space();
+	let came_from = moving_piece_came_from();
+
+	// 6.723 Leaders moving alone can NOT be intercepted
+	if (is_lone_leader(who))
+		return false;
+
+	const is_lone_ax = is_lone_auxiliary(who);
+
+	// TODO: Infiltrate in same space
+	// 6.721 exception -- can always intercept units infiltrating same space
+
+console.log("INTERCEPT CHECK", piece_name(who), space_name(here), space_name(came_from), is_lone_ax);
+
+	for_each_exit(here, from => {
+		// 6.724 may not intercept an enemy leaving their own space
+		if (from === came_from)
+			return; // continue
+
+		// 6.722
+		if (has_non_moving_unbesieged_friendly_units(here))
+			return; // continue
+		if (has_unbesieged_friendly_fortifications(here))
+			return; // continue
+
+		// 6.721
+		if (is_lone_ax && is_wilderness_or_mountain(here)) {
+			if (has_unbesieged_enemy_auxiliary(from)) {
+				console.log("INTERCEPT TO", space_name(here), "(lone ax)");
+				result = true;
+			}
+		} else {
+			console.log("INTERCEPT TO", space_name(here));
+			result = true;
+		}
+	});
+
+console.log("CAN INTERCEPT", result);
+
+	return result;
+}
+
+function gen_intercept(is_lone_ax, to) {
+	if (has_unbesieged_enemy_units(to)) {
+		// 6.721 exception -- can always intercept units infiltrating same space
+		// TODO: infiltration
+		/*
+		for_each_friendly_piece_in_space(to, p => {
+			// TODO: unbesieged
+			gen_action_piece(p);
+		});
+		 */
+
+		for_each_exit(to, from => {
+			// 6.721
+			if (is_lone_ax && is_wilderness_or_mountain(to)) {
+				let has_ax = false;
+				let has_br_indians = false;
+				for_each_friendly_unit_in_space(from, p => {
+					if (is_piece_unbesieged(p)) {
+						if (is_auxiliary_unit(p)) {
+							gen_action_piece(p);
+							if (is_british_iroquois_or_mohawk(p))
+								has_br_indians = true;
+							else
+								has_ax = true;
+						}
+					}
+				});
+				// allow leaders to accompany intercepting auxiliary unit
+				if (has_ax) {
+					for_each_friendly_leader_in_space(from, p => {
+						if (is_piece_unbesieged(p))
+							gen_action_piece(p);
+					});
+				} else if (has_br_indians) {
+					if (is_piece_in_space(JOHNSON, from)) {
+						if (is_piece_unbesieged(JOHNSON))
+							gen_action_piece(JOHNSON);
+					}
+				}
+			} else {
+				for_each_friendly_piece_in_space(from, p => {
+					if (is_piece_unbesieged(p))
+						gen_action_piece(p);
+				});
+			}
+		});
+	}
+}
+
 function goto_intercept() {
-	let where = moving_piece_space();
-	if (where in game.move.intercept) {
+	let who = moving_piece();
+
+	let here = moving_piece_space();
+	if (force_has_drilled_troops(who))
+		remove_enemy_forts_uc_in_path(here);
+
+	if (can_be_intercepted()) {
 		clear_undo();
 		set_enemy_active('intercept_who');
 	} else {
-		goto_declare_inside(where);
+		goto_declare_inside();
 	}
 }
 
@@ -3426,8 +3533,6 @@ function end_intercept_success() {
 
 function goto_declare_inside() {
 	let where = moving_piece_space();
-	if (game.move.infiltrate[where])
-		return end_move_step(false);
 	if (has_unbesieged_enemy_units_that_did_not_intercept(where)) {
 		if (is_fortress(where) || has_enemy_fort(where)) {
 			console.log("DECLARE INSIDE/OUTSIDE");
@@ -3558,7 +3663,7 @@ function attempt_avoid_battle() {
 function can_enemy_avoid_battle(from) {
 	let can_avoid = false;
 	for_each_exit(from, to => {
-		if ((moving_piece_came_from(from) !== to)
+		if ((moving_piece_came_from() !== to)
 			&& !has_unbesieged_friendly_units(to)
 			&& !has_unbesieged_friendly_fortifications(to))
 			can_avoid = true;
@@ -3581,7 +3686,7 @@ states.avoid_to = {
 		view.prompt = "Select where to avoid battle to.";
 		gen_action_pass();
 		for_each_exit(from, to => {
-			if ((moving_piece_came_from(from) !== to)
+			if ((moving_piece_came_from() !== to)
 				&& !has_unbesieged_enemy_units(to)
 				&& !has_unbesieged_enemy_fortifications(to))
 				gen_action_space(to);
@@ -4548,7 +4653,7 @@ function determine_winner_battle() {
 	} else {
 		log("DEFENDER WON");
 		let from = game.battle.where;
-		let to = moving_piece_came_from(game.battle.where);
+		let to = moving_piece_came_from();
 		retreat_attacker(from, to);
 	}
 }
@@ -4695,12 +4800,12 @@ function goto_retreat_defender() {
 }
 
 function can_defender_retreat_from_to(p, from, to) {
-	console.log("RETREAT QUERY", piece_name(p), space_name(from), space_name(to), "atk came from", moving_piece_came_from(from));
+	console.log("RETREAT QUERY", piece_name(p), space_name(from), space_name(to), "atk came from", moving_piece_came_from());
 	if (has_unbesieged_enemy_units(to))
 		return false;
 	if (has_unbesieged_enemy_fortifications(to))
 		return false;
-	if (moving_piece_came_from(from) === to)
+	if (moving_piece_came_from() === to)
 		return false;
 	if (force_has_drilled_troops(p)) {
 		if (is_cultivated(to) || has_friendly_fortifications(to))
@@ -5901,9 +6006,12 @@ function goto_massacre(st) {
 }
 
 function massacre_prompt() {
-	view.prompt = `You may play "Massacre!".`;
-	if (player.hand.includes(MASSACRE))
+	if (player.hand.includes(MASSACRE)) {
+		view.prompt = `You may play "Massacre!".`;
 		gen_action('play_event', MASSACRE);
+	} else {
+		view.prompt = `You don't have "Massacre!".`;
+	}
 	gen_action_next();
 }
 
