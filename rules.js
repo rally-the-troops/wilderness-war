@@ -39,6 +39,7 @@
 // TODO: leaders alone - retreat from reinforcement placements
 // TODO: campaign - define both forces first, then move
 // TODO: remove old 7 command leader(s) immediately as they're drawn, before placing reinforcements
+// TODO: unit 'inside' retreated from battle when leader eliminated
 
 const { spaces, pieces, cards } = require("./data");
 
@@ -693,6 +694,12 @@ function for_each_piece_in_force(force, fn) {
 			fn(p);
 }
 
+function for_each_leader_in_force(force, fn) {
+	for (let p = 0; p < pieces.length; ++p)
+		if (is_leader(p) && is_piece_in_force(p, force))
+			fn(p);
+}
+
 function for_each_unit_in_force(force, fn) {
 	for (let p = 0; p < pieces.length; ++p)
 		if (!is_leader(p) && is_piece_in_force(p, force))
@@ -916,6 +923,14 @@ function leader_command(p) {
 	return pieces[p].command;
 }
 
+function force_command(force) {
+	let n = 0;
+	for_each_leader_in_force(force, p => {
+		n += leader_command(p);
+	});
+	return n;
+}
+
 function leader_tactics(p) {
 	return pieces[p].tactics;
 }
@@ -961,7 +976,7 @@ function is_piece_in_force(self, query) {
 
 function count_non_british_iroquois_and_mohawk_units_in_leader_box(leader) {
 	let n = 0;
-	for_each_friendly_piece_in_node(leader_box(leader), p => {
+	for_each_friendly_unit_in_node(leader_box(leader), p => {
 		if (!is_british_iroquois_or_mohawk(p))
 			++n;
 	});
@@ -1046,19 +1061,10 @@ function set_piece_outside(p) {
 }
 
 function set_force_inside(force) {
-	// TODO: do we need to flatten forces inside a fort?
-	if (is_leader(force)) {
-		for_each_unit_in_force(force, p => {
-			isolate_piece_from_force(p);
-			set_piece_inside(p);
-		});
-		for_each_piece_in_force(force, p => {
-			isolate_piece_from_force(p);
-			set_piece_inside(p);
-		});
-	} else {
-		set_piece_inside(force);
-	}
+	for_each_piece_in_force(force, p => {
+		set_piece_inside(p);
+	});
+	unstack_force(force);
 }
 
 function is_piece_on_map(p) {
@@ -1651,11 +1657,10 @@ function place_friendly_fort_uc(space) {
 }
 
 // Isolate piece from any forces it may be involved in.
-function isolate_piece_from_force(p) {
-	let where = piece_space(p);
+function unstack_force(p) {
+	let s = piece_space(p);
 	if (is_leader(p))
-		move_pieces_from_node_to_node(leader_box(p), where);
-	move_piece_to(p, where);
+		move_pieces_from_node_to_node(leader_box(p), s);
 }
 
 function restore_unit(p) {
@@ -1676,7 +1681,7 @@ function reduce_unit(p) {
 
 function eliminate_piece(p) {
 	log(piece_name(p) + " is eliminated.");
-	isolate_piece_from_force(p);
+	unstack_force(p);
 	set_unit_reduced(p, 0);
 	game.pieces.location[p] = 0;
 	if (is_indian_unit(p)) {
@@ -2264,7 +2269,6 @@ states.activate_individually = {
 	piece(piece) {
 		push_undo();
 		log(`Activate ${piece_name(piece)}.`);
-		isolate_piece_from_force(piece);
 		game.activation.list.push(piece);
 		if (is_drilled_troops(piece))
 			game.count = 0;
@@ -2358,8 +2362,7 @@ states.pick_move = {
 function pick_move(p) {
 	if (game.activation.type === 'force') {
 		game.force = {
-			leader: p,
-			selected: p,
+			commander: p,
 			reason: 'move',
 		};
 		game.state = 'define_force';
@@ -2382,134 +2385,129 @@ function end_activation() {
 
 // DEFINE FORCE (for various actions)
 
+function is_johnson_in_force(commander) {
+	return commander === JOHNSON || piece_node(JOHNSON) === leader_box(commander);
+}
+
 states.define_force = {
 	prompt() {
-		let main_leader = game.force.leader;
-		let selected = game.force.selected;
-		let space = piece_space(main_leader);
+		let commander = game.force.commander;
+		let space = piece_space(commander);
+
+		let cmd_cap = force_command(commander);
 
 		// 5.534 Johnson commands British Iroquois and Mohawk units for free
-		let cap = leader_command(main_leader) - count_non_british_iroquois_and_mohawk_units_in_leader_box(selected);
+		let cmd_use = count_non_british_iroquois_and_mohawk_units_in_leader_box(commander);
 
-		view.prompt = `Define the force to ${game.force.reason} with ${piece_name(main_leader)} from ${space_name(space)}.`;
-		view.prompt += " (" + piece_name(selected) + ")";
-		view.who = selected;
+		view.prompt = `Define the force to ${game.force.reason} with ${piece_name(commander)} from ${space_name(space)} (${cmd_use}/${cmd_cap}).`;
+		view.who = commander;
 
-		gen_action_next();
+		// TODO: gen_action('all');
 
-		// select any leader in the map space
-		for_each_friendly_leader_in_space(space, p => {
-			if (p !== selected) {
-				gen_action_space(leader_box(p));
-				// XXX if (p !== main_leader && leader_command(p) <= leader_command(selected))
-				// XXX gen_action_piece(p);
-			}
-		});
-
-		// pick up subordinate leaders
+		// pick up sub-commanders
 		for_each_friendly_leader_in_node(space, p => {
-			if (p !== selected) {
-				if (p !== main_leader && leader_command(p) <= leader_command(selected))
-					gen_action_piece(p);
-			}
+			if (p !== commander && leader_command(p) <= leader_command(commander))
+				gen_action_piece(p);
 		});
 
-		// drop off subordinate leaders
-		for_each_friendly_leader_in_node(leader_box(selected), p => {
-			if (p !== selected) {
-				gen_action_piece(p);
-			}
+		// drop off sub-commanders
+		for_each_friendly_leader_in_node(leader_box(commander), p => {
+			gen_action_piece(p);
+		});
+
+		// drop off units
+		let has_br_indians = false;
+		for_each_friendly_unit_in_node(leader_box(commander), p => {
+			if (is_british_iroquois_or_mohawk(p))
+				has_br_indians = true;
+			gen_action_piece(p);
 		});
 
 		// pick up units
 		for_each_friendly_unit_in_node(space, p => {
-			// Can't move pieces twice in a campaign:
-			if (game.activation.moved && game.activation.moved.includes(p))
-				return; // continue
 			if (is_british_iroquois_or_mohawk(p)) {
 				// 5.534 Only Johnson can command British Iroquois and Mohawk (and for free)
-				if (selected === JOHNSON)
+				if (is_johnson_in_force(commander))
 					gen_action_piece(p);
 			} else {
-				if (cap > 0)
+				if (cmd_use <= cmd_cap)
 					gen_action_piece(p);
 			}
 		});
 
-		// drop off units
-		for_each_friendly_unit_in_node(leader_box(selected), p => {
-			gen_action_piece(p);
-		});
+
+		if (cmd_use <= cmd_cap) {
+			if (has_br_indians) {
+				if (is_johnson_in_force(commander))
+					gen_action_next();
+			} else {
+				gen_action_next();
+			}
+		}
 	},
 
-	piece(piece) {
+	piece(p) {
 		push_undo();
-		let main_leader = game.force.leader;
-		let selected = game.force.selected;
-		let space = piece_space(main_leader);
-		if (piece_node(piece) === leader_box(selected))
-			move_piece_to(piece, space);
-		else
-			move_piece_to(piece, leader_box(selected));
-	},
-
-	space(space) {
-		push_undo();
-		game.force.selected = leader_box_leader(space);
+		let commander = game.force.commander;
+		let space = piece_space(commander);
+		if (piece_node(p) === leader_box(commander)) {
+			move_piece_to(p, space);
+			if (p === JOHNSON) {
+				for_each_for_each_friendly_unit_in_node(leader_box(commander), indian => {
+					if (is_british_iroquois_or_mohawk(indian))
+						move_piece_to(indian, space);
+				});
+			}
+		} else {
+			move_piece_to(p, leader_box(commander));
+		}
 	},
 
 	next() {
 		push_undo();
-		let main_leader = game.force.leader;
+		let commander = game.force.commander;
 		let reason = game.force.reason;
 		delete game.force;
 
-		// Remember which units have moved if we played a campaign card.
-		if (game.activation.list.length > 0) {
-			game.activation.moved = [];
-			for_each_piece_in_force(main_leader, p => {
-				game.activation.moved.push(p);
-			});
-		}
-
 		if (reason === 'move') {
-			goto_move_piece(main_leader);
+			goto_move_piece(commander);
 		} else if (reason === 'intercept') {
 			attempt_intercept();
 		} else if (reason === 'avoid') {
 			attempt_avoid_battle();
-		} else if (reason === 'retreat_defender') {
-			game.state = 'retreat_defender';
 		} else {
 			throw Error("unknown reason state: " + game.reason);
 		}
 	},
 }
 
+// TODO: merge with define_force using reason=intercept_lone_ax
 states.define_force_lone_ax = {
 	prompt() {
-		let main_leader = game.force.leader;
-		let selected = game.force.selected;
-		let space = piece_space(main_leader);
-		let n = count_units_in_force(main_leader);
+		let commander = game.force.commander;
+		let space = piece_space(commander);
+		let n = count_units_in_force(commander);
 
-		view.prompt = `Define lone auxiliary force to ${game.force.reason} with ${piece_name(main_leader)} from ${space_name(space)}.`;
-		view.prompt += " (" + piece_name(selected) + ")";
-		view.who = selected;
+		view.prompt = `Define lone auxiliary force to intercept with ${piece_name(commander)} from ${space_name(space)}.`;
+		view.who = commander;
 
-		// pick up subordinate leaders
+		// pick up sub-commanders
 		for_each_friendly_leader_in_node(space, p => {
-			if (p !== selected) {
-				if (p !== main_leader && leader_command(p) <= leader_command(selected))
-					gen_action_piece(p);
-			}
+			if (p !== commander && leader_command(p) <= leader_command(commander))
+				gen_action_piece(p);
 		});
 
-		// drop off subordinate leaders
-		for_each_friendly_leader_in_node(leader_box(selected), p => {
-			if (p !== selected) {
-				gen_action_piece(p);
-			}
+		// drop off sub-commanders
+		for_each_friendly_leader_in_node(leader_box(commander), p => {
+			gen_action_piece(p);
+		});
+
+		// drop off units
+		let has_br_indians = false;
+		for_each_friendly_unit_in_node(leader_box(commander), p => {
+			if (is_british_iroquois_or_mohawk(p))
+				has_br_indians = true;
+			gen_action_piece(p);
 		});
 
 		// pick up units (max 1 auxiliary)
@@ -2518,7 +2516,7 @@ states.define_force_lone_ax = {
 				if (is_auxiliary_unit(p)) {
 					if (is_british_iroquois_or_mohawk(p)) {
 						// 5.534 Only Johnson can command British Iroquois and Mohawk (and for free)
-						if (selected === JOHNSON)
+						if (is_johnson_in_force(commander))
 							gen_action_piece(p);
 					} else {
 						gen_action_piece(p);
@@ -2528,36 +2526,35 @@ states.define_force_lone_ax = {
 		}
 
 		if (n === 1) {
-			gen_action_next();
+			if (has_br_indians) {
+				if (is_johnson_in_force(commander))
+					gen_action_next();
+			} else {
+				gen_action_next();
+			}
 		}
-
-		// drop off units
-		for_each_friendly_unit_in_node(leader_box(selected), p => {
-			gen_action_piece(p);
-		});
 	},
 
-	piece(piece) {
+	piece(p) {
 		push_undo();
-		let main_leader = game.force.leader;
-		let selected = game.force.selected;
-		let space = piece_space(main_leader);
-		if (piece_node(piece) === leader_box(selected))
-			move_piece_to(piece, space);
-		else
-			move_piece_to(piece, leader_box(selected));
+		let commander = game.force.commander;
+		let space = piece_space(commander);
+		if (piece_node(p) === leader_box(commander)) {
+			move_piece_to(p, space);
+			if (p === JOHNSON) {
+				for_each_for_each_friendly_unit_in_node(leader_box(commander), indian => {
+					if (is_british_iroquois_or_mohawk(indian))
+						move_piece_to(indian, space);
+				});
+			}
+		} else {
+			move_piece_to(p, leader_box(commander));
+		}
 	},
 
 	next() {
 		push_undo();
-		let main_leader = game.force.leader;
-		let reason = game.force.reason;
-		delete game.force;
-		if (reason === 'intercept') {
-			attempt_intercept();
-		} else {
-			throw Error("unknown reason state: " + game.reason);
-		}
+		attempt_intercept();
 	},
 }
 
@@ -3083,7 +3080,7 @@ states.massacre_after_move = {
 function end_move() {
 	let who = moving_piece();
 
-	isolate_piece_from_force(who);
+	unstack_force(who);
 
 	console.log("END MOVE");
 	delete game.move;
@@ -3230,12 +3227,10 @@ states.intercept_who = {
 			push_undo();
 			game.move.intercepting = piece;
 			game.force = {
-				leader: piece,
-				selected: piece,
+				commander: piece,
 				reason: 'intercept',
 			};
 			if (is_moving_piece_lone_ax_in_wilderness_or_mountain()) {
-				isolate_piece_from_force(piece);
 				game.state = 'define_force_lone_ax';
 			} else {
 				game.state = 'define_force';
@@ -3247,6 +3242,7 @@ states.intercept_who = {
 	},
 	pass() {
 		log(`${game.active} decline to intercept`);
+		game.move.intercepting = 0;
 		end_intercept_fail();
 	},
 }
@@ -3285,6 +3281,9 @@ function attempt_intercept() {
 }
 
 function end_intercept_fail() {
+	let who = intercepting_piece();
+	if (who)
+		unstack_force(who);
 	set_enemy_active('move');
 	goto_declare_inside();
 }
@@ -3294,6 +3293,7 @@ function end_intercept_success() {
 	let to = moving_piece_space();
 	console.log("INTERCEPT SUCCESS " + piece_name(who) + " TO " + space_name(to));
 	move_piece_to(who, to);
+	unstack_force(who);
 	set_enemy_active('move');
 	goto_declare_inside();
 }
@@ -3328,7 +3328,6 @@ states.declare_inside = {
 	piece(piece) {
 		console.log("INSIDE WITH", piece_name(piece));
 		push_undo();
-		isolate_piece_from_force(piece);
 		set_piece_inside(piece);
 	},
 	next() {
@@ -3377,8 +3376,7 @@ states.avoid_who = {
 			push_undo();
 			game.move.avoiding = piece;
 			game.force = {
-				leader: piece,
-				selected: piece,
+				commander: piece,
 				reason: 'avoid',
 			};
 			game.state = 'define_force';
@@ -3389,6 +3387,7 @@ states.avoid_who = {
 	},
 	pass() {
 		log(`${game.active} decline to avoid battle`);
+		game.move.avoiding = 0;
 		end_avoid_battle();
 	},
 }
@@ -3487,6 +3486,9 @@ function end_avoid_battle_success(to) {
 }
 
 function end_avoid_battle() {
+	let who = avoiding_piece();
+	if (who)
+		unstack_force(who);
 	console.log("END AVOID BATTLE");
 	set_enemy_active('move');
 	goto_battle_check();
@@ -4554,18 +4556,7 @@ states.retreat_attacker = {
 
 function goto_retreat_defender() {
 	set_active(game.battle.defender);
-	let from = battle_space();
-	let commander = find_friendly_commanding_leader_in_space(from);
-	if (commander && has_friendly_units(from)) {
-		game.force = {
-			leader: commander,
-			selected: commander,
-			reason: 'retreat_defender',
-		};
-		game.state = 'define_force';
-	} else {
-		game.state = 'retreat_defender';
-	}
+	game.state = 'retreat_defender';
 }
 
 function can_defender_retreat_from_to(p, from, to) {
@@ -5152,7 +5143,6 @@ function resolve_raid() {
 function next_raider_in_space(from) {
 	for (let p = first_friendly_piece; p <= last_friendly_piece; ++p) {
 		if (is_piece_in_space(p, from)) {
-			isolate_piece_from_force(p);
 			return p;
 		}
 	}
@@ -5523,6 +5513,12 @@ function goto_game_over(result, victory) {
 	game.victory = victory;
 }
 
+states.game_over = {
+	prompt(view) {
+		return view.prompt = game.victory;
+	}
+}
+
 // DEMOLITION
 
 function gen_action_demolish() {
@@ -5749,7 +5745,6 @@ states.max_two_7_command_leaders_in_play = {
 	},
 	piece(p) {
 		push_undo();
-		isolate_piece_from_force(p);
 		eliminate_piece(p);
 		delete game.seven;
 	},
@@ -6261,7 +6256,6 @@ states.governor_vaudreuil_interferes = {
 	},
 	piece(p) {
 		if (game.swap) {
-			isolate_piece_from_force(p);
 			let a = game.swap;
 			delete game.swap;
 			let a_loc = piece_space(a);
@@ -6272,7 +6266,6 @@ states.governor_vaudreuil_interferes = {
 			end_action_phase();
 		} else {
 			push_undo();
-			isolate_piece_from_force(p);
 			game.swap = p;
 		}
 	},
@@ -7520,7 +7513,6 @@ states.intrigues_against_shirley = {
 		gen_action_piece(SHIRLEY);
 	},
 	piece(p) {
-		isolate_piece_from_force(SHIRLEY);
 		eliminate_piece(SHIRLEY);
 		end_action_phase();
 	},
