@@ -1,6 +1,7 @@
 "use strict";
 
-// cleanups
+// CLEANUPS
+// naming: France/Britain or "The French"/"The British"
 // TODO: rename node/space -> location/space or raw_space/space or box/space?
 // TODO: replace piece[p].type lookups with index range checks
 // TODO: move core of is_friendly/enemy to is_british/french and branch in is_friendly/enemy
@@ -12,38 +13,27 @@
 // TODO: clean up handling of dead/unused french leaders (french regulars event)
 // TODO: show discard/removed card list in UI
 // TODO: defender retreat procedure needs love
+// TODO: for_each_exit -> flat list of all exits
 
-// naming: France/Britain or "The French"/"The British"
-
-// features
-// TODO: trace supply
-// TODO: infiltration
-
-// TODO: 13.12 victory check exception -- originally-British fortresses are friendly
-
-// TODO: french_regulars event played - montcalm not entered or dead separate state (merge DEAD/UNUSED consts)
-// put leaders in pool in their own box?
-
-// TODO: campaign and stacking - define forces first, then move
 // TODO: flat force definition - use sum of leader command rating
 //    (only allow dropping subordinate if stacking limit allows)
-// TODO: indians and raiders go home - new process (coureurs and leaders follow indians, etc)
 
+// TODO: retreat procedure is awkward (define then select then move)
+
+// FEATURES
+// TODO: infiltration
+
+// BUGS
+// TODO: 13.12 victory check exception -- originally-British fortresses are friendly
 // TODO: 10.413 leaders and coureurs may follow indians home
-// TODO: leaders alone - retreat (reinforcement events that place units)
-
-// TODO: remove old 7 command leader(s) before placing reinforcements
-
-// GRAPHICS: badge for pool/dead leaders
-// GRAPHICS: tooltip for leader stack and strength
+// TODO: leaders alone - retreat from reinforcement placements
+// TODO: campaign - define both forces first, then move
+// TODO: remove old 7 command leader(s) immediately as they're drawn, before placing reinforcements
 
 const { spaces, pieces, cards } = require("./data");
 
 const BRITAIN = 'Britain';
 const FRANCE = 'France';
-
-const DEAD = 0;
-const UNUSED = 0;
 
 // Order of pieces: br.leaders/br.units/fr.leaders/fr.units
 let first_british_piece = -1;
@@ -216,9 +206,7 @@ const ENTHUSIASTIC = 2;
 
 function find_space(name) {
 	if (name === 'dead')
-		return DEAD;
-	if (name === 'unused')
-		return UNUSED;
+		return 0;
 	let ix = spaces.findIndex(node => node.name === name);
 	if (ix < 0)
 		throw new Error("cannot find space " + name);
@@ -425,6 +413,8 @@ define_indian_settlement("Pays d'en Haut", "Huron");
 const JOHNSON = find_leader("Johnson");
 const ABERCROMBY = find_leader("Abercromby");
 const AMHERST = find_leader("Amherst");
+const FORBES = find_leader("Forbes");
+const WOLFE = find_leader("Wolfe");
 const BRADDOCK = find_leader("Braddock");
 const LOUDOUN = find_leader("Loudoun");
 const MONTCALM = find_leader("Montcalm");
@@ -565,15 +555,12 @@ function deal_cards() {
 	log("Dealt " + bn + " cards to Britain.");
 
 	while (fn > 0 || bn > 0) {
-		let c;
 		if (fn > 0) {
-			game.France.hand.push(c=deal_card());
-			log("DEAL", c, "to France");
+			game.France.hand.push(deal_card());
 			--fn;
 		}
 		if (bn > 0) {
-			game.Britain.hand.push(c=deal_card());
-			log("DEAL", c, "to Britain");
+			game.Britain.hand.push(deal_card());
 			--bn;
 		}
 	}
@@ -1067,11 +1054,11 @@ function set_force_inside(force) {
 function is_piece_on_map(p) {
 	// TODO: militia boxes?
 	let s = piece_node(p);
-	return s !== UNUSED && s !== DEAD;
+	return s !== 0;
 }
 
 function is_piece_unused(p) {
-	return piece_node(p) === UNUSED;
+	return piece_node(p) === 0;
 }
 
 function is_piece_in_node(p, node) {
@@ -1664,10 +1651,7 @@ function eliminate_piece(p) {
 	log(piece_name(p) + " is eliminated.");
 	isolate_piece_from_force(p);
 	set_unit_reduced(p, 0);
-	if (is_leader(p))
-		game.pieces.location[p] = DEAD;
-	else
-		game.pieces.location[p] = UNUSED;
+	game.pieces.location[p] = 0;
 	if (is_indian_unit(p)) {
 		let home = indian_home_settlement(p);
 		if (home) {
@@ -2281,9 +2265,9 @@ function find_closest_friendly_unbesieged_fortification(start) {
 function start_year() {
 	if (game.tracks.year === 1759 && !game.events.pitt) {
 		log("Placing Amherst, Forbes, and Wolfe into the British leader pool.");
-		game.pieces.pool.push(find_leader("Amherst"));
-		game.pieces.pool.push(find_leader("Forbes"));
-		game.pieces.pool.push(find_leader("Wolfe"));
+		game.pieces.pool.push(AMHERST);
+		game.pieces.pool.push(FORBES);
+		game.pieces.pool.push(WOLFE);
 	}
 
 	game.tracks.season = EARLY;
@@ -7152,17 +7136,14 @@ events.french_regulars = {
 	play() {
 		game.state = 'french_regulars';
 		game.leader = [];
-		if (is_piece_unused(MONTCALM)) {
+		if (game.events.once_french_regulars) {
 			game.leader.push(MONTCALM);
-			move_piece_to(MONTCALM, leader_box(MONTCALM));
-		}
-		if (is_piece_unused(LEVIS)) {
 			game.leader.push(LEVIS);
-			move_piece_to(LEVIS, leader_box(LEVIS));
-		}
-		if (is_piece_unused(BOUGAINVILLE)) {
 			game.leader.push(BOUGAINVILLE);
+			move_piece_to(MONTCALM, leader_box(MONTCALM));
+			move_piece_to(LEVIS, leader_box(LEVIS));
 			move_piece_to(BOUGAINVILLE, leader_box(BOUGAINVILLE));
+			delete game.events.once_french_regulars;
 		}
 		game.count = 2;
 	}
@@ -7938,9 +7919,7 @@ function setup_1755() {
 	game.pieces.pool.push(find_leader("Murray"));
 	game.pieces.pool.push(find_leader("Webb"));
 
-	setup_leader("unused", "Amherst");
-	setup_leader("unused", "Forbes");
-	setup_leader("unused", "Wolfe");
+	game.events.once_french_regulars = 1;
 
 	start_year();
 
