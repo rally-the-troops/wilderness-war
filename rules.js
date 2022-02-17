@@ -1,5 +1,8 @@
 "use strict";
 
+// RULES
+// TODO: does defender win assault if attacker is eliminated?
+
 // CLEANUPS
 // naming: France/Britain or "The French"/"The British"
 // TODO: rename node/space -> location/space or raw_space/space or box/space?
@@ -9,20 +12,18 @@
 // TODO: abbreviate per-player (game.British.xxx) property name (game.b.xxx)
 // TODO: add/remove 'next' steps at end of states
 // TODO: show british leader pool
-// TODO: show badge on leader boxes if they're dead or in pool
-// TODO: clean up handling of dead/unused french leaders (french regulars event)
+// TODO: show badge on leader boxes if they're eliminated or in pool
 // TODO: show discard/removed card list in UI
-// TODO: defender retreat procedure needs love
 // TODO: for_each_exit -> flat list of all exits
 
-// TODO: retreats with no survivors
+// MINOR
 // TODO: select leader for defense instead of automatically picking
-// TODO: keep moving after overrun if commanding leader died?
+// TODO: remove old 7 command leader(s) immediately as they're drawn, before placing reinforcements
 
 // FEATURES
 // TODO: infiltration
 //	infiltrator must retreat after battle of fort/fortress space (per 6.712)
-//		may not stop on fort/fortress (despite rule 6.64)
+//		may not stop on fort/fortress (6.52 overrides rule 6.64)
 //		defenders may not retreat inside
 // STEP 1 - only check if 1 MP left (instead of searching) rather than enough MP to reach non-infiltration
 
@@ -32,11 +33,6 @@
 // TODO: 13.12 victory check exception -- originally-British fortresses are friendly
 // TODO: 10.413 leaders and coureurs may follow indians home
 // TODO: leaders alone - retreat from reinforcement placements
-// TODO: campaign - define both forces first, then move
-// TODO: remove old 7 command leader(s) immediately as they're drawn, before placing reinforcements
-// TODO: unit 'inside' retreated from battle when leader eliminated
-
-// TODO: unstack from battle if taking losses?
 
 const { spaces, pieces, cards } = require("./data");
 
@@ -213,7 +209,7 @@ const SUPPORTIVE = 1;
 const ENTHUSIASTIC = 2;
 
 function find_space(name) {
-	if (name === 'dead')
+	if (name === 'eliminated')
 		return 0;
 	let ix = spaces.findIndex(node => node.name === name);
 	if (ix < 0)
@@ -593,7 +589,7 @@ function draw_leader_from_pool() {
 		}
 
 		game.pieces.pool.splice(i, 1);
-		move_piece_to(p, leader_box(p));
+		move_piece_to(p, leader_box(p)); // TODO: yes/no show drawn leader here?
 		return p;
 	}
 	return 0;
@@ -940,35 +936,14 @@ function piece_node(p) {
 
 function piece_space(p) {
 	let where = piece_node(p);
-	while (is_leader_box(where))
-		where = piece_node(leader_box_leader(where));
+	if (is_leader_box(where))
+		return piece_node(leader_box_leader(where));
 	return where;
 }
 
-// commanding leader or self
-function piece_force(self) {
-	let force = self;
-	let where = piece_node(force);
-	while (is_leader_box(where)) {
-		force = leader_box_leader(where);
-		where = piece_node(force);
-	}
-	return force;
-}
-
 // is piece commanded by a leader (or self)
-function is_piece_in_force(self, query) {
-	let force = self;
-	if (force === query)
-		return true;
-	let where = piece_node(force);
-	while (is_leader_box(where)) {
-		force = leader_box_leader(where);
-		if (force === query)
-			return true;
-		where = piece_node(force);
-	}
-	return false;
+function is_piece_in_force(p, force) {
+	return (p === force) || (piece_node(p) === leader_box(force));
 }
 
 function count_non_british_iroquois_and_mohawk_units_in_leader_box(leader) {
@@ -1658,6 +1633,10 @@ function unstack_force(p) {
 	let s = piece_space(p);
 	if (is_leader(p))
 		move_pieces_from_node_to_node(leader_box(p), s);
+}
+
+function unstack_piece_from_force(p) {
+	move_piece_to(p, piece_space(p));
 }
 
 function restore_unit(p) {
@@ -2353,6 +2332,8 @@ states.pick_move = {
 		goto_move_piece(p);
 	},
 	pass() {
+		// TODO: confirm!
+		delete game.activation;
 		end_action_phase();
 	},
 }
@@ -2370,10 +2351,6 @@ function end_activation() {
 }
 
 // DEFINE FORCE (for various actions)
-
-function is_johnson_in_force(commander) {
-	return commander === JOHNSON || piece_node(JOHNSON) === leader_box(commander);
-}
 
 states.define_force = {
 	prompt() {
@@ -2413,10 +2390,10 @@ states.define_force = {
 		for_each_friendly_unit_in_node(space, p => {
 			if (is_british_iroquois_or_mohawk(p)) {
 				// 5.534 Only Johnson can command British Iroquois and Mohawk (and for free)
-				if (is_johnson_in_force(commander))
+				if (is_piece_in_force(JOHNSON, commander))
 					gen_action_piece(p);
 			} else {
-				if (cmd_use <= cmd_cap)
+				if (cmd_use < cmd_cap)
 					gen_action_piece(p);
 			}
 		});
@@ -2424,7 +2401,7 @@ states.define_force = {
 
 		if (cmd_use <= cmd_cap) {
 			if (has_br_indians) {
-				if (is_johnson_in_force(commander))
+				if (is_piece_in_force(JOHNSON, commander))
 					gen_action_next();
 			} else {
 				gen_action_next();
@@ -2513,7 +2490,7 @@ states.define_force_lone_ax = {
 				if (is_auxiliary_unit(p)) {
 					if (is_british_iroquois_or_mohawk(p)) {
 						// 5.534 Only Johnson can command British Iroquois and Mohawk (and for free)
-						if (is_johnson_in_force(commander))
+						if (is_piece_in_force(JOHNSON, commander))
 							gen_action_piece(p);
 					} else {
 						gen_action_piece(p);
@@ -2524,7 +2501,7 @@ states.define_force_lone_ax = {
 
 		if (n === 1) {
 			if (has_br_indians) {
-				if (is_johnson_in_force(commander))
+				if (is_piece_in_force(JOHNSON, commander))
 					gen_action_next();
 			} else {
 				gen_action_next();
@@ -2708,7 +2685,7 @@ function can_move_by_boat(from, to) {
 		return true;
 	if (is_land_path(from, to)) {
 		if (!game.move.did_carry)
-			return is_carry_connection();
+			return is_carry_connection(from, to);
 		return false;
 	}
 	return true;
@@ -2829,7 +2806,7 @@ states.move = {
 			}
 			view.prompt += ` \u2014 ${game.move.used}/${max_movement_cost()}.`;
 		} else {
-			view.prompt = `${piece_name(who)} is dead.`;
+			view.prompt = `${piece_name(who)} is eliminated.`;
 		}
 
 		view.who = who;
@@ -3050,12 +3027,13 @@ function end_move_step(final) {
 		stop_move();
 
 	// Handle death of stack...
-	if (count_friendly_units_in_space(where) === 0) {
+	if (!has_friendly_pieces(where)) {
 		stop_move();
 		return resume_move();
 	}
 
 	if (has_unbesieged_enemy_fortifications(where)) {
+		unstack_force(who);
 		stop_move();
 		if (has_enemy_fort(where) || is_fortress(where)) {
 			place_siege_marker(where);
@@ -3507,22 +3485,15 @@ function end_avoid_battle() {
 // BATTLE
 
 function for_each_attacking_piece(fn) {
-	if (game.battle.assault) {
-		let where = game.battle.where;
-		if (game.battle.attacker === BRITAIN) {
-			for (let p = first_british_piece; p <= last_british_piece; ++p)
-				if (is_piece_in_space(p, where))
-					fn(p);
-		} else {
-			for (let p = first_french_piece; p <= last_french_piece; ++p)
-				if (is_piece_in_space(p, where))
-					fn(p);
-		}
-	} else {
-		for_each_piece_in_force(game.move.moving, fn);
-		if (game.battle.sortie)
-			game.battle.sortie.forEach(fn);
-	}
+	game.battle.atk_pcs.forEach(fn);
+}
+
+function count_attacking_units() {
+	let n = 0;
+	for (let i = 0; i < game.battle.atk_pcs.length; ++i)
+		if (is_unit(game.battle.atk_pcs[i]))
+			++n;
+	return n;
 }
 
 function for_each_defending_piece(fn) {
@@ -3633,7 +3604,26 @@ function goto_battle(where, is_assault) {
 		assault: is_assault,
 		atk_worth_vp: 0,
 		def_worth_vp: 0,
+		atk_pcs: [],
 	};
+
+	// Make a list of attacking pieces (for sorties and so we can unstack from the leader box)
+	if (game.battle.assault) {
+		let where = game.battle.where;
+		if (game.battle.attacker === BRITAIN) {
+			for (let p = first_british_piece; p <= last_british_piece; ++p)
+				if (is_piece_in_space(p, where))
+					game.battle.atk_pcs.push(p);
+		} else {
+			for (let p = first_french_piece; p <= last_french_piece; ++p)
+				if (is_piece_in_space(p, where))
+					game.battle.atk_pcs.push(p);
+		}
+	} else {
+		for_each_piece_in_force(game.move.moving, p => {
+			game.battle.atk_pcs.push(p);
+		});
+	}
 
 	// 5.36 unit or leader may not be activated if it participated in combat or assault.
 	if (game.activation) {
@@ -3732,7 +3722,6 @@ function goto_battle_sortie() {
 	set_active(game.battle.attacker);
 	if (has_besieged_friendly_units(game.battle.where) && has_unbesieged_friendly_units(game.battle.where)) {
 		game.state = 'sortie';
-		game.battle.sortie = [];
 	} else {
 		goto_battle_attacker_events();
 	}
@@ -3744,14 +3733,19 @@ states.sortie = {
 		view.where = game.battle.where;
 		for (let p = first_friendly_unit; p <= last_friendly_unit; ++p)
 			if (is_piece_in_space(p, game.battle.where) && is_piece_inside(p))
-				if (!game.battle.sortie.includes(p))
+				if (!game.battle.atk_pcs.includes(p))
 					gen_action_piece(p);
 		gen_action_next();
 	},
 	piece(p) {
 		push_undo();
 		log(`${piece_name(p)} sorties.`);
-		game.battle.sortie.push(p);
+		game.battle.atk_pcs.push(p);
+
+		// 5.36 unit or leader may not be activated if it participated in combat or assault.
+		unstack_piece_from_force(p);
+		if (game.activation)
+			remove_from_array(game.activation, p);
 	},
 	next() {
 		clear_undo();
@@ -4215,8 +4209,10 @@ states.step_losses = {
 		--game.battle.step_loss;
 		if (game.battle.dt_loss > 0 && is_drilled_troops(p))
 			--game.battle.dt_loss;
-		if (reduce_unit(p))
+		if (reduce_unit(p)) {
+			remove_from_array(game.battle.atk_pcs, p);
 			remove_from_array(game.battle.units, p);
+		}
 	},
 	next() {
 		clear_undo();
@@ -4315,6 +4311,8 @@ states.leader_check = {
 		let die = roll_die("for leader check");
 		if (die === 1) {
 			log(`${piece_name(piece)} rolls ${die} and is killed`);
+			if (game.battle)
+				remove_from_array(game.battle.atk_pcs, p);
 			eliminate_piece(piece);
 		} else {
 			log(`${piece_name(piece)} rolls ${die} and survives`);
@@ -4398,7 +4396,7 @@ function determine_winner_battle() {
 	log("");
 
 	// 7.8: Determine winner
-	let atk_surv = count_friendly_units_in_space(where);
+	let atk_surv = count_attacking_units();
 	let def_surv = count_unbesieged_enemy_units_in_space(where);
 	let victor;
 	if (atk_surv === 0 && def_surv === 0)
@@ -4437,7 +4435,7 @@ function determine_winner_battle() {
 			goto_raid_events();
 		} else {
 			log("DEFENDER WON RAID BATTLE VS MILITIA");
-			if (atk_surv > 0)
+			if (game.battle.atk_pcs.length > 0)
 				retreat_attacker(game.raid.where, game.raid.from[game.raid.where] | 0);
 			else
 				end_retreat_attacker();
@@ -4445,7 +4443,7 @@ function determine_winner_battle() {
 		return;
 	}
 
-	// TODO: Breakout
+	// TODO: Breakout (<-- forgot why this TODO item is here)
 
 	// Normal battle
 	if (victor === game.battle.attacker) {
@@ -4462,7 +4460,8 @@ function determine_winner_battle() {
 		}
 	} else {
 		log("DEFENDER WON");
-		if (atk_surv > 0) {
+		if (game.battle.atk_pcs.length > 0) {
+			unstack_force(moving_piece());
 			let from = game.battle.where;
 			let to = moving_piece_came_from();
 			retreat_attacker(from, to);
@@ -4488,6 +4487,8 @@ function determine_winner_assault() {
 		victor = game.battle.attacker;
 	else
 		victor = game.battle.defender;
+
+	// TODO: does defender win if attacker is eliminated
 
 	if (victor === game.battle.attacker) {
 		log("ATTACKER WON ASSAULT");
@@ -4544,7 +4545,6 @@ function can_attacker_retreat_from_to(p, from, to) {
 
 function retreat_attacker(from, to) {
 	set_active(game.battle.attacker);
-	unstack_force(moving_piece());
 	game.state = 'retreat_attacker';
 	game.retreat = { from, to };
 }
@@ -4567,17 +4567,8 @@ states.retreat_attacker = {
 
 		console.log("RETREAT ATTACKER", space_name(from), "to", space_name(to));
 
-		// NOTE: Besieged pieces assaulting out are already inside so not affected by the code below.
-		// NOTE: We unstack forces here by retreating individual units before leaders!
-		for_each_friendly_unit_in_space(from, p => {
-			if (!is_piece_inside(p)) {
-				if (can_attacker_retreat_from_to(p, from, to))
-					move_piece_to(p, to);
-				else
-					eliminate_piece(p);
-			}
-		});
-		for_each_friendly_leader_in_space(from, p => {
+		// NOTE: Besieged pieces that sortie out are 'inside' so not affected by the code below.
+		for_each_friendly_piece_in_space(from, p => {
 			if (!is_piece_inside(p)) {
 				if (can_attacker_retreat_from_to(p, from, to))
 					move_piece_to(p, to);
@@ -7687,8 +7678,8 @@ function setup_1757(end_year) {
 	setup_unit("Logstown", "Shawnee");
 	setup_unit("Mingo Town", "Mingo");
 
-	setup_leader("dead", "Dieskau");
-	setup_leader("dead", "Beaujeu");
+	setup_leader("eliminated", "Dieskau");
+	setup_leader("eliminated", "Beaujeu");
 
 	setup_markers(game.Britain.forts, [
 		"Hudson Carry South",
@@ -7760,8 +7751,8 @@ function setup_1757(end_year) {
 	game.pieces.pool.push(find_leader("Murray"));
 	game.pieces.pool.push(find_leader("Wolfe"));
 
-	setup_leader("dead", "Braddock");
-	setup_leader("dead", "Shirley");
+	setup_leader("eliminated", "Braddock");
+	setup_leader("eliminated", "Shirley");
 
 	game.events.pitt = 1;
 	game.events.diplo = 1;
