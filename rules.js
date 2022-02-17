@@ -3784,26 +3784,30 @@ function has_light_infantry_in_defense() {
 }
 
 function can_play_ambush_in_attack() {
-	let s = game.battle.where;
-	if (is_card_available_for_attacker(AMBUSH_1) || is_card_available_for_attacker(AMBUSH_2)) {
-		let n = count_auxiliary_units_in_attack();
-		if (is_wilderness_or_mountain(s) && n > 0) {
-			if (has_enemy_fort(s) || has_light_infantry_in_defense(s) || count_auxiliary_units_in_defense() > n)
-				return false;
-			return true;
+	if (!game.battle.assault) {
+		let s = game.battle.where;
+		if (is_card_available_for_attacker(AMBUSH_1) || is_card_available_for_attacker(AMBUSH_2)) {
+			let n = count_auxiliary_units_in_attack();
+			if (is_wilderness_or_mountain(s) && n > 0) {
+				if (has_enemy_fort(s) || has_light_infantry_in_defense(s) || count_auxiliary_units_in_defense() > n)
+					return false;
+				return true;
+			}
 		}
 	}
 	return false;
 }
 
 function can_play_ambush_in_defense() {
-	let s = game.battle.where;
-	if (is_card_available_for_defender(AMBUSH_1) || is_card_available_for_defender(AMBUSH_2)) {
-		let n = count_auxiliary_units_in_defense();
-		if (is_wilderness_or_mountain(s) && n > 0) {
-			if (has_enemy_fort(s) || has_light_infantry_in_attack(s) || count_auxiliary_units_in_attack() > n)
-				return false;
-			return true;
+	if (!game.battle.assault) {
+		let s = game.battle.where;
+		if (is_card_available_for_defender(AMBUSH_1) || is_card_available_for_defender(AMBUSH_2)) {
+			let n = count_auxiliary_units_in_defense();
+			if (is_wilderness_or_mountain(s) && n > 0) {
+				if (has_enemy_fort(s) || has_light_infantry_in_attack(s) || count_auxiliary_units_in_attack() > n)
+					return false;
+				return true;
+			}
 		}
 	}
 	return false;
@@ -3816,21 +3820,25 @@ function can_play_coehorns_in_attack() {
 }
 
 function can_play_fieldworks_in_attack() {
-	if (is_card_available_for_attacker(FIELDWORKS_1) || is_card_available_for_attacker(FIELDWORKS_2)) {
-		if (has_fieldworks(game.battle.where)) {
-			if (game.battle.assault)
-				return has_friendly_drilled_troops(game.battle.where);
-			else
-				return force_has_drilled_troops(game.move.moving);
+	if (!game.battle.assault) {
+		if (is_card_available_for_attacker(FIELDWORKS_1) || is_card_available_for_attacker(FIELDWORKS_2)) {
+			if (has_fieldworks(game.battle.where)) {
+				if (game.battle.assault)
+					return has_friendly_drilled_troops(game.battle.where);
+				else
+					return force_has_drilled_troops(game.move.moving);
+			}
 		}
 	}
 	return false;
 }
 
 function can_play_fieldworks_in_defense() {
-	if (is_card_available_for_defender(FIELDWORKS_1) || is_card_available_for_defender(FIELDWORKS_2)) {
-		if (!has_fieldworks(game.battle.where)) {
-			return has_friendly_drilled_troops(game.battle.where);
+	if (!game.battle.assault) {
+		if (is_card_available_for_defender(FIELDWORKS_1) || is_card_available_for_defender(FIELDWORKS_2)) {
+			if (!has_fieldworks(game.battle.where)) {
+				return has_friendly_drilled_troops(game.battle.where);
+			}
 		}
 	}
 	return false;
@@ -4028,32 +4036,34 @@ function goto_atk_fire() {
 	if (game.events.coehorns === game.battle.attacker) {
 		die = modify(die, 2, "for coehorns");
 	}
-	if (is_wilderness_or_mountain(game.battle.where)) {
-		let atk_has_ax = some_attacking_piece(p => is_auxiliary_unit(p) || is_light_infantry_unit(p));
-		let def_has_ax = some_defending_piece(p => is_auxiliary_unit(p) || is_light_infantry_unit(p));
-		if (!atk_has_ax && def_has_ax)
-			die = modify(die, -1, "vs auxiliaries in wilderness");
-	}
-	if (is_cultivated(game.battle.where)) {
-		let atk_has_reg = some_attacking_piece(p => is_regulars_unit(p));
-		let def_has_reg = some_defending_piece(p => is_regulars_unit(p));
-		if (!atk_has_reg && def_has_reg)
-			die = modify(die, -1, "vs regulars in cultivated");
-	}
-	if (has_amphib(game.battle.where) && game.move.type === 'naval') {
-		die = modify(die, -1, "amphibious landing");
-	}
-	if (has_enemy_stockade(game.battle.where)) {
-		die = modify(die, -1, "vs stockade");
-	}
-	if (has_fieldworks(game.battle.where) && !game.battle.assault) {
-		// NOTE: Ignore fieldworks during assault, as they belong to the besieging forces.
-		log(`1 column left vs fieldworks`);
-		shift -= 1;
-	}
+
 	if (game.battle.assault) {
 		log(`1 column left for assaulting`);
 		shift -= 1;
+	} else {
+		if (is_wilderness_or_mountain(game.battle.where)) {
+			let atk_has_ax = some_attacking_piece(p => is_auxiliary_unit(p) || is_light_infantry_unit(p));
+			let def_has_ax = some_defending_piece(p => is_auxiliary_unit(p) || is_light_infantry_unit(p));
+			if (!atk_has_ax && def_has_ax)
+				die = modify(die, -1, "vs auxiliaries in wilderness");
+		}
+		if (is_cultivated(game.battle.where)) {
+			let atk_has_reg = some_attacking_piece(p => is_regulars_unit(p));
+			let def_has_reg = some_defending_piece(p => is_regulars_unit(p));
+			if (!atk_has_reg && def_has_reg)
+				die = modify(die, -1, "vs regulars in cultivated");
+		}
+		if (has_amphib(game.battle.where) && game.move.type === 'naval') {
+			die = modify(die, -1, "amphibious landing");
+		}
+		if (has_enemy_stockade(game.battle.where)) {
+			die = modify(die, -1, "vs stockade");
+		}
+		if (has_fieldworks(game.battle.where)) {
+			// NOTE: Ignore fieldworks during assault, as they belong to the besieging forces.
+			log(`1 column left vs fieldworks`);
+			shift -= 1;
+		}
 	}
 
 	game.battle.atk_result = combat_result(die, str, shift);
@@ -4082,18 +4092,22 @@ function goto_def_fire() {
 	if (p) {
 		die = modify(die, leader_tactics(p), "leader tactics");
 	}
-	if (is_wilderness_or_mountain(game.battle.where)) {
-		let atk_has_ax = some_attacking_piece(p => is_auxiliary_unit(p) || is_light_infantry_unit(p));
-		let def_has_ax = some_defending_piece(p => is_auxiliary_unit(p) || is_light_infantry_unit(p));
-		if (atk_has_ax && !def_has_ax)
-			die = modify(die, -1, "vs auxiliaries in wilderness");
+
+	if (!game.battle.assault) {
+		if (is_wilderness_or_mountain(game.battle.where)) {
+			let atk_has_ax = some_attacking_piece(p => is_auxiliary_unit(p) || is_light_infantry_unit(p));
+			let def_has_ax = some_defending_piece(p => is_auxiliary_unit(p) || is_light_infantry_unit(p));
+			if (atk_has_ax && !def_has_ax)
+				die = modify(die, -1, "vs auxiliaries in wilderness");
+		}
+		if (is_cultivated(game.battle.where)) {
+			let atk_has_reg = some_attacking_piece(p => is_regulars_unit(p));
+			let def_has_reg = some_defending_piece(p => is_regulars_unit(p));
+			if (atk_has_reg && !def_has_reg)
+				die = modify(die, -1, "vs regulars in cultivated");
+		}
 	}
-	if (is_cultivated(game.battle.where)) {
-		let atk_has_reg = some_attacking_piece(p => is_regulars_unit(p));
-		let def_has_reg = some_defending_piece(p => is_regulars_unit(p));
-		if (atk_has_reg && !def_has_reg)
-			die = modify(die, -1, "vs regulars in cultivated");
-	}
+
 	game.battle.def_result = combat_result(die, str, shift);
 	log(`Defender result: ${game.battle.def_result}.`);
 
@@ -5118,7 +5132,7 @@ function resolve_raid() {
 		column = 'stockade';
 	if (game.events.blockhouses === enemy()) {
 		column = 'stockade';
-		log("vs. enemy blockhouses");
+		log("vs enemy blockhouses");
 	}
 
 	let result = clamp(die, 0, 7);
