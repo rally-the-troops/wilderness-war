@@ -1553,7 +1553,7 @@ function moving_piece() {
 }
 
 function moving_piece_space() {
-	return piece_space(moving_piece());
+	return game.move.where;
 }
 
 function intercepting_piece() {
@@ -2564,6 +2564,7 @@ function goto_move_piece(who) {
 	game.state = 'move';
 	game.move = {
 		moving: who,
+		where: from,
 		came_from: 0,
 		infiltrated: 0,
 		intercepting: null,
@@ -2746,6 +2747,7 @@ function apply_move(to) {
 	let from = moving_piece_space();
 
 	game.move.used ++;
+	game.move.where = to;
 	game.move.came_from = from;
 	game.raid.from[to] = from; // remember where raiders came from so they can retreat after battle
 
@@ -2813,18 +2815,22 @@ states.move = {
 		let who = moving_piece();
 		let from = piece_space(who);
 
-		view.prompt = `Move ${piece_name(who)} (${space_name(from)})`;
-		if (game.move.type === 'boat') {
-			if (game.move.used < land_movement_cost())
-				view.prompt += " by boat or land";
-			else
-				view.prompt += " by boat";
-			if (game.move.did_carry)
-				view.prompt += " (carried)";
+		if (from) {
+			view.prompt = `Move ${piece_name(who)} (${space_name(from)})`;
+			if (game.move.type === 'boat') {
+				if (game.move.used < land_movement_cost())
+					view.prompt += " by boat or land";
+				else
+					view.prompt += " by boat";
+				if (game.move.did_carry)
+					view.prompt += " (carried)";
+			} else {
+				view.prompt += ` by ${game.move.type}`;
+			}
+			view.prompt += ` \u2014 ${game.move.used}/${max_movement_cost()}.`;
 		} else {
-			view.prompt += ` by ${game.move.type}`;
+			view.prompt = `${piece_name(who)} is dead.`;
 		}
-		view.prompt += ` \u2014 ${game.move.used}/${max_movement_cost()}.`;
 
 		view.who = who;
 		if (game.move.used === 0) {
@@ -3027,8 +3033,7 @@ function goto_battle_check() {
 	let where = moving_piece_space();
 	console.log("BATTLE CHECK", space_name(where));
 	if (has_unbesieged_enemy_units(where)) {
-		// TODO: breaking the siege (units inside join)
-		goto_battle(where, false, false);
+		goto_battle(where, false);
 	} else {
 		end_move_step(false);
 	}
@@ -3041,6 +3046,15 @@ function end_move_step(final) {
 	console.log("END MOVE STEP");
 	delete game.battle;
 	game.move.did_attempt_intercept = 0; // reset flag for next move step
+	if (final)
+		stop_move();
+
+	// Handle death of stack...
+	if (count_friendly_units_in_space(where) === 0) {
+		stop_move();
+		return resume_move();
+	}
+
 	if (has_unbesieged_enemy_fortifications(where)) {
 		stop_move();
 		if (has_enemy_fort(where) || is_fortress(where)) {
@@ -3053,13 +3067,12 @@ function end_move_step(final) {
 					return goto_massacre('massacre_after_move');
 			}
 		}
-	} else if (final) {
-		stop_move();
 	}
-	if (!is_lone_leader(who) && has_unbesieged_enemy_leader(where))
-		goto_retreat_lone_leader();
-	else
-		resume_move();
+
+	if (!is_lone_leader(who) && is_piece_on_map(who) && has_unbesieged_enemy_leader(where))
+		return goto_retreat_lone_leader();
+
+	resume_move();
 }
 
 states.massacre_after_move = {
@@ -3607,7 +3620,7 @@ function combat_result(die, str, shift) {
 	return NaN;
 }
 
-function goto_battle(where, is_assault=false, is_breaking_siege=false) {
+function goto_battle(where, is_assault) {
 	clear_undo();
 
 	log("");
@@ -3618,7 +3631,6 @@ function goto_battle(where, is_assault=false, is_breaking_siege=false) {
 		attacker: game.active,
 		defender: enemy(),
 		assault: is_assault,
-		breaking_siege: is_breaking_siege,
 		atk_worth_vp: 0,
 		def_worth_vp: 0,
 	};
@@ -4425,7 +4437,10 @@ function determine_winner_battle() {
 			goto_raid_events();
 		} else {
 			log("DEFENDER WON RAID BATTLE VS MILITIA");
-			retreat_attacker(game.raid.where, game.raid.from[game.raid.where] | 0);
+			if (atk_surv > 0)
+				retreat_attacker(game.raid.where, game.raid.from[game.raid.where] | 0);
+			else
+				end_retreat_attacker();
 		}
 		return;
 	}
@@ -4447,9 +4462,13 @@ function determine_winner_battle() {
 		}
 	} else {
 		log("DEFENDER WON");
-		let from = game.battle.where;
-		let to = moving_piece_came_from();
-		retreat_attacker(from, to);
+		if (atk_surv > 0) {
+			let from = game.battle.where;
+			let to = moving_piece_came_from();
+			retreat_attacker(from, to);
+		} else {
+			end_retreat_attacker();
+		}
 	}
 }
 
@@ -4567,18 +4586,22 @@ states.retreat_attacker = {
 			}
 		});
 
-		// Raid battle vs militia
-		if (game.raid && game.raid.where > 0) {
-			// if raiders need to retreat again, they go back to this
-			// space, unless they retreat to join other raiders
-			if (!game.raid.from[to])
-				game.raid.from[to] = from;
-			return goto_pick_raid();
-		}
-
-		// Normal battle
-		end_retreat();
+		end_retreat_attacker();
 	}
+}
+
+function end_retreat_attacker() {
+	// Raid battle vs militia
+	if (game.raid && game.raid.where > 0) {
+		// if raiders need to retreat again, they go back to this
+		// space, unless they retreat to join other raiders
+		if (!game.raid.from[to])
+			game.raid.from[to] = from;
+		return goto_pick_raid();
+	}
+
+	// Normal battle
+	end_retreat();
 }
 
 function goto_retreat_defender() {
@@ -4999,7 +5022,7 @@ states.assault_possible = {
 
 function goto_assault(where) {
 	log("Assault " + space_name(where));
-	goto_battle(where, true, false);
+	goto_battle(where, true);
 }
 
 // RAID
@@ -5068,7 +5091,7 @@ states.militia_against_raid = {
 		clear_undo();
 		set_active(enemy());
 		if (game.count === 0)
-			goto_battle(game.raid.where, false, false);
+			goto_battle(game.raid.where, false);
 		else
 			goto_raid_events();
 	},
