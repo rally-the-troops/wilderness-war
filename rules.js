@@ -1,16 +1,17 @@
 "use strict";
 
 // RULES
-// TODO: does defender win assault if attacker is eliminated?
+// does defender win assault if attacker is eliminated?
+// France/Britain or "The French"/"The British"
 
 // CLEANUPS
-// naming: France/Britain or "The French"/"The British"
 // TODO: rename node/space -> location/space or raw_space/space or box/space?
 // TODO: replace piece[p].type lookups with index range checks
 // TODO: move core of is_friendly/enemy to is_british/french and branch in is_friendly/enemy
 // TODO: make 'inside' negative location instead of separate array
 // TODO: abbreviate per-player (game.British.xxx) property name (game.b.xxx)
 // TODO: add/remove 'next' steps at end of states
+// TODO: manual selection of reduced/placed units in events
 // TODO: show british leader pool
 // TODO: show badge on leader boxes if they're eliminated or in pool
 // TODO: show discard/removed card list in UI
@@ -26,8 +27,7 @@
 //		may not stop on fort/fortress (6.52 overrides rule 6.64)
 //		defenders may not retreat inside
 // STEP 1 - only check if 1 MP left (instead of searching) rather than enough MP to reach non-infiltration
-
-// 5.36 -- unit or leader may not be activated if it participated in combat or assault - remove from activation list
+// STEP 2 - find closest path to non-infiltration space
 
 // BUGS
 // TODO: 13.12 victory check exception -- originally-British fortresses are friendly
@@ -2691,10 +2691,18 @@ function can_move_by_boat(from, to) {
 	return true;
 }
 
+function can_infiltrate(start) {
+	// TODO: search paths to see if we have enough movement points left to reach non-infiltration space
+	console.log("CAN_INFILTRATE", space_name(start), game.move.used, max_movement_cost());
+	let distance_to_non_infiltration_space = 1;
+	return (game.move.used + distance_to_non_infiltration_space) < max_movement_cost();
+}
+
 function gen_regular_move() {
 	let who = moving_piece();
 	let from = moving_piece_space();
 	let is_lone_ld = is_lone_leader(who);
+	let is_lone_ax = is_lone_auxiliary(who);
 	let has_dt = force_has_drilled_troops(who);
 	for_each_exit(from, to => {
 		if (is_lone_ld) {
@@ -2703,10 +2711,10 @@ function gen_regular_move() {
 				return; // continue;
 		} else {
 			// Must have Drilled Troops to enter an enemy fort or fortress space.
-			// TODO: Infiltrate
+			// except: Infiltration by lone auxiliary
 			if (has_unbesieged_enemy_fort_or_fortress(to)) {
-				if (!has_dt)
-					return;
+				if (!(has_dt || (is_lone_ax && can_infiltrate(to))))
+					return; // continue
 			}
 		}
 
@@ -2755,25 +2763,37 @@ function apply_move(to) {
 		// Must stop in the next space after passing through...
 		if (game.move.used > 1 && !from_ff) {
 			// Drilled Troops that pass through wilderness must stop in the next space.
-			if (has_dt && !has_ax && is_wilderness(to))
+			if (has_dt && !has_ax && is_wilderness(from))
 				if (!game.events.george_croghan)
 					stop_move();
 
 			// Auxiliaries that pass through enemy cultivated must stop in the next space.
-			if (has_ax && !has_dt && is_originally_enemy(to))
+			if (has_ax && !has_dt && is_originally_enemy(from))
 				stop_move();
 		}
 	}
 
+	game.move.infiltrated = 0;
+
 	if (has_enemy_stockade(to)) {
-		// TODO: Infiltrate
-		stop_move();
+		console.log("INF STK", is_lone_auxiliary(who), can_infiltrate(to));
+		if (is_lone_auxiliary(who) && can_infiltrate(to))
+			game.move.infiltrated = 1;
+		else
+			stop_move();
 	}
 
 	if (has_unbesieged_enemy_fort_or_fortress(to)) {
-		// TODO: Infiltrate
-		stop_move();
+		if (is_lone_auxiliary(who) && can_infiltrate(to))
+			game.move.infiltrated = 1;
+		else
+			stop_move();
 	}
+
+	if (game.move.infiltrated)
+		log(`infiltrates ${space_name(to)}`);
+	else
+		log(`moves to ${space_name(to)}`);
 
 	move_piece_to(who, to);
 	lift_sieges_and_amphib();
@@ -2804,6 +2824,8 @@ states.move = {
 			} else {
 				view.prompt += ` by ${game.move.type}`;
 			}
+			if (game.move.infiltrated)
+				view.prompt += " (infiltrating)";
 			view.prompt += ` \u2014 ${game.move.used}/${max_movement_cost()}.`;
 		} else {
 			view.prompt = `${piece_name(who)} is eliminated.`;
@@ -2836,7 +2858,10 @@ states.move = {
 				}
 			}
 		}
-		gen_action_next();
+
+		if (!(game.move.infiltrated && has_unbesieged_enemy_fort_or_fortress(from)))
+			gen_action_next()
+
 		gen_action_demolish();
 
 		if (game.move.used < max_movement_cost()) {
@@ -2903,7 +2928,13 @@ states.move = {
 	demolish_stockade: goto_demolish_stockade,
 	demolish_fieldworks: goto_demolish_fieldworks,
 	next() {
-		end_move();
+		// Stop infiltrating (not in fort/fortress space)
+		if (game.move.infiltrated) {
+			game.move.infiltrated = 0;
+			goto_avoid_battle();
+		} else {
+			end_move();
+		}
 	},
 }
 
@@ -2952,10 +2983,19 @@ states.lake_schooner = {
 		play_card(c);
 		let who = moving_piece();
 		let from = moving_piece_came_from();
+		set_active(enemy());
+		stop_move();
 		move_piece_to(who, from);
 		log(`${piece_name(who)} stops in ${space_name(from)}.`);
-		stop_move();
-		set_active(enemy());
+
+		// 6.63 eliminate if forced back into enemy-occupied space
+		if (has_unbesieged_enemy_units(from) || has_unbesieged_enemy_fortifications(from)) {
+			for_each_friendly_piece_in_space(from, p => {
+				if (!is_piece_inside(p))
+					eliminate_piece(p);
+			});
+		}
+
 		resume_move();
 	},
 	pass() {
@@ -3017,12 +3057,14 @@ function goto_battle_check() {
 }
 
 function end_move_step(final) {
+	console.log("END MOVE STEP");
+
 	lift_sieges_and_amphib();
 	let who = moving_piece();
 	let where = moving_piece_space();
-	console.log("END MOVE STEP");
 	delete game.battle;
 	game.move.did_attempt_intercept = 0; // reset flag for next move step
+
 	if (final)
 		stop_move();
 
@@ -3032,22 +3074,26 @@ function end_move_step(final) {
 		return resume_move();
 	}
 
-	if (has_unbesieged_enemy_fortifications(where)) {
-		unstack_force(who);
-		stop_move();
-		if (has_enemy_fort(where) || is_fortress(where)) {
-			place_siege_marker(where);
-		}
-		if (has_enemy_stockade(where)) {
-			if (force_has_drilled_troops(who)) {
-				capture_enemy_stockade(where);
-				if (can_play_massacre())
-					return goto_massacre('massacre_after_move');
+	if (!game.move.infiltrated) {
+		if (has_unbesieged_enemy_fortifications(where)) {
+			unstack_force(who);
+			stop_move();
+			if (has_enemy_fort(where) || is_fortress(where)) {
+				place_siege_marker(where);
+			}
+			if (has_enemy_stockade(where)) {
+				if (force_has_drilled_troops(who)) {
+					capture_enemy_stockade(where);
+					if (can_play_massacre())
+						return goto_massacre('massacre_after_move');
+				}
 			}
 		}
 	}
 
-	if (!is_lone_leader(who) && is_piece_on_map(who) && has_unbesieged_enemy_leader(where))
+	if (!is_lone_leader(who) && is_piece_on_map(who)
+		&& has_unbesieged_enemy_leader(where)
+		&& !has_unbesieged_enemy_units(where))
 		return goto_retreat_lone_leader();
 
 	resume_move();
@@ -3100,8 +3146,7 @@ function can_be_intercepted() {
 		return false;
 
 	// 6.721 exception: can always intercept units infiltrating same space
-	// TODO: Infiltrate
-	if (false) {
+	if (game.move.infiltrated) {
 		if (has_unbesieged_enemy_units(here))
 			return true;
 	}
@@ -3132,8 +3177,7 @@ function gen_intercept() {
 
 	if (has_unbesieged_enemy_units(to)) {
 		// 6.721 exception -- can always intercept units infiltrating same space
-		// TODO: Infiltrate
-		if (false) {
+		if (game.move.infiltrated) {
 			for_each_friendly_piece_in_space(to, p => {
 				if (is_piece_unbesieged(p))
 					gen_action_piece(p);
@@ -3190,7 +3234,10 @@ function goto_intercept() {
 		clear_undo();
 		set_enemy_active('intercept_who');
 	} else {
-		goto_declare_inside();
+		if (game.move.infiltrated)
+			end_move_step();
+		else
+			goto_declare_inside();
 	}
 }
 
@@ -3203,28 +3250,31 @@ function is_moving_piece_lone_ax_in_wilderness_or_mountain() {
 states.intercept_who = {
 	prompt() {
 		let who = moving_piece();
-		let where = piece_space(who);
+		let where = moving_piece_space();
 		view.prompt = "Select a force or unit to intercept into " + space_name(where) + ".";
 		view.where = where;
 		gen_action_pass();
 		gen_intercept();
 	},
-	piece(piece) {
-		console.log("INTERCEPT WITH", piece_name(piece));
-		if (is_leader(piece)) {
+	piece(p) {
+		console.log("INTERCEPT WITH", piece_name(p));
+		let to = moving_piece_space();
+		let from = piece_space(p);
+		// All units can intercept in same space (even lone ax in wilderness), but no need to define the force.
+		if (is_leader(p) && from !== to) {
 			push_undo();
-			game.move.intercepting = piece;
+			game.move.intercepting = p;
 			game.force = {
-				commander: piece,
+				commander: p,
 				reason: 'intercept',
 			};
-			if (is_moving_piece_lone_ax_in_wilderness_or_mountain()) {
+			if (is_moving_piece_lone_ax_in_wilderness_or_mountain() && from !== to) {
 				game.state = 'define_force_lone_ax';
 			} else {
 				game.state = 'define_force';
 			}
 		} else {
-			game.move.intercepting = piece;
+			game.move.intercepting = p;
 			attempt_intercept();
 		}
 	},
@@ -3273,7 +3323,10 @@ function end_intercept_fail() {
 	if (who)
 		unstack_force(who);
 	set_enemy_active('move');
-	goto_declare_inside();
+	if (game.move.infiltrated)
+		end_move_step();
+	else
+		goto_declare_inside();
 }
 
 function end_intercept_success() {
@@ -3289,6 +3342,8 @@ function end_intercept_success() {
 // DECLARE INSIDE/OUTSIDE FORTIFICATION
 
 function goto_declare_inside() {
+	if (game.move.infiltrated)
+		return goto_avoid_battle();
 	let where = moving_piece_space();
 	if (has_unbesieged_enemy_units_that_did_not_intercept(where)) {
 		if (is_fortress(where) || has_enemy_fort(where)) {
@@ -3609,6 +3664,7 @@ function goto_battle(where, is_assault) {
 
 	// Make a list of attacking pieces (for sorties and so we can unstack from the leader box)
 	if (game.battle.assault) {
+		game.battle.atk_commander = find_friendly_commanding_leader_in_space(game.battle.where);
 		let where = game.battle.where;
 		if (game.battle.attacker === BRITAIN) {
 			for (let p = first_british_piece; p <= last_british_piece; ++p)
@@ -3619,7 +3675,13 @@ function goto_battle(where, is_assault) {
 				if (is_piece_in_space(p, where))
 					game.battle.atk_pcs.push(p);
 		}
+	} else if (game.raid) {
+		game.battle.atk_commander = find_friendly_commanding_leader_in_space(game.battle.where);
+		for_each_friendly_piece_in_space(game.battle.where, p => {
+			game.battle.atk_pcs.push(p);
+		});
 	} else {
+		game.battle.atk_commander = game.move.moving;
 		for_each_piece_in_force(game.move.moving, p => {
 			game.battle.atk_pcs.push(p);
 		});
@@ -4036,8 +4098,8 @@ function goto_atk_fire() {
 	}
 
 	let die = game.battle.atk_die = roll_die("for attacker");
-	if (is_leader(game.move.moving)) {
-		die = modify(die, leader_tactics(game.move.moving), "leader tactics");
+	if (is_leader(game.battle.atk_commander)) {
+		die = modify(die, leader_tactics(game.battle.atk_commander), "leader tactics");
 	}
 	if (game.events.coehorns === game.battle.attacker) {
 		die = modify(die, 2, "for coehorns");
@@ -4125,7 +4187,8 @@ function goto_def_fire() {
 function goto_atk_step_losses() {
 	set_active(game.battle.attacker);
 	if (game.battle.def_result > 0) {
-		unstack_force(moving_piece());
+		if (game.move)
+			unstack_force(moving_piece());
 		game.state = 'step_losses';
 		game.battle.step_loss = game.battle.def_result;
 		if (game.battle.assault)
@@ -4307,17 +4370,17 @@ states.leader_check = {
 		for (let i = 0; i < game.battle.leader_check.length; ++i)
 			gen_action_piece(game.battle.leader_check[i]);
 	},
-	piece(piece) {
+	piece(p) {
 		let die = roll_die("for leader check");
 		if (die === 1) {
-			log(`${piece_name(piece)} rolls ${die} and is killed`);
+			log(`${piece_name(p)} rolls ${die} and is killed`);
 			if (game.battle)
 				remove_from_array(game.battle.atk_pcs, p);
-			eliminate_piece(piece);
+			eliminate_piece(p);
 		} else {
-			log(`${piece_name(piece)} rolls ${die} and survives`);
+			log(`${piece_name(p)} rolls ${die} and survives`);
 		}
-		remove_from_array(game.battle.leader_check, piece);
+		remove_from_array(game.battle.leader_check, p);
 		if (game.battle.leader_check.length === 0)
 			end_leader_check();
 	},
@@ -4347,15 +4410,15 @@ states.raid_leader_check = {
 		for (let i = 0; i < game.raid.leader_check.length; ++i)
 			gen_action_piece(game.raid.leader_check[i]);
 	},
-	piece(piece) {
+	piece(p) {
 		let die = roll_die("for leader check");
 		if (die === 1) {
-			log(`${piece_name(piece)} rolls ${die} and is killed`);
-			eliminate_piece(piece);
+			log(`${piece_name(p)} rolls ${die} and is killed`);
+			eliminate_piece(p);
 		} else {
-			log(`${piece_name(piece)} rolls ${die} and survives`);
+			log(`${piece_name(p)} rolls ${die} and survives`);
 		}
-		remove_from_array(game.raid.leader_check, piece);
+		remove_from_array(game.raid.leader_check, p);
 		if (game.raid.leader_check.length === 0) {
 			delete game.raid.leader_check;
 			raiders_go_home();
@@ -4438,7 +4501,7 @@ function determine_winner_battle() {
 			if (game.battle.atk_pcs.length > 0)
 				retreat_attacker(game.raid.where, game.raid.from[game.raid.where] | 0);
 			else
-				end_retreat_attacker();
+				end_retreat_attacker(game.raid.from[game.raid.where]);
 		}
 		return;
 	}
@@ -4446,8 +4509,16 @@ function determine_winner_battle() {
 	// TODO: Breakout (<-- forgot why this TODO item is here)
 
 	// Normal battle
-	if (victor === game.battle.attacker) {
+	if (victor === game.battle.attacker)
 		log("ATTACKER WON");
+	else
+		log("DEFENDER WON");
+
+	// 6.712 - Infiltrator must always retreat from fort/fortress even if they win
+	if (game.move.infiltrated && has_unbesieged_enemy_fort_or_fortress(game.battle.where))
+		victor = game.battle.defender;
+
+	if (victor === game.battle.attacker) {
 		if (has_unbesieged_enemy_units(where)) {
 			goto_retreat_defender();
 		} else {
@@ -4459,14 +4530,11 @@ function determine_winner_battle() {
 			}
 		}
 	} else {
-		log("DEFENDER WON");
 		if (game.battle.atk_pcs.length > 0) {
 			unstack_force(moving_piece());
-			let from = game.battle.where;
-			let to = moving_piece_came_from();
-			retreat_attacker(from, to);
+			retreat_attacker(game.battle.where, moving_piece_came_from());
 		} else {
-			end_retreat_attacker();
+			end_retreat_attacker(moving_piece_came_from());
 		}
 	}
 }
@@ -4577,11 +4645,14 @@ states.retreat_attacker = {
 			}
 		});
 
-		end_retreat_attacker();
+		end_retreat_attacker(to);
 	}
 }
 
-function end_retreat_attacker() {
+function end_retreat_attacker(to) {
+	if (game.move)
+		game.move.infiltrated = 0;
+
 	// Raid battle vs militia
 	if (game.raid && game.raid.where > 0) {
 		// if raiders need to retreat again, they go back to this
