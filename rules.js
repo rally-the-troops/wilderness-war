@@ -4,6 +4,10 @@
 // does defender win assault if attacker is eliminated?
 // France/Britain or "The French"/"The British"
 
+// WONTFIX
+// TODO: select leader for defense instead of automatically picking
+// TODO: remove old 7 command leader(s) immediately as they're drawn, before placing reinforcements
+
 // CLEANUPS
 // TODO: rename node/space -> location/space or raw_space/space or box/space?
 // TODO: replace piece[p].type lookups with index range checks
@@ -16,20 +20,16 @@
 // TODO: show badge on leader boxes if they're eliminated or in pool
 // TODO: show discard/removed card list in UI
 // TODO: for_each_exit -> flat list of all exits
+// TODO: special "naval_move" action for different highlight to do naval moves
 
 // TODO: check when unstack happens
-// TODO: check all moving_piece -> piece_space combos
-
-// ERROR: amphib landing in louisbourg did not trigger battle
-
-// MINOR
-// TODO: select leader for defense instead of automatically picking
-// TODO: remove old 7 command leader(s) immediately as they're drawn, before placing reinforcements
-// TODO: find closest path to non-infiltration space for allowing infiltration
+// TODO: auto-select retreat destination if only one available
 
 // MAJOR
+// TODO: check activation limits when dropping subcommanders
 // TODO: 10.413 leaders and coureurs may follow indians home
 // TODO: leaders alone - retreat from reinforcement placements
+// TODO: find closest path to non-infiltration space for allowing infiltration
 
 const { spaces, pieces, cards } = require("./data");
 
@@ -237,11 +237,6 @@ const ports = [
 	"New Haven",
 	"New York",
 	"Philadelphia",
-	"Québec",
-].map(name => spaces.findIndex(space => space.name === name));
-
-const french_ports = [
-	"Louisbourg",
 	"Québec",
 ].map(name => spaces.findIndex(space => space.name === name));
 
@@ -700,6 +695,13 @@ function for_each_british_controlled_port(fn) {
 	for (let i = 0; i < ports.length; ++i)
 		if (is_british_controlled_space(ports[i]))
 			fn(ports[i]);
+}
+
+function for_each_british_controlled_port_and_amphib(fn) {
+	for (let i = 0; i < ports.length; ++i)
+		if (is_british_controlled_space(ports[i]))
+			fn(ports[i]);
+	game.Britain.amphib.forEach(fn);
 }
 
 function list_auxiliary_units_in_force(force) {
@@ -1234,12 +1236,12 @@ function has_french_fort(space) {
 	return game.France.forts.includes(space);
 }
 
-function has_french_fortress(space) {
-	return is_fortress(space) && is_french_controlled_space(space);
+function is_french_fortress(space) {
+	return originally_french_fortresses.includes(space);
 }
 
 function has_french_fortifications(space) {
-	return has_french_stockade(space) || has_french_fort(space) || has_french_fortress(space);
+	return has_french_stockade(space) || has_french_fort(space) || is_french_fortress(space);
 }
 
 function has_unbesieged_french_fortification(space) {
@@ -1313,10 +1315,6 @@ function is_british_controlled_space(space) {
 	if (game.active === BRITAIN)
 		return is_friendly_controlled_space(space);
 	return is_enemy_controlled_space(space);
-}
-
-function is_friendly_controlled_port(space) {
-	return is_port(space) && is_friendly_controlled_space(space);
 }
 
 function has_friendly_supplied_drilled_troops(space) {
@@ -1464,6 +1462,12 @@ function force_has_drilled_troops(who) {
 		return has_dt;
 	}
 	return is_drilled_troops(who);
+}
+
+function force_has_supplied_drilled_troops(who) {
+	if (force_has_drilled_troops(who))
+		return is_in_supply(piece_space(who));
+	return false;
 }
 
 function force_has_auxiliary_unit(who) {
@@ -1807,8 +1811,8 @@ function add_raid(who) {
 		game.raid.list.push(where);
 }
 
-function is_vacant_of_besieging_units(space) {
-	if (has_french_fort(space) || has_french_fortress(space))
+function is_fort_or_fortress_vacant_of_besieging_units(space) {
+	if (has_french_fort(space) || is_french_fortress(space))
 		return !has_british_units(space);
 	else
 		return !has_french_units(space);
@@ -1818,7 +1822,7 @@ function lift_sieges_and_amphib() {
 	console.log("LIFT SIEGES AND AMPHIB AND RECAPTURE FORTRESSES");
 
 	for_each_siege(space => {
-		if (is_vacant_of_besieging_units(space)) {
+		if (is_fort_or_fortress_vacant_of_besieging_units(space)) {
 			log(`Siege in ${space_name(space)} lifted.`);
 			for (let p = 1; p < pieces.length; ++p)
 				if (is_piece_in_space(p, space))
@@ -1831,7 +1835,7 @@ function lift_sieges_and_amphib() {
 	for (let i = amphib.length-1; i >= 0; --i) {
 		let s = amphib[i];
 		if (!has_british_units(s)) {
-			if (has_french_drilled_troops(s) || has_unbesieged_french_fortification()) {
+			if (has_french_drilled_troops(s) || has_unbesieged_french_fortification(s)) {
 				log(`Amphib removed from ${space_name(s)}.`);
 				amphib.splice(i, 1);
 			}
@@ -1906,7 +1910,7 @@ function search_supply_spaces() {
 	} else {
 		let list = originally_british_fortresses_and_ports.filter(is_friendly_controlled_space);
 		for (let s of game.Britain.amphib)
-			if (!list.includes(s) && is_friendly_controlled_space(s))
+			if (!list.includes(s))
 				list.push(s);
 		supply_cache = search_supply_spaces_imp(list);
 	}
@@ -2605,14 +2609,30 @@ function goto_break_siege() {
 	goto_avoid_battle();
 }
 
-function may_naval_move(who) {
+function piece_can_naval_move_from(who, from) {
 	if (game.events.foul_weather)
 		return false;
 	if (game.active === FRANCE && game.no_fr_naval)
 		return false;
 	if (is_leader(who) && count_pieces_in_force(who) > 1)
-		return cards[game.cards.current].activation === 3;
-	return true;
+		if (cards[game.cards.current].activation < 3)
+			return false;
+
+	if (game.active === FRANCE) {
+		if (from === LOUISBOURG || from === QUEBEC)
+			return is_friendly_controlled_space(from);
+		return false;
+	}
+
+	if (game.active === BRITAIN) {
+		if (has_amphib(from))
+			return true;
+		if (ports.includes(from))
+			return is_friendly_controlled_space(from);
+		return false;
+	}
+
+	return false;
 }
 
 function land_movement_cost() {
@@ -2663,16 +2683,25 @@ function stop_move() {
 }
 
 function gen_naval_move() {
+	let who = moving_piece();
 	let from = moving_piece_space();
-	let candidates = (game.active === FRANCE) ? french_ports : ports;
-	if (!candidates.includes(from) || !is_friendly_controlled_space(from))
-		return;
-	candidates.forEach(to => {
-		if (to === from)
-			return;
-		if (is_friendly_controlled_space(to))
-			gen_action_space(to);
-	});
+	if (game.active === BRITAIN) {
+		game.Britain.amphib.forEach(to => {
+			if (to !== from)
+				gen_action_space(to);
+		});
+		ports.forEach(to => {
+			if (to !== from && !game.Britain.amphib.includes(to))
+				if (is_friendly_controlled_space(to))
+					gen_action_space(to);
+		});
+	}
+	if (game.active === FRANCE) {
+		if (from !== LOUISBOURG && is_friendly_controlled_space(LOUISBOURG))
+			gen_action_space(LOUISBOURG);
+		if (from !== QUEBEC && is_friendly_controlled_space(QUEBEC))
+			gen_action_space(QUEBEC);
+	}
 }
 
 function is_carry_connection(from, to) {
@@ -2844,11 +2873,11 @@ states.move = {
 				if (force_has_drilled_troops(who))
 					gen_action('play_event', GEORGE_CROGHAN);
 			}
-			if (is_port(from)) {
+
+			if (piece_can_naval_move_from(who, from)) {
 				if (game.move.type !== 'naval') {
 					gen_action('naval_move');
 				} else {
-					// TODO: split to naval_move state
 					if (!game.events.no_amphib) {
 						if (game.active === BRITAIN && has_amphibious_arrow(from)) {
 							for (let card = first_amphib_card; card <= last_amphib_card; ++card)
@@ -4115,7 +4144,7 @@ function goto_atk_fire() {
 			if (!atk_has_reg && def_has_reg)
 				die = modify(die, -1, "vs regulars in cultivated");
 		}
-		if (has_amphib(game.battle.where) && game.move.type === 'naval') {
+		if (has_amphib(game.battle.where) && game.move && game.move.type === 'naval') {
 			die = modify(die, -1, "amphibious landing");
 		}
 		if (has_enemy_stockade(game.battle.where)) {
@@ -4710,7 +4739,6 @@ function can_defender_retreat_from(p, from) {
 	return can_retreat;
 }
 
-// TODO: auto-select pieces to retreat?
 states.retreat_defender = {
 	prompt() {
 		let from = battle_space();
@@ -4861,7 +4889,7 @@ function can_moving_force_siege_or_assault() {
 	let space = moving_piece_space();
 	if (has_besieged_enemy_fortifications(space)) {
 		let commanding = find_friendly_commanding_leader_in_space(space);
-		if (leader === commanding && has_friendly_supplied_drilled_troops(space)) {
+		if (leader === commanding && force_has_supplied_drilled_troops(leader)) {
 			return true;
 		}
 	}
@@ -7329,7 +7357,7 @@ states.british_regulars = {
 			view.prompt = `Place ${game.count} Regulars at any ports.`;
 		}
 		if (game.count > 0) {
-			for_each_british_controlled_port(s => {
+			for_each_british_controlled_port_and_amphib(s => {
 				if (can_place_in_space(s))
 					gen_action_space(s);
 			});
@@ -7402,7 +7430,7 @@ states.highlanders = {
 			view.prompt = `Place ${game.count} Highlanders at any ports.`;
 		}
 		if (game.count > 0) {
-			for_each_british_controlled_port(s => {
+			for_each_british_controlled_port_and_amphib(s => {
 				if (can_place_in_space(s))
 					gen_action_space(s);
 			});
