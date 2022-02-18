@@ -2811,7 +2811,7 @@ function apply_naval_move(to) {
 states.move = {
 	prompt() {
 		let who = moving_piece();
-		let from = piece_space(who);
+		let from = moving_piece_space();
 
 		if (from) {
 			view.prompt = `Move ${piece_name(who)} (${space_name(from)})`;
@@ -2914,7 +2914,7 @@ states.move = {
 	piece(who) {
 		push_undo();
 		let force = moving_piece();
-		let where = piece_space(force);
+		let where = moving_piece_space();
 		log(`drops off ${piece_name(who)}`);
 		move_piece_to(who, where);
 		resume_move();
@@ -2968,7 +2968,7 @@ states.foul_weather = {
 states.lake_schooner = {
 	prompt() {
 		let p = moving_piece();
-		let to = piece_space(p);
+		let to = moving_piece_space();
 		let from = moving_piece_came_from();
 		view.who = p;
 		view.where = from;
@@ -3008,7 +3008,7 @@ states.lake_schooner = {
 states.amphibious_landing = {
 	prompt() {
 		let who = moving_piece();
-		let from = piece_space(who);
+		let from = moving_piece_space();
 		view.prompt = "Place amphibious landing marker.";
 		view.who = who;
 		if (from === HALIFAX) {
@@ -3237,7 +3237,7 @@ function goto_intercept() {
 
 function is_moving_piece_lone_ax_in_wilderness_or_mountain() {
 	let p = moving_piece();
-	let s = piece_space(p);
+	let s = moving_piece_space();
 	return is_lone_auxiliary(p) && is_wilderness_or_mountain(s);
 }
 
@@ -4858,7 +4858,7 @@ const SIEGE_TABLE = [ 0, 0, 0, 1, 1, 1, 2, 2 ];
 
 function can_moving_force_siege_or_assault() {
 	let leader = moving_piece();
-	let space = piece_space(leader);
+	let space = moving_piece_space();
 	if (has_besieged_enemy_fortifications(space)) {
 		let commanding = find_friendly_commanding_leader_in_space(space);
 		if (leader === commanding && has_friendly_supplied_drilled_troops(space)) {
