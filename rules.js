@@ -1,35 +1,38 @@
 "use strict";
 
 // RULES
-// does defender win assault if attacker is eliminated?
+// Do defenders win an assault if the attacker is eliminated?
+// Can leaders and coureurs follow indians home to Pays d'en Haut?
+// May indians stacked with a leader at their home settlement follow the leader home to a fortification?
 // France/Britain or "The French"/"The British"
 
+// Log messages - past tense.
+
 // WONTFIX
-// TODO: select leader for defense instead of automatically picking
+// TODO: select leader for defense instead of automatically picking the best
 // TODO: remove old 7 command leader(s) immediately as they're drawn, before placing reinforcements
 
 // CLEANUPS
-// TODO: rename node/space -> location/space or raw_space/space or box/space?
 // TODO: replace piece[p].type lookups with index range checks
-// TODO: move core of is_friendly/enemy to is_british/french and branch in is_friendly/enemy
 // TODO: make 'inside' negative location instead of separate array
 // TODO: abbreviate per-player (game.British.xxx) property name (game.b.xxx)
-// TODO: add/remove 'next' steps at end of states
-// TODO: manual selection of reduced/placed units in events
-// TODO: show british leader pool
-// TODO: show badge on leader boxes if they're eliminated or in pool
-// TODO: show discard/removed card list in UI
+// TODO: move core of is_friendly/enemy to is_british/french and branch in is_friendly/enemy
 // TODO: for_each_exit -> flat list of all exits
-// TODO: special "naval_move" action for different highlight to do naval moves
-
-// TODO: check when unstack happens
-// TODO: auto-select retreat destination if only one available
+// UI: show discard/removed card list in UI
+// UI: show pool leaders in their own box
+// UI: show dead leaders as grayed out in own box
 
 // MAJOR
 // TODO: check activation limits when dropping subcommanders
-// TODO: 10.413 leaders and coureurs may follow indians home
 // TODO: leaders alone - retreat from reinforcement placements
 // TODO: find closest path to non-infiltration space for allowing infiltration
+// TODO: manual selection of reduced/placed units in events
+// TODO: raiders go home
+
+// RETREAT BEHAVIOR
+// a) auto-select retreat destination if only one available like for attack retreats?
+// b) auto-send retreating units to destination if only one available?
+// b) click to retreat/eliminate all attackers individually?
 
 const { spaces, pieces, cards } = require("./data");
 
@@ -1031,13 +1034,6 @@ function set_piece_outside(p) {
 	remove_from_array(game.pieces.inside, p);
 }
 
-function set_force_inside(force) {
-	for_each_piece_in_force(force, p => {
-		set_piece_inside(p);
-	});
-	unstack_force(force);
-}
-
 function is_piece_on_map(p) {
 	// TODO: militia boxes?
 	return piece_node(p) !== 0;
@@ -1254,6 +1250,13 @@ function count_enemy_units_in_space(space) {
 		if (is_piece_in_space(p, space))
 			++n;
 	return n;
+}
+
+function has_unbesieged_friendly_leader(space) {
+	for (let p = first_friendly_leader; p <= last_friendly_leader; ++p)
+		if (is_piece_in_space(p, space) && !is_piece_inside(p))
+			return true;
+	return false;
 }
 
 function has_unbesieged_enemy_leader(space) {
@@ -2050,7 +2053,7 @@ function end_late_season() {
 	log("");
 	delete game.events.no_amphib;
 	delete game.events.blockhouses;
-	goto_indians_and_leaders_go_home();
+	goto_go_home_after_late_season();
 }
 
 function start_action_phase() {
@@ -2067,8 +2070,10 @@ function end_action_phase() {
 	game.count = 0;
 
 	// TODO: should not be needed! (but we may have forgotten some place where it should happen)
-	for (let p = first_friendly_leader; p <= last_friendly_leader; ++p)
-		unstack_force(p);
+	for (let p = first_friendly_leader; p <= last_friendly_leader; ++p) {
+		if (count_pieces_in_force(p) > 0)
+			console.log("FORGOT TO UNSTACK", piece_name(p));
+	}
 
 	if (!enemy_player.passed && enemy_player.hand.length > 0) {
 		console.log("END ACTION PHASE - NEXT PLAYER");
@@ -4799,7 +4804,7 @@ states.retreat_defender_to = {
 		let who = game.battle.who;
 		if (from === to) {
 			log("retreats inside fortification");
-			set_force_inside(who);
+			set_piece_inside(who);
 		} else {
 			log("retreats to " + space_name(to));
 			move_piece_to(who, to);
@@ -4863,7 +4868,7 @@ states.retreat_lone_leader = {
 		let who = pick_unbesieged_leader(from);
 		if (from === to) {
 			log("retreats inside fortification");
-			set_force_inside(who);
+			set_piece_inside(who);
 		} else {
 			log("retreats to " + space_name(to));
 			move_piece_to(who, to);
@@ -5363,30 +5368,27 @@ states.raiders_go_home = {
 
 // LATE SEASON - INDIANS AND LEADERS GO HOME
 
-function goto_indians_and_leaders_go_home() {
+function goto_go_home_after_late_season() {
 	set_active(FRANCE);
-	game.state = 'indians_and_leaders_go_home';
+	resume_go_home_after_late_season();
+}
+
+function resume_go_home_after_late_season() {
+	game.state = 'go_home_who';
 	game.go_home = {
-		indians: {}
+		reason: 'late_season',
+		who: 0,
+		from: 0,
+		to: 0,
+		follow: {},
 	};
-	resume_indians_and_leaders_go_home();
-	if (!game.go_home.who)
-		end_indians_and_leaders_go_home();
 }
 
-function resume_indians_and_leaders_go_home() {
-	let who = game.go_home.who = next_indian_and_leader_to_go_home();
-	if (who && is_leader(who))
-		game.go_home.closest = find_closest_friendly_unbesieged_fortification(piece_space(who));
-}
-
-function end_indians_and_leaders_go_home() {
+function end_go_home_after_late_season() {
 	clear_undo();
 	if (game.active === FRANCE) {
 		set_active(BRITAIN);
-		resume_indians_and_leaders_go_home();
-		if (!game.go_home.who)
-			end_indians_and_leaders_go_home();
+		resume_go_home_after_late_season();
 	} else {
 		set_active(FRANCE);
 		delete game.go_home;
@@ -5394,73 +5396,182 @@ function end_indians_and_leaders_go_home() {
 	}
 }
 
-function next_indian_and_leader_to_go_home() {
-	// Indians go home first
-	for (let p = first_friendly_unit; p <= last_friendly_unit; ++p) {
-		if (is_indian_unit(p) && !is_piece_inside(p)) {
-			let s = piece_space(p);
-			if (s && s != indian_home_settlement(p) && !has_unbesieged_friendly_fortifications(s))
-				return p;
-		}
-	}
-
-	// Then leaders who are left alone in the wilderness
-	for (let p = first_friendly_leader; p <= last_friendly_leader; ++p) {
-		if (!is_piece_inside(p)) {
-			let s = piece_space(p);
-			if (s && is_wilderness_or_mountain(s) && !has_friendly_units(s) && !has_unbesieged_friendly_fortifications(s))
-				return p;
-		}
-	}
-}
-
-states.indians_and_leaders_go_home = {
+states.go_home_who = {
 	prompt() {
-		let who = game.go_home.who;
+		let done = true;
+		for (let p = first_friendly_piece; p <= last_friendly_piece; ++p) {
+			let s = piece_space(p);
+			if (s && !is_piece_inside(p) && !has_friendly_fortifications(s)) {
 
-		if (who)
-			view.prompt = "Indians and leaders go home \u2014 " + piece_name(who) + ".";
-		else
+				// Indians not at their settlement
+				if (is_indian_unit(p)) {
+					if (s != indian_home_settlement(p)) {
+						done = false;
+						gen_action_piece(p);
+					}
+				}
+
+				// Leaders who are left alone in the wilderness
+				if (is_leader(p)) {
+					if (is_wilderness_or_mountain(s) && !has_friendly_units(s)) {
+						done = false;
+						gen_action_piece(p);
+					}
+				}
+			}
+		}
+		if (done) {
 			view.prompt = "Indians and leaders go home \u2014 done.";
-		view.who = who;
-
-		if (!who) {
-			gen_action('next');
-		} else if (is_indian_unit(who)) {
-			// 10.412: Cherokee have no home settlement (home=0)
-			let home = indian_home_settlement(who);
-			if (home && has_friendly_allied_settlement(home) && !has_enemy_units(home))
-				gen_action_space(home);
-			else
-				gen_action('eliminate');
+			gen_action_next();
 		} else {
-			let from = piece_space(who);
-			game.go_home.closest.forEach(gen_action_space);
-			if (from in game.go_home.indians)
-				game.go_home.indians[from].forEach(gen_action_space);
+			view.prompt = "Indians and leaders go home.";
 		}
 	},
-	space(s) {
+	piece(p) {
 		push_undo();
-		let who = game.go_home.who;
-		if (is_indian_unit(who)) {
-			let from = piece_space(who);
-			if (!(s in game.go_home.indians))
-				game.go_home.indians[from] = [];
-			game.go_home.indians[from].push(s);
-		}
-		log(`${piece_name(who)} goes home to ${space_name(s)}.`);
-		move_piece_to(who, s);
-		resume_indians_and_leaders_go_home();
-	},
-	eliminate() {
-		push_undo();
-		eliminate_piece(game.go_home.who);
-		resume_indians_and_leaders_go_home();
+		game.go_home.who = p;
+		game.go_home.from = piece_space(p);
+		game.state = 'go_home_to';
 	},
 	next() {
-		end_indians_and_leaders_go_home();
+		if (game.go_home.reason === 'late_season')
+			end_go_home_after_late_season();
+		else
+			end_go_home_after_raid();
+	},
+}
+
+states.go_home_to = {
+	prompt() {
+		let who = game.go_home.who;
+		let from = game.go_home.from;
+
+		view.prompt = `Indians and leaders go home \u2014 ${piece_name(who)}.`;
+		view.who = who;
+
+		let can_go_home = false;
+
+		if (is_indian_unit(who)) {
+			let home = indian_home_settlement(who);
+			// 10.412: Cherokee have no home settlement
+			if (home && has_friendly_allied_settlement(home) && !has_enemy_units(home)) {
+				can_go_home = true;
+				gen_action_space(home);
+			}
+
+			if (has_unbesieged_friendly_leader(from)) {
+				can_go_home = true;
+				find_closest_friendly_unbesieged_fortification(from).forEach(gen_action_space);
+			} else if (game.go_home.follow && game.go_home.follow[from]) {
+				can_go_home = true;
+				game.go_home.follow[from].forEach(gen_action_space);
+			}
+		} else {
+			// Leader alone in the wilderness
+			find_closest_friendly_unbesieged_fortification(from).forEach(gen_action_space);
+		}
+
+		if (!can_go_home)
+			gen_action('eliminate');
+	},
+	space(to) {
+		// TODO: push_undo() here?
+		let who = game.go_home.who;
+		let from = game.go_home.from;
+		log(`${piece_name(who)} went home to ${space_name(to)}.`);
+		move_piece_to(who, to);
+		if (is_indian_unit(who)) {
+			let home = indian_home_settlement(who);
+			if (to !== home) {
+				if (game.go_home.follow[from]) {
+					if (game.go_home.follow[from].includes(to)) {
+						game.count = 0;
+					} else {
+						game.go_home.follow[from].push(to);
+						game.count = 1;
+					}
+				} else {
+					game.go_home.follow[from] = [ to ];
+					game.count = 1;
+				}
+			}
+			if (game.count > 0 || can_follow_indians_home(from)) {
+				game.go_home.to = to;
+				game.state = 'go_home_with_indians';
+			} else {
+				game.go_home.who = 0;
+				game.state = 'go_home_who';
+			}
+		} else {
+			// Leader alone in the wilderness
+			game.go_home.who = 0;
+			game.state = 'go_home_who';
+		}
+	},
+	eliminate() {
+		eliminate_piece(game.go_home.who);
+		game.go_home.who = 0;
+		game.state = 'go_home_who';
+	},
+}
+
+function can_follow_indians_home(from) {
+	for (let p = first_friendly_leader; p <= last_friendly_leader; ++p) {
+		if (is_piece_in_space(p, from) && !is_piece_inside(p))
+			return true;
 	}
+	for (let p = first_friendly_unit; p <= last_friendly_unit; ++p) {
+		if (is_coureurs_unit(p) && is_piece_in_space(p, from) && !is_piece_inside(p))
+			return true;
+	}
+	return false;
+}
+
+states.go_home_with_indians = {
+	prompt() {
+		let who = game.go_home.who;
+		let from = game.go_home.from;
+		let to = game.go_home.to;
+
+		view.prompt = `Indians and leaders go home \u2014 follow ${piece_name(who)} to ${space_name(to)}.`;
+		view.where = to;
+
+		for (let p = first_friendly_leader; p <= last_friendly_leader; ++p) {
+			if (is_piece_in_space(p, from) && !is_piece_inside(p))
+				gen_action_piece(p);
+		}
+		for (let p = first_friendly_unit; p <= last_friendly_unit; ++p) {
+			if (is_coureurs_unit(p) && is_piece_in_space(p, from) && !is_piece_inside(p))
+				gen_action_piece(p);
+		}
+
+		if (game.count === 0)
+			gen_action_next();
+	},
+	piece(p) {
+		push_undo();
+		let from = game.go_home.from;
+		let to = game.go_home.to;
+
+		log(`${piece_name(p)} followed to ${space_name(to)}.`);
+		move_piece_to(p, to);
+		if (game.count > 0 && is_leader(p))
+			game.count = 0;
+
+		if (!can_follow_indians_home(from))
+			end_go_home_with_indians();
+	},
+	next() {
+		push_undo();
+		end_go_home_with_indians();
+	},
+}
+
+function end_go_home_with_indians() {
+	game.go_home.who = 0;
+	game.go_home.from = 0;
+	game.go_home.to = 0;
+	game.state = 'go_home_who';
 }
 
 // LATE SEASON - REMOVE RAIDED MARKERS
