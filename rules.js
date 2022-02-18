@@ -23,8 +23,7 @@
 // UI: show dead leaders as grayed out in own box
 
 // MAJOR
-// TODO: check activation limits when dropping subcommanders
-// TODO: leaders alone - retreat from reinforcement placements
+// TODO: leaders alone - retreat from reinforcement placements (indian alliances only)
 // TODO: find closest path to non-infiltration space for allowing infiltration
 // TODO: manual selection of reduced/placed units in events
 // TODO: raiders go home
@@ -948,7 +947,7 @@ function is_piece_in_force(p, force) {
 	return (p === force) || (piece_node(p) === leader_box(force));
 }
 
-function count_non_british_iroquois_and_mohawk_units_in_leader_box(leader) {
+function count_non_british_iroquois_and_mohawk_units_in_force(leader) {
 	let n = 0;
 	for_each_friendly_unit_in_node(leader_box(leader), p => {
 		if (!is_british_iroquois_or_mohawk(p))
@@ -2362,78 +2361,116 @@ function end_activation() {
 
 // DEFINE FORCE (for various actions)
 
+function force_has_british_iroquois_and_mohawk_units(commander) {
+	let has_br_indians = false;
+	for_each_friendly_unit_in_node(leader_box(commander), p => {
+		if (is_british_iroquois_or_mohawk(p))
+			has_br_indians = true;
+		gen_action_piece(p);
+	});
+	return has_br_indians;
+}
+
+function can_drop_off_leader(commander, subordinate) {
+	if (subordinate === JOHNSON)
+		if (force_has_british_iroquois_and_mohawk_units(commander))
+			return false;
+	return count_non_british_iroquois_and_mohawk_units_in_force(commander) <= force_command(commander) - leader_command(subordinate);
+}
+
 states.define_force = {
 	prompt() {
 		let commander = game.force.commander;
 		let space = piece_space(commander);
 
-		let cmd_cap = force_command(commander);
-
 		// 5.534 Johnson commands British Iroquois and Mohawk units for free
-		let cmd_use = count_non_british_iroquois_and_mohawk_units_in_leader_box(commander);
+		let cmd_use = count_non_british_iroquois_and_mohawk_units_in_force(commander);
+		let cmd_cap = force_command(commander);
 
 		view.prompt = `Define the force to ${game.force.reason} with ${piece_name(commander)} from ${space_name(space)} (${cmd_use}/${cmd_cap}).`;
 		view.who = commander;
 
-		// TODO: gen_action('all');
+		let can_pick_up = false;
 
 		// pick up sub-commanders
 		for_each_friendly_leader_in_node(space, p => {
-			if (p !== commander && leader_command(p) <= leader_command(commander))
+			if (p !== commander && leader_command(p) <= leader_command(commander)) {
+				console.log("can pick up", piece_name(p));
+				can_pick_up = true;
 				gen_action_piece(p);
-		});
-
-		// drop off sub-commanders
-		for_each_friendly_leader_in_node(leader_box(commander), p => {
-			gen_action_piece(p);
-		});
-
-		// drop off units
-		let has_br_indians = false;
-		for_each_friendly_unit_in_node(leader_box(commander), p => {
-			if (is_british_iroquois_or_mohawk(p))
-				has_br_indians = true;
-			gen_action_piece(p);
+			}
 		});
 
 		// pick up units
 		for_each_friendly_unit_in_node(space, p => {
 			if (is_british_iroquois_or_mohawk(p)) {
 				// 5.534 Only Johnson can command British Iroquois and Mohawk (and for free)
-				if (is_piece_in_force(JOHNSON, commander))
+				if (is_piece_in_force(JOHNSON, commander)) {
+					console.log("can pick up", piece_name(p));
+					can_pick_up = true;
 					gen_action_piece(p);
+				}
 			} else {
-				if (cmd_use < cmd_cap)
+				if (cmd_use < cmd_cap) {
+					can_pick_up = true;
+					console.log("can pick up", piece_name(p));
 					gen_action_piece(p);
+				}
 			}
 		});
 
+		// drop off sub-commanders
+		for_each_friendly_leader_in_node(leader_box(commander), p => {
+			if (can_drop_off_leader(commander, p))
+				gen_action_piece(p);
+		});
 
-		if (cmd_use <= cmd_cap) {
-			if (has_br_indians) {
+		// drop off units
+		for_each_friendly_unit_in_node(leader_box(commander), p => {
+			gen_action_piece(p);
+		});
+
+		if (can_pick_up)
+			gen_action('pick_up_all');
+
+		// TODO: confirm selection if empty (separate 'confirm' action)
+		gen_action_next();
+	},
+
+	pick_up_all() {
+		push_undo();
+
+		let commander = game.force.commander;
+		let space = piece_space(commander);
+		let box = leader_box(commander);
+
+		// pick up all sub-commanders
+		for_each_friendly_leader_in_node(space, p => {
+			if (p !== commander)
+				move_piece_to(p, box);
+		});
+
+		// pick up as many units as possible
+		for_each_friendly_unit_in_node(space, p => {
+			if (is_british_iroquois_or_mohawk(p)) {
+				// 5.534 Only Johnson can command British Iroquois and Mohawk (and for free)
 				if (is_piece_in_force(JOHNSON, commander))
-					gen_action_next();
+					move_piece_to(p, box);
 			} else {
-				gen_action_next();
+				if (count_non_british_iroquois_and_mohawk_units_in_force(commander) <= force_command(commander))
+					move_piece_to(p, box);
 			}
-		}
+		});
 	},
 
 	piece(p) {
 		push_undo();
 		let commander = game.force.commander;
 		let space = piece_space(commander);
-		if (piece_node(p) === leader_box(commander)) {
+		if (piece_node(p) === leader_box(commander))
 			move_piece_to(p, space);
-			if (p === JOHNSON) {
-				for_each_for_each_friendly_unit_in_node(leader_box(commander), indian => {
-					if (is_british_iroquois_or_mohawk(indian))
-						move_piece_to(indian, space);
-				});
-			}
-		} else {
+		else
 			move_piece_to(p, leader_box(commander));
-		}
 	},
 
 	next() {
@@ -2907,9 +2944,12 @@ states.move = {
 		}
 
 		if (is_leader(who)) {
-			for_each_piece_in_force(who, p => {
-				if (p !== who)
+			for_each_leader_in_force(who, p => {
+				if (p !== who && can_drop_off_leader(who, p))
 					gen_action_piece(p);
+			});
+			for_each_unit_in_force(who, p => {
+				gen_action_piece(p);
 			});
 		}
 	},
@@ -2949,7 +2989,7 @@ states.move = {
 		push_undo();
 		let force = moving_piece();
 		let where = moving_piece_space();
-		log(`drops off ${piece_name(who)}`);
+		log(`dropped off ${piece_name(who)}`);
 		move_piece_to(who, where);
 		resume_move();
 	},
