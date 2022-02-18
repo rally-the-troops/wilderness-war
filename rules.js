@@ -17,20 +17,17 @@
 // TODO: show discard/removed card list in UI
 // TODO: for_each_exit -> flat list of all exits
 
+// TODO: check when unstack happens
+// TODO: check all moving_piece -> piece_space combos
+
+// ERROR: amphib landing in louisbourg did not trigger battle
+
 // MINOR
 // TODO: select leader for defense instead of automatically picking
 // TODO: remove old 7 command leader(s) immediately as they're drawn, before placing reinforcements
+// TODO: find closest path to non-infiltration space for allowing infiltration
 
-// FEATURES
-// TODO: infiltration
-//	infiltrator must retreat after battle of fort/fortress space (per 6.712)
-//		may not stop on fort/fortress (6.52 overrides rule 6.64)
-//		defenders may not retreat inside
-// STEP 1 - only check if 1 MP left (instead of searching) rather than enough MP to reach non-infiltration
-// STEP 2 - find closest path to non-infiltration space
-
-// BUGS
-// TODO: 13.12 victory check exception -- originally-British fortresses are friendly
+// MAJOR
 // TODO: 10.413 leaders and coureurs may follow indians home
 // TODO: leaders alone - retreat from reinforcement placements
 
@@ -2065,6 +2062,10 @@ function end_action_phase() {
 	clear_undo();
 	game.count = 0;
 
+	// TODO: should not be needed! (but we may have forgotten some place where it should happen)
+	for (let p = first_friendly_leader; p <= last_friendly_leader; ++p)
+		unstack_force(p);
+
 	if (!enemy_player.passed && enemy_player.hand.length > 0) {
 		console.log("END ACTION PHASE - NEXT PLAYER");
 		set_active(enemy());
@@ -3022,13 +3023,7 @@ states.amphibious_landing = {
 	space(to) {
 		push_undo();
 		game.Britain.amphib.push(to);
-		let who = moving_piece();
-		let from = piece_space(who);
-		game.move.path[to] = from;
-		stop_move();
-		move_piece_to(who, to);
-		lift_sieges_and_amphib();
-		game.state = 'move';
+		apply_move(to);
 		goto_intercept();
 	},
 }
@@ -3076,18 +3071,17 @@ function end_move_step(final) {
 
 	if (!game.move.infiltrated) {
 		if (has_unbesieged_enemy_fortifications(where)) {
-			unstack_force(who);
-			stop_move();
 			if (has_enemy_fort(where) || is_fortress(where)) {
 				place_siege_marker(where);
 			}
 			if (has_enemy_stockade(where)) {
-				if (force_has_drilled_troops(who)) {
+				if (has_friendly_drilled_troops(where)) {
 					capture_enemy_stockade(where);
 					if (can_play_massacre())
 						return goto_massacre('massacre_after_move');
 				}
 			}
+			stop_move();
 		}
 	}
 
@@ -4219,6 +4213,9 @@ function goto_def_step_losses() {
 			if (is_unit(p))
 				game.battle.units.push(p);
 		});
+		// None to take!
+		if (game.battle.units.length === 0)
+			end_step_losses();
 	} else {
 		end_step_losses();
 	}
@@ -4876,6 +4873,7 @@ function can_play_coehorns_in_siege(space) {
 }
 
 function goto_siege(space) {
+	// TODO: unstack here?
 	clear_undo();
 	game.siege_where = space;
 	if (can_play_coehorns_in_siege(game.siege_where))
@@ -5014,7 +5012,7 @@ function end_surrender() {
 	set_active(enemy());
 	delete game.surrender;
 	delete game.siege_where;
-	end_activation();
+	end_move_step(true);
 }
 
 function resolve_siege() {
@@ -5053,7 +5051,7 @@ function goto_assault_possible(space) {
 		game.state = 'assault_possible';
 		game.assault_possible = space;
 	} else {
-		end_activation();
+		end_move_step(true);
 	}
 }
 
@@ -5078,11 +5076,12 @@ states.assault_possible = {
 		let where = game.assault_possible;
 		delete game.assault_possible;
 		log("Does not assault " + space_name(where));
-		end_activation();
+		end_move_step();
 	},
 }
 
 function goto_assault(where) {
+	// TODO: unstack here?
 	log("Assault " + space_name(where));
 	goto_battle(where, true);
 }
@@ -5507,7 +5506,6 @@ function end_winter_attrition() {
 		set_active(BRITAIN);
 		resume_winter_attrition();
 	} else {
-		set_active(FRANCE);
 		goto_victory_check();
 	}
 }
@@ -5562,14 +5560,32 @@ function are_all_british_controlled_spaces(list) {
 	return true;
 }
 
-function are_all_british_controlled_spaces_unless_besieged(list) {
-	for (let i = 0; i < list.length; ++i) {
-		let s = list[i];
-		// TODO: 13.12 exception -- originally-British fortresses are friendly
-		if (!is_british_controlled_space(s))
-			return false;
+function is_enemy_controlled_fortress_for_vp(s) {
+	// NOTE: active must be FRANCE
+	if (has_unbesieged_friendly_units(s)) {
+		if (is_space_besieged(s)) {
+			// 13.12 British control unless besieging force qualifies to roll on siege table
+			let cmd = find_friendly_commanding_leader_in_space(s);
+			if (cmd && has_friendly_supplied_drilled_troops(s))
+				return false;
+			return true;
+		}
+		return false;
 	}
 	return true;
+}
+
+function are_all_enemy_controlled_fortresses_for_vp(list) {
+	let result = true;
+	for (let i = 0; i < list.length; ++i) {
+		let s = list[i];
+		if (!is_enemy_controlled_fortress_for_vp(s)) {
+			console.log(`VP CONTROL ${space_name(s)} = French`);
+			result = false;
+		} else
+			console.log(`VP CONTROL ${space_name(s)} = British`);
+	}
+	return result;
 }
 
 function count_british_controlled_spaces(list) {
@@ -5583,6 +5599,8 @@ function count_british_controlled_spaces(list) {
 }
 
 function goto_victory_check() {
+	set_active(FRANCE);
+
 	if (are_all_british_controlled_spaces(fortresses) && are_all_british_controlled_spaces([NIAGARA, OHIO_FORKS]))
 		return goto_game_over(BRITAIN, "Sudden Death: The British control all fortresses, Niagara, and Ohio Forks.");
 	if (game.tracks.vp >= 11)
@@ -5595,7 +5613,8 @@ function goto_victory_check() {
 		return goto_game_over(FRANCE, "Sudden Death: France has 5 or more VP in 1761.");
 	if (game.tracks.year === game.tracks.end_year) {
 		if (game.tracks.year === 1759) {
-			if (are_all_british_controlled_spaces_unless_besieged(originally_british_fortresses) &&
+			// NOTE: active is FRANCE
+			if (are_all_enemy_controlled_fortresses_for_vp(originally_british_fortresses) &&
 				count_british_controlled_spaces([QUEBEC, MONTREAL, NIAGARA, OHIO_FORKS]) >= 2)
 				return goto_game_over(BRITAIN, "Britain control all originally-British fortresses and two of Québec, Montréal, Niagara, and Ohio Forks.");
 			if (game.tracks.vp >= 1)
@@ -5626,7 +5645,7 @@ function goto_game_over(result, victory) {
 }
 
 states.game_over = {
-	prompt(view) {
+	inactive() {
 		return view.prompt = game.victory;
 	}
 }
