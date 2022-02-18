@@ -23,7 +23,6 @@
 // UI: show dead leaders as grayed out in own box
 
 // MAJOR
-// TODO: leaders alone - retreat from reinforcement placements (indian alliances only)
 // TODO: find closest path to non-infiltration space for allowing infiltration
 // TODO: manual selection of reduced/placed units in events
 // TODO: raiders go home
@@ -3162,7 +3161,7 @@ function end_move_step(final) {
 	if (!is_lone_leader(who) && is_piece_on_map(who)
 		&& has_unbesieged_enemy_leader(where)
 		&& !has_unbesieged_enemy_units(where))
-		return goto_retreat_lone_leader();
+		return goto_retreat_lone_leader(where, 'move');
 
 	resume_move();
 }
@@ -4743,12 +4742,11 @@ function goto_retreat_defender() {
 }
 
 function can_defender_retreat_from_to(p, from, to) {
-	console.log("RETREAT QUERY", piece_name(p), space_name(from), space_name(to), "atk came from", moving_piece_came_from());
 	if (has_unbesieged_enemy_units(to))
 		return false;
 	if (has_unbesieged_enemy_fortifications(to))
 		return false;
-	if (moving_piece_came_from() === to)
+	if (game.move && moving_piece_came_from() === to)
 		return false;
 	if (force_has_drilled_troops(p)) {
 		if (is_cultivated(to) || has_friendly_fortifications(to))
@@ -4858,10 +4856,11 @@ function end_retreat() {
 	end_move_step(true);
 }
 
-function goto_retreat_lone_leader() {
+function goto_retreat_lone_leader(from, reason) {
 	clear_undo();
 	set_active(enemy());
 	game.state = 'retreat_lone_leader';
+	game.retreat = { from, reason };
 }
 
 function pick_unbesieged_leader(s) {
@@ -4873,7 +4872,7 @@ function pick_unbesieged_leader(s) {
 
 states.retreat_lone_leader = {
 	prompt() {
-		let from = moving_piece_space();
+		let from = game.retreat.from;
 		let who = pick_unbesieged_leader(from);
 		view.prompt = `Retreat lone leader ${piece_name(who)} from ${space_name(from)}.`;
 		view.who = who;
@@ -4898,13 +4897,13 @@ states.retreat_lone_leader = {
 			gen_action('eliminate');
 	},
 	eliminate() {
-		let from = moving_piece_space();
+		let from = game.retreat.from;
 		let who = pick_unbesieged_leader(from);
 		eliminate_piece(who);
 		resume_retreat_lone_leader(from);
 	},
 	space(to) {
-		let from = moving_piece_space();
+		let from = game.retreat.from;
 		let who = pick_unbesieged_leader(from);
 		if (from === to) {
 			log("retreats inside fortification");
@@ -4921,7 +4920,16 @@ function resume_retreat_lone_leader(from) {
 	let who = pick_unbesieged_leader(from);
 	if (!who) {
 		set_active(enemy());
-		resume_move();
+		switch (game.retreat.reason) {
+		case 'indian_alliance':
+			delete game.retreat;
+			game.state = 'indian_alliance';
+			break;
+		case 'move':
+			delete game.retreat;
+			resume_move();
+			break;
+		}
 	}
 }
 
@@ -6258,7 +6266,6 @@ function is_indian_alliance(p, alliance) {
 
 states.indian_alliance = {
 	prompt() {
-		view.prompt = `Place indians at their settlements or restore to full (${game.count} left).`;
 		let can_place = false;
 		for (let a of game.alliance) {
 			if (game.count >= 1) {
@@ -6283,8 +6290,12 @@ states.indian_alliance = {
 				}
 			}
 		}
-		if (!can_place)
+		if (can_place) {
+			view.prompt = `Place indians at their settlements or restore to full (${game.count} left).`;
+		} else {
+			view.prompt = `Place indians at their settlements or restore to full \u2014 done.`;
 			gen_action_next();
+		}
 	},
 	space(s) {
 		push_undo();
@@ -6292,6 +6303,8 @@ states.indian_alliance = {
 		if (p) {
 			place_piece(p, s);
 			game.count -= 1.0;
+			if (has_unbesieged_enemy_leader(s) && !has_unbesieged_enemy_units(s))
+				goto_retreat_lone_leader(s, 'indian_alliance');
 		}
 	},
 	piece(p) {
