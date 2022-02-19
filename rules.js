@@ -23,6 +23,7 @@
 // UI: show discard/removed card list in UI
 // UI: show pool leaders in their own box
 // UI: show dead leaders as grayed out in own box
+// UI: siege marker on top of besieged stack in fortresses
 
 // MAJOR
 // TODO: find closest path to non-infiltration space for allowing infiltration
@@ -1903,6 +1904,8 @@ states.debug_supply = {
 }
 
 function is_in_supply(space) {
+	if (game.active === BRITAIN && has_amphib(space))
+		return true;
 	if (!supply_cache)
 		search_supply_spaces();
 	if (supply_cache.includes(space))
@@ -2595,8 +2598,12 @@ states.siege_or_move = {
 	prompt() {
 		let where = moving_piece_space();
 		if (is_assault_possible(where)) {
-			// TODO: RESPONSE - Surrender! allow siege here too to allow surrender event?
-			view.prompt = `You may assault at ${space_name(where)} or move.`;
+			if (player.hand.includes(SURRENDER)) {
+				view.prompt = `You may assault ${space_name(where)}, play "Surrender!", or move.`;
+				gen_action('play_event', SURRENDER);
+			} else {
+				view.prompt = `You may assault at ${space_name(where)} or move.`;
+			}
 			gen_action('assault');
 		} else {
 			view.prompt = `You may siege at ${space_name(where)} or move.`;
@@ -2609,6 +2616,11 @@ states.siege_or_move = {
 	},
 	assault() {
 		goto_assault(moving_piece_space());
+	},
+	play_event(c) {
+		game.siege_where = moving_piece_space();
+		play_card(c);
+		goto_surrender();
 	},
 	move() {
 		resume_move();
@@ -5124,7 +5136,7 @@ states.assault_possible = {
 		let where = game.assault_possible;
 		delete game.assault_possible;
 		log("Does not assault " + space_name(where));
-		end_move_step();
+		end_move_step(true);
 	},
 }
 
