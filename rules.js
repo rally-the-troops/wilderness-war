@@ -1719,7 +1719,7 @@ function move_pieces_from_node_to_node(from, to) {
 }
 
 function capture_enemy_fortress(s) {
-	log("captures fortress");
+	log("Fortress captured.");
 	remove_from_array(enemy_player.fortresses, s);
 	player.fortresses.push(s);
 	award_vp(3);
@@ -1836,13 +1836,13 @@ function update_vp(name, s) {
 // SUPPLY LINES
 
 function search_supply_spaces_imp(queue) {
-	console.log("======");
+	// console.log("======");
 	let reached = queue.slice();
 	while (queue.length > 0) {
 		let current = queue.shift();
 		// If we must have come here by water way:
 		let cultivated = is_cultivated(current) || has_friendly_fortifications(current) || has_friendly_amphib(current);
-		console.log("SUPPLY", space_name(current), cultivated);
+		// console.log("SUPPLY", space_name(current), cultivated);
 		for_each_exit(current, (next, type) => {
 			if (reached.includes(next))
 				return; // continue
@@ -1851,21 +1851,21 @@ function search_supply_spaces_imp(queue) {
 			if (!cultivated) {
 				// came from wilderness by water, must continue by water
 				if (type !== 'land') {
-					console.log("    ", space_name(next), "(adjacent-water)");
+					// console.log("    ", space_name(next), "(adjacent-water)");
 					reached.push(next);
 					queue.push(next);
 				}
 			} else {
 				// came from cultivated by any path, may continue to cultivated or by water
 				if (is_cultivated(next) || has_friendly_fortifications(next) || has_friendly_amphib(next) || type !== 'land') {
-					console.log("    ", space_name(next), "(from land)");
+					// console.log("    ", space_name(next), "(from land)");
 					reached.push(next);
 					queue.push(next);
 				}
 			}
 		});
 	}
-	console.log("====\nSUPPLY", reached.map(space_name).join("\nSUPPLY "));
+	// console.log("====\nSUPPLY", reached.map(space_name).join("\nSUPPLY "));
 	return reached;
 }
 
@@ -3073,6 +3073,8 @@ function goto_battle_check() {
 function end_move_step(final) {
 	console.log("END MOVE STEP");
 
+	let did_battle = !!game.battle;
+
 	lift_sieges_and_amphib();
 	let who = moving_piece();
 	let where = moving_piece_space();
@@ -3095,9 +3097,13 @@ function end_move_step(final) {
 			}
 			if (has_enemy_stockade(where)) {
 				if (has_friendly_drilled_troops(where)) {
-					capture_enemy_stockade(where);
-					if (can_play_massacre())
-						return goto_massacre('massacre_after_move');
+					if (did_battle) {
+						eliminate_enemy_stockade_after_battle(where);
+					} else {
+						capture_enemy_stockade(where);
+						if (can_play_massacre())
+							return goto_massacre('massacre_after_move');
+					}
 				}
 			}
 			stop_move();
