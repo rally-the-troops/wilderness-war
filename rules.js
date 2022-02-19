@@ -1634,7 +1634,7 @@ function eliminate_piece(p) {
 		if (home) {
 			let tribe = indian_tribe[home];
 			if (is_indian_tribe_eliminated(home)) {
-				if (home == PAYS_D_EN_HAUT)
+				if (home === PAYS_D_EN_HAUT)
 					log(`Removed settlement at ${space_name(home)}.`);
 				else
 					log(`Removed ${tribe} settlement at ${space_name(home)}.`);
@@ -1877,7 +1877,7 @@ function search_supply_spaces() {
 	} else {
 		let list = originally_british_fortresses_and_ports.filter(is_friendly_controlled_space);
 		for (let s of game.Britain.amphib)
-			if (!list.includes(s))
+			if (!list.includes(s) && !is_space_besieged(s))
 				list.push(s);
 		supply_cache = search_supply_spaces_imp(list);
 	}
@@ -2966,7 +2966,7 @@ states.move = {
 		// Stop infiltrating (not in fort/fortress space)
 		if (game.move.infiltrated) {
 			game.move.infiltrated = 0;
-			goto_avoid_battle();
+			goto_declare_inside();
 		} else {
 			end_move();
 		}
@@ -3371,8 +3371,6 @@ function end_intercept_success() {
 // DECLARE INSIDE/OUTSIDE FORTIFICATION
 
 function goto_declare_inside() {
-	if (game.move.infiltrated)
-		return goto_avoid_battle();
 	let where = moving_piece_space();
 	if (has_unbesieged_enemy_units_that_did_not_intercept(where)) {
 		if (is_fortress(where) || has_enemy_fort(where)) {
@@ -4035,7 +4033,7 @@ states.defender_events = {
 }
 
 /*
-	if ambush == attacker
+	if ambush === attacker
 		attacker fires
 		defender step loss
 		defender fires
@@ -4206,6 +4204,7 @@ function goto_def_fire() {
 
 function goto_atk_step_losses() {
 	set_active(game.battle.attacker);
+	game.battle.def_caused = 0;
 	if (game.battle.def_result > 0) {
 		if (game.move)
 			unstack_force(moving_piece());
@@ -4227,6 +4226,7 @@ function goto_atk_step_losses() {
 
 function goto_def_step_losses() {
 	set_active(game.battle.defender);
+	game.battle.atk_caused = 0;
 	if (game.battle.atk_result > 0) {
 		game.state = 'step_losses';
 		game.battle.step_loss = game.battle.atk_result;
@@ -4301,6 +4301,10 @@ states.step_losses = {
 		}
 	},
 	next() {
+		if (game.active === game.battle.attacker)
+			game.battle.def_caused = game.battle.def_result - game.battle.step_loss;
+		else
+			game.battle.atk_caused = game.battle.atk_result - game.battle.step_loss;
 		clear_undo();
 		end_step_losses();
 	},
@@ -4474,20 +4478,37 @@ function determine_winner_battle() {
 
 	log("");
 
+
 	// 7.8: Determine winner
-	let atk_surv = count_attacking_units();
-	let def_surv = count_unbesieged_enemy_units_in_space(where);
+	let atk_eliminated = count_attacking_units() === 0;
+	let def_eliminated = count_unbesieged_enemy_units_in_space(where) === 0;
+
+	console.log("RESULT", "atk_eliminated", atk_eliminated);
+	console.log("RESULT", "atk_result", atk_result);
+	console.log("RESULT", "atk_caused", atk_caused);
+	console.log("RESULT", "def_eliminated", def_eliminated);
+	console.log("RESULT", "def_result", def_result);
+	console.log("RESULT", "def_caused", def_caused);
+
 	let victor;
-	if (atk_surv === 0 && def_surv === 0)
+	if (atk_eliminated && def_eliminated) {
+		log("Both sides eliminated.");
+		if (atk_result > def_result)
+			victor = game.battle.attacker;
+		else
+			victor = game.battle.defender;
+	} else if (atk_eliminated && !def_eliminated) {
+		log("Attacker eliminated.");
 		victor = game.battle.defender;
-	else if (def_surv === 0)
+	} else if (!atk_eliminated && def_eliminated) {
+		log("Defender eliminated.");
 		victor = game.battle.attacker;
-	else if (atk_surv === 0)
-		victor = game.battle.defender;
-	else if (game.battle.atk_result > game.battle.def_result)
-		victor = game.battle.attacker;
-	else
-		victor = game.battle.defender;
+	} else {
+		if (atk_caused > def_caused)
+			victor = game.battle.attacker;
+		else
+			victor = game.battle.defender;
+	}
 
 	if (victor === game.battle.attacker && game.battle.atk_worth_vp) {
 		if (victor === FRANCE)
@@ -5392,7 +5413,7 @@ states.indians_and_leaders_go_home = {
 
 				// Indians not at their settlement
 				if (is_indian_unit(p)) {
-					if (s != indian_home_settlement(p)) {
+					if (s !== indian_home_settlement(p)) {
 						done = false;
 						gen_action_piece(p);
 					}
@@ -5920,7 +5941,7 @@ states.construct_stockades = {
 	},
 	space(space) {
 		push_undo();
-		log(`build a stockade in ${space_name(space)}.`);
+		log(`Built stockade in ${space_name(space)}.`);
 		player.stockades.push(space);
 		game.count --;
 	},
@@ -5961,10 +5982,10 @@ states.construct_forts = {
 	space(space) {
 		push_undo();
 		if (has_friendly_fort_uc(space)) {
-			log(`finish building a fort in ${space_name(space)}.`);
+			log(`Finished building fort in ${space_name(space)}.`);
 			place_friendly_fort(space);
 		} else {
-			log(`start building a fort in ${space_name(space)}.`);
+			log(`Started building fort in ${space_name(space)}.`);
 			place_friendly_fort_uc(space);
 			game.list.push(space); // don't finish it in the same action phase
 		}
