@@ -36,6 +36,7 @@
 // a) auto-select retreat destination if only one available like for attack retreats?
 // b) auto-send retreating units to destination if only one available?
 // b) click to retreat/eliminate all attackers individually?
+// c) click destination to send pieces
 
 const { spaces, pieces, cards } = require("./data");
 
@@ -519,7 +520,7 @@ const originally_friendly_spaces = {
 // CARD DECK
 
 function reshuffle_deck() {
-	game.log.push("The deck is reshuffled.");
+	game.log.push("Deck reshuffled.");
 	game.cards.draw_pile = game.draw_pile.concat(game.cards.discarded);
 	game.cards.discarded = [];
 }
@@ -1619,12 +1620,12 @@ function reduce_unit(p) {
 		return true;
 	}
 	set_unit_reduced(p, 1);
-	log(piece_name(p) + " is reduced.");
+	log(piece_name(p) + " reduced.");
 	return false;
 }
 
 function eliminate_piece(p) {
-	log(piece_name(p) + " is eliminated.");
+	log(piece_name(p) + " eliminated.");
 	unstack_force(p);
 	set_unit_reduced(p, 0);
 	game.pieces.location[p] = 0;
@@ -2847,7 +2848,7 @@ states.move = {
 				view.prompt += " (infiltrating)";
 			view.prompt += ` \u2014 ${game.move.used}/${max_movement_cost()}.`;
 		} else {
-			view.prompt = `${piece_name(who)} is eliminated.`;
+			view.prompt = `${piece_name(who)} eliminated.`;
 		}
 
 		view.who = who;
@@ -4379,14 +4380,11 @@ states.leader_check = {
 			gen_action_piece(game.battle.leader_check[i]);
 	},
 	piece(p) {
-		let die = roll_die("for leader check");
+		let die = roll_die("for " + piece_name(p) + " leader check");
 		if (die === 1) {
-			log(`${piece_name(p)} rolls ${die} and is killed`);
 			if (game.battle)
 				remove_from_array(game.battle.atk_pcs, p);
 			eliminate_piece(p);
-		} else {
-			log(`${piece_name(p)} rolls ${die} and survives`);
 		}
 		remove_from_array(game.battle.leader_check, p);
 		if (game.battle.leader_check.length === 0)
@@ -4419,13 +4417,9 @@ states.raid_leader_check = {
 			gen_action_piece(game.raid.leader_check[i]);
 	},
 	piece(p) {
-		let die = roll_die("for leader check");
-		if (die === 1) {
-			log(`${piece_name(p)} rolls ${die} and is killed`);
+		let die = roll_die("for " + piece_name(p) + " leader check");
+		if (die === 1)
 			eliminate_piece(p);
-		} else {
-			log(`${piece_name(p)} rolls ${die} and survives`);
-		}
 		remove_from_array(game.raid.leader_check, p);
 		if (game.raid.leader_check.length === 0) {
 			delete game.raid.leader_check;
@@ -5049,7 +5043,7 @@ function resolve_siege() {
 	log(`Result(${die}): ${result}`);
 	if (result > 0) {
 		let level = change_siege_marker(space, result);
-		log("Siege level is " + level);
+		log("Siege level " + level + ".");
 	}
 	goto_assault_possible(space);
 }
