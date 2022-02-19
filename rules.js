@@ -524,12 +524,6 @@ function reshuffle_deck() {
 	game.cards.discarded = [];
 }
 
-function last_discard() {
-	if (game.cards.discarded.length > 0)
-		return game.cards.discarded[game.cards.discarded.length-1];
-	return null;
-}
-
 function deal_card() {
 	if (game.cards.draw_pile.length === 0)
 		reshuffle_deck();
@@ -721,16 +715,6 @@ function list_auxiliary_units_in_force(force) {
 
 // STATIC PROPERTIES
 
-function get_department(space) {
-	if (departments.st_lawrence.includes(space))
-		return departments.st_lawrence;
-	if (departments.northern.includes(space))
-		return departments.northern;
-	if (departments.southern.includes(space))
-		return departments.southern;
-	return null;
-}
-
 function department_militia(space) {
 	if (departments.st_lawrence.includes(space))
 		return ST_LAWRENCE_CANADIAN_MILITIAS;
@@ -788,10 +772,6 @@ function is_originally_enemy(space) {
 
 function is_fortress(space) {
 	return fortresses.includes(space);
-}
-
-function is_port(space) {
-	return ports.includes(space);
 }
 
 function is_only_port_space(space) {
@@ -962,7 +942,7 @@ function count_non_british_iroquois_and_mohawk_units_in_force(leader) {
 
 function count_pieces_in_force(force) {
 	let n = 0;
-	for_each_piece_in_force(force, p => {
+	for_each_piece_in_force(force, () => {
 		++n;
 	});
 	return n;
@@ -970,7 +950,7 @@ function count_pieces_in_force(force) {
 
 function count_units_in_force(force) {
 	let n = 0;
-	for_each_unit_in_force(force, p => {
+	for_each_unit_in_force(force, () => {
 		++n;
 	});
 	return n;
@@ -987,7 +967,7 @@ function count_friendly_units_inside(where) {
 
 function count_friendly_units_in_space(where) {
 	let n = 0;
-	for_each_friendly_unit_in_space(where, p => {
+	for_each_friendly_unit_in_space(where, () => {
 		++n;
 	});
 	return n;
@@ -995,7 +975,7 @@ function count_friendly_units_in_space(where) {
 
 function count_unbesieged_enemy_units_in_space(where) {
 	let n = 0;
-	for_each_unbesieged_enemy_in_space(where, p => {
+	for_each_unbesieged_enemy_in_space(where, () => {
 		++n;
 	});
 	return n;
@@ -1217,10 +1197,6 @@ function has_british_drilled_troops(space) {
 	return false;
 }
 
-function is_originally_british(space) {
-	return originally_friendly_spaces.Britain.includes(space);
-}
-
 function is_french_controlled_space(space) {
 	if (game.active === FRANCE)
 		return is_friendly_controlled_space(space);
@@ -1352,14 +1328,6 @@ function has_friendly_rangers(space) {
 	return false;
 }
 
-function has_friendly_coureurs(space) {
-	if (game.active === FRANCE)
-		for (let p = first_french_piece; p <= last_french_piece; ++p)
-			if (is_coureurs_unit(p) && is_piece_in_space(p, space))
-				return true;
-	return false;
-}
-
 function has_friendly_indians(space) {
 	for (let p = first_friendly_unit; p <= last_friendly_unit; ++p)
 		if (is_indian_unit(p) && is_piece_in_space(p, space))
@@ -1369,13 +1337,6 @@ function has_friendly_indians(space) {
 
 function has_unbesieged_enemy_auxiliary(space) {
 	for (let p = first_enemy_unit; p <= last_enemy_unit; ++p)
-		if (is_auxiliary_unit(p) && is_piece_in_space(p, space) && !is_piece_inside(p))
-			return true;
-	return false;
-}
-
-function has_unbesieged_friendly_auxiliary(space) {
-	for (let p = first_friendly_unit; p <= last_friendly_unit; ++p)
 		if (is_auxiliary_unit(p) && is_piece_in_space(p, space) && !is_piece_inside(p))
 			return true;
 	return false;
@@ -1799,6 +1760,7 @@ function capture_enemy_stockade(space) {
 	award_vp(1);
 }
 
+// TODO: not used!?
 function eliminate_enemy_stockade_after_battle(space) {
 	log(`eliminates enemy stockade`);
 	remove_from_array(enemy_player.stockades, space);
@@ -2450,7 +2412,7 @@ states.define_force = {
 
 		// pick up all sub-commanders
 		for_each_friendly_leader_in_node(space, p => {
-			if (p !== commander)
+			if (p !== commander && leader_command(p) <= leader_command(commander))
 				move_piece_to(p, box);
 		});
 
@@ -2522,19 +2484,6 @@ states.define_force_lone_ax = {
 				gen_action_piece(p);
 		});
 
-		// drop off sub-commanders
-		for_each_friendly_leader_in_node(leader_box(commander), p => {
-			gen_action_piece(p);
-		});
-
-		// drop off units
-		let has_br_indians = false;
-		for_each_friendly_unit_in_node(leader_box(commander), p => {
-			if (is_british_iroquois_or_mohawk(p))
-				has_br_indians = true;
-			gen_action_piece(p);
-		});
-
 		// pick up units (max 1 auxiliary)
 		if (n === 0) {
 			for_each_friendly_unit_in_node(space, p => {
@@ -2550,31 +2499,29 @@ states.define_force_lone_ax = {
 			});
 		}
 
-		if (n === 1) {
-			if (has_br_indians) {
-				if (is_piece_in_force(JOHNSON, commander))
-					gen_action_next();
-			} else {
-				gen_action_next();
-			}
-		}
+		// drop off sub-commanders
+		for_each_friendly_leader_in_node(leader_box(commander), p => {
+			if (!(p === JOHNSON && force_has_british_iroquois_and_mohawk_units(commander)))
+				gen_action_piece(p);
+		});
+
+		// drop off units
+		for_each_friendly_unit_in_node(leader_box(commander), p => {
+			gen_action_piece(p);
+		});
+
+		if (n === 1)
+			gen_action_next();
 	},
 
 	piece(p) {
 		push_undo();
 		let commander = game.force.commander;
 		let space = piece_space(commander);
-		if (piece_node(p) === leader_box(commander)) {
+		if (piece_node(p) === leader_box(commander))
 			move_piece_to(p, space);
-			if (p === JOHNSON) {
-				for_each_for_each_friendly_unit_in_node(leader_box(commander), indian => {
-					if (is_british_iroquois_or_mohawk(indian))
-						move_piece_to(indian, space);
-				});
-			}
-		} else {
+		else
 			move_piece_to(p, leader_box(commander));
-		}
 	},
 
 	next() {
@@ -2729,7 +2676,6 @@ function stop_move() {
 }
 
 function gen_naval_move() {
-	let who = moving_piece();
 	let from = moving_piece_space();
 	if (game.active === BRITAIN) {
 		game.Britain.amphib.forEach(to => {
@@ -2875,14 +2821,6 @@ function apply_move(to) {
 	lift_sieges_and_amphib();
 }
 
-function apply_naval_move(to) {
-	let who = moving_piece();
-	let from = moving_piece_space();
-	game.move.used = 1;
-	game.move.came_from = from;
-	game.raid.from[to] = from; // remember where raiders came from so they can retreat after battle
-}
-
 states.move = {
 	prompt() {
 		let who = moving_piece();
@@ -2991,10 +2929,8 @@ states.move = {
 	},
 	piece(who) {
 		push_undo();
-		let force = moving_piece();
-		let where = moving_piece_space();
 		log(`dropped off ${piece_name(who)}`);
-		move_piece_to(who, where);
+		move_piece_to(who, moving_piece_space());
 		resume_move();
 	},
 	siege() {
@@ -3321,7 +3257,6 @@ function is_moving_piece_lone_ax_in_wilderness_or_mountain() {
 
 states.intercept_who = {
 	prompt() {
-		let who = moving_piece();
 		let where = moving_piece_space();
 		view.prompt = "Select a force or unit to intercept into " + space_name(where) + ".";
 		view.where = where;
@@ -3355,10 +3290,6 @@ states.intercept_who = {
 		game.move.intercepting = 0;
 		end_intercept_fail();
 	},
-}
-
-function did_attempt_intercept_to_space(space) {
-	return game.move.intercepted_spaces.includes(space);
 }
 
 function attempt_intercept() {
@@ -3471,6 +3402,7 @@ function did_piece_intercept(p) {
 	return game.move.intercepted.includes(p);
 }
 
+// TODO: unused!?
 function did_piece_avoid_battle(p) {
 	return game.move.avoided.includes(p);
 }
@@ -4703,7 +4635,7 @@ states.retreat_attacker = {
 		view.where = from;
 		gen_action_space(to);
 	},
-	space(_) {
+	space() {
 		let from = game.retreat.from;
 		let to = game.retreat.to;
 		delete game.retreat;
@@ -4733,7 +4665,7 @@ function end_retreat_attacker(to) {
 		// if raiders need to retreat again, they go back to this
 		// space, unless they retreat to join other raiders
 		if (!game.raid.from[to])
-			game.raid.from[to] = from;
+			game.raid.from[to] = game.retreat.from;
 		return goto_pick_raid();
 	}
 
@@ -5575,7 +5507,6 @@ states.go_home_to = {
 
 states.go_home_with_indians = {
 	prompt() {
-		let who = game.go_home.who;
 		let from = game.go_home.from;
 		let to = game.go_home.to;
 
@@ -7006,7 +6937,6 @@ function find_unused_provincial(dept) {
 
 states.raise_provincial_regiments = {
 	prompt() {
-		let num = count_provincial_units_from(game.department);
 		let can_raise = false;
 		if (!game.did_raise) {
 			if (can_restore_provincial_regiments(game.department)) {
@@ -7844,7 +7774,7 @@ states.intrigues_against_shirley = {
 		view.prompt = "Eliminate Shirley.";
 		gen_action_piece(SHIRLEY);
 	},
-	piece(p) {
+	piece() {
 		eliminate_piece(SHIRLEY);
 		end_action_phase();
 	},
@@ -8200,7 +8130,7 @@ exports.setup = function (seed, scenario, options) {
 			removed: [],
 		},
 		pieces: {
-			location: pieces.map(x => 0),
+			location: pieces.map(() => 0),
 			reduced: [],
 			inside: [],
 			pool: [],
@@ -8276,12 +8206,6 @@ function gen_action_undo() {
 		view.actions.undo = 1;
 	else
 		view.actions.undo = 0;
-}
-
-function gen_action_x(action, enabled) {
-	if (!view.actions)
-		view.actions = {}
-	view.actions[action] = enabled ? 1 : 0;
 }
 
 function gen_action(action, argument) {
