@@ -1740,41 +1740,39 @@ function recapture_british_fortress(s) {
 }
 
 function capture_enemy_fort_intact(s) {
-	log(`captures enemy fort intact`);
+	log(`Fort captured intact.`);
 	remove_from_array(enemy_player.forts, s);
 	player.forts.push(s);
 	award_vp(2);
 }
 
 function capture_enemy_fort(space) {
-	log(`captures enemy fort`);
+	log(`Fort captured.`);
 	remove_from_array(enemy_player.forts, space);
 	player.forts_uc.push(space);
 	award_vp(2);
 }
 
 function capture_enemy_stockade(space) {
-	log(`captures enemy stockade`);
+	log(`Stockade captured.`);
 	remove_from_array(enemy_player.stockades, space);
 	player.stockades.push(space);
 	award_vp(1);
 }
 
-// TODO: not used!?
 function eliminate_enemy_stockade_after_battle(space) {
-	log(`eliminates enemy stockade`);
+	log(`Stockade eliminated in battle.`);
 	remove_from_array(enemy_player.stockades, space);
 	award_vp(1);
 }
 
 function eliminate_enemy_stockade_in_raid(space) {
-	log(`eliminates enemy stockade`);
+	log(`Stockade eliminated in raid.`);
 	remove_from_array(enemy_player.stockades, space);
 }
 
 function add_raid(who) {
 	let where = piece_space(who);
-	console.log("add_raid", piece_name(who), "in", space_name(where));
 	if (where && !game.raid.list.includes(where) && is_raid_space(where))
 		game.raid.list.push(where);
 }
@@ -2360,6 +2358,8 @@ states.define_force = {
 
 		// pick up sub-commanders
 		for_each_friendly_leader_in_node(space, p => {
+			if (game.force.reason === 'avoid' && is_piece_inside(p))
+				return; // continue
 			if (p !== commander && leader_command(p) <= leader_command(commander)) {
 				console.log("can pick up", piece_name(p));
 				can_pick_up = true;
@@ -2369,6 +2369,8 @@ states.define_force = {
 
 		// pick up units
 		for_each_friendly_unit_in_node(space, p => {
+			if (game.force.reason === 'avoid' && is_piece_inside(p))
+				return; // continue
 			if (is_british_iroquois_or_mohawk(p)) {
 				// 5.534 Only Johnson can command British Iroquois and Mohawk (and for free)
 				if (is_piece_in_force(JOHNSON, commander)) {
@@ -2412,12 +2414,16 @@ states.define_force = {
 
 		// pick up all sub-commanders
 		for_each_friendly_leader_in_node(space, p => {
+			if (game.force.reason === 'avoid' && is_piece_inside(p))
+				return; // continue
 			if (p !== commander && leader_command(p) <= leader_command(commander))
 				move_piece_to(p, box);
 		});
 
 		// pick up as many units as possible
 		for_each_friendly_unit_in_node(space, p => {
+			if (game.force.reason === 'avoid' && is_piece_inside(p))
+				return; // continue
 			if (is_british_iroquois_or_mohawk(p)) {
 				// 5.534 Only Johnson can command British Iroquois and Mohawk (and for free)
 				if (is_piece_in_force(JOHNSON, commander))
@@ -2546,7 +2552,6 @@ function goto_move_piece(who) {
 		intercepted: [],
 		did_attempt_intercept: 0,
 		avoiding: null,
-		avoided: [],
 		start_space: from,
 		used: -1,
 		did_carry: 0,
@@ -3402,11 +3407,6 @@ function did_piece_intercept(p) {
 	return game.move.intercepted.includes(p);
 }
 
-// TODO: unused!?
-function did_piece_avoid_battle(p) {
-	return game.move.avoided.includes(p);
-}
-
 states.avoid_who = {
 	prompt() {
 		let from = piece_space(moving_piece());
@@ -3417,23 +3417,23 @@ states.avoid_who = {
 				gen_action_piece(p);
 		});
 	},
-	piece(piece) {
-		console.log("AVOID BATTLE WITH", piece_name(piece));
-		if (is_leader(piece)) {
+	piece(p) {
+		console.log("AVOID BATTLE WITH", piece_name(p));
+		if (is_leader(p)) {
 			push_undo();
-			game.move.avoiding = piece;
+			game.move.avoiding = p;
 			game.force = {
-				commander: piece,
+				commander: p,
 				reason: 'avoid',
 			};
 			game.state = 'define_force';
 		} else {
-			game.move.avoiding = piece;
+			game.move.avoiding = p;
 			attempt_avoid_battle();
 		}
 	},
 	pass() {
-		log(`${game.active} decline to avoid battle`);
+		log(`${game.active} declined avoid battle`);
 		game.move.avoiding = 0;
 		end_avoid_battle();
 	},
@@ -3441,36 +3441,31 @@ states.avoid_who = {
 
 function attempt_avoid_battle() {
 	let from = moving_piece_space();
-	let piece = avoiding_piece();
+	let who = avoiding_piece();
 	let tactics = 0;
-	if (is_leader(piece)) {
-		tactics = leader_tactics(piece);
-		for_each_piece_in_force(piece, p => {
-			game.move.avoided.push(p)
-		});
-	} else {
-		game.move.avoided.push(piece);
+	if (is_leader(who)) {
+		tactics = leader_tactics(who);
 	}
 
 	// 6.8 Exception: Auxiliary and all-Auxiliary forces automatically succeed.
-	if (is_wilderness_or_mountain(from) && force_has_only_auxiliary_units(piece)) {
-		log(`${piece_name(piece)} automatically avoids battle from ${from.type} space.`);
+	if (is_wilderness_or_mountain(from) && force_has_only_auxiliary_units(who)) {
+		log(`${piece_name(who)} automatically avoids battle from ${from.type} space.`);
 		game.state = 'avoid_to';
 		return;
 	}
 
 	let roll = roll_die("to avoid battle");
 	if (roll + tactics >= 4) {
-		if (is_leader(piece))
-			log(`${piece_name(piece)} attempts to avoid battle:\n${roll} + ${tactics} >= 4 \u2014 success!`);
+		if (is_leader(who))
+			log(`${piece_name(who)} attempts to avoid battle:\n${roll} + ${tactics} >= 4 \u2014 success!`);
 		else
-			log(`${piece_name(piece)} attempts to avoid battle:\n${roll} >= 4 \u2014 success!`);
+			log(`${piece_name(who)} attempts to avoid battle:\n${roll} >= 4 \u2014 success!`);
 		game.state = 'avoid_to';
 	} else {
-		if (is_leader(piece))
-			log(`${piece_name(piece)} attempts to avoid battle:\n${roll} + ${tactics} < 4 \u2014 failure!`);
+		if (is_leader(who))
+			log(`${piece_name(who)} attempts to avoid battle:\n${roll} + ${tactics} < 4 \u2014 failure!`);
 		else
-			log(`${piece_name(piece)} attempts to avoid battle:\n${roll} < 4 \u2014 failure!`);
+			log(`${piece_name(who)} attempts to avoid battle:\n${roll} < 4 \u2014 failure!`);
 		end_avoid_battle();
 	}
 }
