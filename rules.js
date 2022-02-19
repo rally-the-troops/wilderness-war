@@ -457,6 +457,7 @@ const GEORGE_CROGHAN = 16;
 const first_amphib_card = 17;
 const last_amphib_card = 20;
 const LOUISBOURG_SQUADRONS = 21;
+const ACADIANS_EXPELLED = 66;
 
 const within_two_of_canajoharie = [ CANAJOHARIE ];
 for_each_exit(CANAJOHARIE, one => {
@@ -7333,6 +7334,8 @@ events.french_regulars = {
 			delete game.events.once_french_regulars;
 		}
 		game.count = 2;
+		if (game.options.regulars_vp && game.tracks.year <= 1756)
+			award_vp(-1);
 	}
 }
 
@@ -7431,7 +7434,7 @@ states.light_infantry = {
 	},
 }
 
-function find_unused_3_4_regular_unit() {
+function find_unused_3_4_british_regular_unit() {
 	for (let p = first_british_unit; p <= last_british_unit; ++p)
 		if (is_3_4_regular_unit(p) && is_piece_unused(p))
 			return p;
@@ -7450,6 +7453,8 @@ events.british_regulars = {
 		game.state = 'british_regulars';
 		game.count = 3;
 		game.leader = draw_leader_from_pool();
+		if (game.options.regulars_vp && game.tracks.year <= 1756)
+			award_vp(-1);
 	}
 }
 
@@ -7476,7 +7481,7 @@ states.british_regulars = {
 			place_piece(game.leader, s);
 			game.leader = 0;
 		} else {
-			let p = find_unused_3_4_regular_unit();
+			let p = find_unused_3_4_british_regular_unit();
 			if (p) {
 				place_piece(p, s);
 				game.count --;
@@ -7634,10 +7639,15 @@ function find_unused_coureurs_unit() {
 }
 
 events.acadians_expelled = {
+	can_play() {
+		if (game.options.acadians)
+			return true;
+		return game.active === BRITAIN;
+	},
 	play() {
 		// TODO: acadians_expelled_halifax state for manual placing?
 		for (let i = 0; i < 2; ++i) {
-			let p = find_unused_3_4_regular_unit();
+			let p = find_unused_3_4_british_regular_unit();
 			place_piece(p, HALIFAX);
 		}
 
@@ -7648,7 +7658,8 @@ events.acadians_expelled = {
 					restore_unit(p);
 		}
 
-		set_active(enemy());
+		game.acadians = game.active;
+		set_active(FRANCE);
 		game.state = 'acadians_expelled';
 		game.count = 1;
 	},
@@ -7674,7 +7685,8 @@ states.acadians_expelled = {
 		game.count = 0;
 	},
 	next() {
-		set_active(enemy());
+		set_active(game.acadians);
+		delete game.acadians;
 		end_action_phase();
 	},
 }
@@ -7979,10 +7991,6 @@ function setup_1757(end_year) {
 
 	game.events.pitt = 1;
 	game.events.diplo = 1;
-
-	start_year();
-
-	return game;
 }
 
 function setup_1755() {
@@ -8106,15 +8114,12 @@ function setup_1755() {
 	game.pieces.pool.push(find_leader("Webb"));
 
 	game.events.once_french_regulars = 1;
-
-	start_year();
-
-	return game;
 }
 
 exports.setup = function (seed, scenario, options) {
 	load_game_state({
 		seed: seed,
+		options: options,
 		state: null,
 		active: FRANCE,
 		tracks: {
@@ -8171,11 +8176,49 @@ exports.setup = function (seed, scenario, options) {
 
 	switch (scenario) {
 	default:
-	case "Annus Mirabilis": return setup_1757(1759);
-	case "Early War Campaign": return setup_1755(1759);
-	case "Late War Campaign": return setup_1757(1762);
-	case "The Full Campaign": return setup_1755(1762);
+	case "Annus Mirabilis": setup_1757(1759); break;
+	case "Early War Campaign": setup_1755(1759); break;
+	case "Late War Campaign": setup_1757(1762); break;
+	case "The Full Campaign": setup_1755(1762); break;
 	}
+
+	if (game.options.no_foul_weather) {
+		log(`${card_name(FOUL_WEATHER)} removed.`);
+		remove_from_array(game.cards.draw_pile, FOUL_WEATHER);
+		game.cards.discarded.push(FOUL_WEATHER);
+	}
+
+	if (game.options.pitt_dip_rev && game.tracks.year < 1757) {
+		// TODO
+		log(`${card_name(67)} and ${card_name(69)} are linked.`);
+	}
+
+	if (game.options.raid_militia) {
+		// TODO
+		log(`Enemy raid in a department cause a militia step loss.`);
+	}
+
+	if (game.options.regulars_vp && game.tracks.year < 1757) {
+		log(`${card_name(55)} and ${card_name(57)} cost 1 VP in 1755 and 1756.`);
+	}
+
+	if (game.options.surrender) {
+		// TODO
+		log(`${card_name(SURRENDER)} playable by either side.`);
+	}
+
+	if (game.options.acadians) {
+		log(`${card_name(ACADIANS_EXPELLED)} playable by either side.`);
+	}
+
+	if (game.options.regulars_from_discard) {
+		// TODO
+		log(`After 1756 Britain may exchange a random card for a discarded ${card_name(57)} or ${card_name(60)}.`);
+	}
+
+	start_year();
+
+	return game;
 }
 
 // ACTION HANDLERS
