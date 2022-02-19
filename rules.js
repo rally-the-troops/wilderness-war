@@ -3962,23 +3962,50 @@ function goto_battle_defender_events() {
 
 states.attacker_events = {
 	prompt() {
+		let have = [];
+		let dont_have = [];
 		view.prompt = "Attacker may play battle response cards.";
 		if (can_play_ambush_in_attack()) {
-			if (player.hand.includes(AMBUSH_1))
+			if (player.hand.includes(AMBUSH_1)) {
 				gen_action('play_event', AMBUSH_1);
-			if (player.hand.includes(AMBUSH_2))
+				have.push('"Ambush"');
+			} else {
+				dont_have.push('"Ambush"');
+			}
+			if (player.hand.includes(AMBUSH_2)) {
 				gen_action('play_event', AMBUSH_2);
+				have.push('"Ambush"');
+			} else {
+				dont_have.push('"Ambush"');
+			}
 		}
 		if (can_play_coehorns_in_attack()) {
-			if (player.hand.includes(COEHORNS))
+			if (player.hand.includes(COEHORNS)) {
 				gen_action('play_event', COEHORNS);
+				have.push('"Coehorns"');
+			} else {
+				dont_have.push('"Coehorns"');
+			}
 		}
 		if (can_play_fieldworks_in_attack()) {
-			if (player.hand.includes(FIELDWORKS_1))
+			if (player.hand.includes(FIELDWORKS_1)) {
 				gen_action('play_event', FIELDWORKS_1);
-			if (player.hand.includes(FIELDWORKS_2))
+				have.push('"Fieldworks"');
+			} else {
+				dont_have.push('"Fieldworks"');
+			}
+			if (player.hand.includes(FIELDWORKS_2)) {
 				gen_action('play_event', FIELDWORKS_2);
+				have.push('"Fieldworks"');
+			} else {
+				dont_have.push('"Fieldworks"');
+			}
 		}
+		view.prompt = "Attack.";
+		if (have.length > 0)
+			view.prompt += " You may play " + have.join(" or ") + ".";
+		if (dont_have.length > 0)
+			view.prompt += " You don't have " + have.join(" and ") + ".";
 		gen_action_next();
 	},
 	play_event(c) {
