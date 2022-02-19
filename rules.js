@@ -2080,6 +2080,7 @@ function gen_card_menu(card) {
 		gen_action('construct_stockades', card);
 		gen_action('construct_forts', card);
 	}
+	gen_action('discard', card);
 }
 
 function card_name(card) {
@@ -2141,6 +2142,11 @@ states.action_phase = {
 	},
 	construct_forts(card) {
 		goto_construct_forts(card);
+	},
+	discard(card) {
+		player.did_construct = 0;
+		discard_card(card, "");
+		end_action_phase();
 	},
 	pass() {
 		log(game.active + " pass.");
