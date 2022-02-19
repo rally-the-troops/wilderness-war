@@ -5050,7 +5050,10 @@ states.massacre_after_surrender = {
 function goto_surrender_place() {
 	set_active(enemy());
 	game.state = 'surrender';
-	game.surrender = find_closest_friendly_unbesieged_fortification(game.siege_where);
+	if (game.siege_where === LOUISBOURG)
+		game.surrender = find_closest_friendly_unbesieged_fortification(QUEBEC);
+	else
+		game.surrender = find_closest_friendly_unbesieged_fortification(game.siege_where);
 }
 
 states.surrender = {
