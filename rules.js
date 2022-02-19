@@ -24,14 +24,13 @@
 // UI: show pool leaders in their own box
 // UI: show dead leaders as grayed out in own box
 
-// BEHAVIOR
-// click unit to undo
-// toggle activated unit by clicking
-
 // MAJOR
 // TODO: find closest path to non-infiltration space for allowing infiltration
 // TODO: manual selection of reduced/placed units in events
 
+// BEHAVIOR
+// click unit to undo
+// toggle activated unit by clicking
 // RETREAT BEHAVIOR
 // a) auto-select retreat destination if only one available like for attack retreats?
 // b) auto-send retreating units to destination if only one available?
@@ -2219,7 +2218,7 @@ states.activate_individually = {
 	},
 	next() {
 		push_undo();
-		goto_pick_move();
+		goto_pick_first_move();
 	},
 }
 
@@ -2285,7 +2284,15 @@ states.select_campaign_2 = {
 	},
 }
 
-function goto_pick_move() {
+function goto_pick_first_move() {
+	if (game.activation.length > 1) {
+		game.state = 'pick_move';
+	} else {
+		goto_move_piece(game.activation.pop());
+	}
+}
+
+function goto_pick_next_move() {
 	if (game.activation && game.activation.length > 0) {
 		game.state = 'pick_move';
 	} else {
@@ -2321,7 +2328,7 @@ function end_activation() {
 
 	lift_sieges_and_amphib();
 	clear_undo();
-	goto_pick_move();
+	goto_pick_next_move();
 }
 
 // DEFINE FORCE (for various actions)
@@ -2458,7 +2465,7 @@ states.define_force = {
 			break;
 		case 'campaign_2':
 			game.activation.push(commander);
-			goto_pick_move();
+			goto_pick_first_move();
 			break;
 		case 'move':
 			goto_move_piece(commander);
