@@ -68,74 +68,6 @@ for (let c = 1; c < cards.length; ++c) {
 		.toLowerCase();
 }
 
-// TODO: move into data.js
-function make_piece_description(p) {
-	if (p.type === 'leader') {
-		p.desc = `${p.initiative}-${p.command}-${p.tactics} ${p.name}`;
-	} else {
-		let desc;
-		if (p.faction === 'british') {
-			switch (p.type) {
-			case 'indians':
-				desc = p.name;
-				break;
-			case 'rangers':
-				desc = "Rangers";
-				break;
-			case 'light-infantry':
-				desc = "Light infantry";
-				break;
-			case 'northern-provincials':
-				desc = "Northern Provincials";
-				break;
-			case 'southern-provincials':
-				desc = "Southern Provincials";
-				break;
-			case 'regulars':
-				switch (p.subtype) {
-				case undefined:
-					desc = "British Regulars";
-					break;
-				case 'highland':
-					desc = "Highlanders";
-					break;
-				case 'royal':
-					desc = "Royal Americans";
-					break;
-				}
-				break;
-			case 'militias':
-				desc = "Colonial Militia";
-				break;
-			}
-		} else {
-			switch (p.type) {
-			case 'indians':
-				desc = p.name;
-				break;
-			case 'coureurs':
-				desc = "Coureurs des bois";
-				break;
-			case 'regulars':
-				switch (p.subtype) {
-				case undefined:
-					desc = "French Regulars";
-					break;
-				case 'detachment':
-					desc = "Marine Detachment";
-					break;
-				}
-				break;
-			case 'militias':
-				desc = "Canadian Militia";
-				break;
-			}
-		}
-		p.desc = `${p.strength}-${p.movement} ${desc}`;
-		p.r_desc = `${p.reduced_strength}-${p.movement} ${desc}`;
-	}
-}
-
 // Figure out piece indices.
 for (let p = 1; p < pieces.length; ++p) {
 	if (pieces[p].faction === 'british') {
@@ -155,8 +87,6 @@ for (let p = 1; p < pieces.length; ++p) {
 			last_french_leader = p;
 		last_french_piece = p;
 	}
-
-	make_piece_description(pieces[p]);
 }
 
 let first_british_unit = last_british_leader;
@@ -956,7 +886,7 @@ function is_auxiliary_unit(p) {
 
 function piece_name(p) {
 	if (is_unit_reduced(p))
-		return pieces[p].r_desc;
+		return pieces[p].rdesc;
 	return pieces[p].desc;
 }
 
