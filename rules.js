@@ -1,18 +1,5 @@
 "use strict";
 
-// RULES
-// Do defenders win an assault if the attacker is eliminated?
-// Can leaders and coureurs follow indians home to Pays d'en Haut?
-// May indians stacked with a leader at their home settlement follow the leader home to a fortification?
-// France/Britain or "The French"/"The British"
-
-// Log messages - past tense.
-// Log messages - don't use full unit names (use "2-4 southern provincials" etc)
-// Prompts - use "Name (Place)"
-
-// Extra next confirmation?
-// Governor Vaudreuil Interferes
-
 // SERVER
 // add 'query' message to show supply lines, discarded cards, removed cards, etc
 
@@ -249,7 +236,7 @@ const ports = [
 	"Québec",
 ].map(name => spaces.findIndex(space => space.name === name));
 
-const fortresses = [
+const all_fortresses = [
 	"Albany",
 	"Alexandria",
 	"Baltimore",
@@ -280,7 +267,7 @@ const originally_british_fortresses = [
 	"Philadelphia",
 ].map(name => spaces.findIndex(space => space.name === name));
 
-const originally_british_fortresses_and_ports = [
+const originally_british_fortresses_and_all_ports = [
 	"Albany",
 	"Alexandria",
 	"Baltimore",
@@ -777,11 +764,7 @@ function is_originally_enemy(s) {
 }
 
 function is_fortress(s) {
-	return fortresses.includes(s);
-}
-
-function is_only_port_space(s) {
-	return s === HALIFAX || s === LOUISBOURG;
+	return all_fortresses.includes(s);
 }
 
 function is_leader(p) {
@@ -815,6 +798,9 @@ function is_provincial_unit_from(p, type) {
 function is_drilled_troops(p) {
 	switch (pieces[p].type) {
 	case 'regular': return true;
+	case 'marine detachment': return true;
+	case 'royal': return true;
+	case 'highland': return true;
 	case 'light infantry': return true;
 	case 'northern provincial': return true;
 	case 'southern provincial': return true;
@@ -844,7 +830,7 @@ function indian_home_settlement(p) {
 
 function is_regular_unit(p) {
 	let type = pieces[p].type;
-	return type === 'regular' || type === 'marine' || type === 'highland' || type === 'royal';
+	return type === 'regular' || type === 'marine detachment' || type === 'highland' || type === 'royal';
 }
 
 function is_highland_unit(p) {
@@ -1886,7 +1872,7 @@ function search_supply_spaces() {
 		let list = originally_french_fortresses.filter(is_friendly_controlled_space);
 		supply_cache = search_supply_spaces_imp(list);
 	} else {
-		let list = originally_british_fortresses_and_ports.filter(is_friendly_controlled_space);
+		let list = originally_british_fortresses_and_all_ports.filter(is_friendly_controlled_space);
 		for (let s of game.amphib)
 			if (!list.includes(s) && !is_space_besieged(s))
 				list.push(s);
@@ -2586,7 +2572,7 @@ function goto_move_piece(who) {
 	game.move = {
 		where: from,
 		came_from: 0,
-		type: is_only_port_space(from) ? 'naval' : 'boat',
+		type: (from === HALIFAX || from === LOUISBOURG) ? 'naval' : 'boat',
 		used: -1,
 		did_carry: 0,
 		infiltrated: 0,
@@ -2986,7 +2972,7 @@ states.move = {
 	},
 	piece(who) {
 		push_undo();
-		log(`Dropped off ${piece_name_and_place(who)}.`);
+		log(`Dropped off ${piece_name(who)}.`);
 		move_piece_to(who, moving_piece_space());
 		resume_move();
 	},
@@ -3370,7 +3356,7 @@ function attempt_intercept() {
 	if (is_leader(who))
 		die = modify(die, leader_tactics(who), "leader tactics");
 	if (die >= 4) {
-		log(`Intercepted with ${describe_force(who)}!`);
+		log(`Intercepted by ${describe_force(who)}!`);
 		end_intercept_success();
 	} else {
 		log(`${piece_name_and_place(who)} failed interception.`);
@@ -3499,7 +3485,7 @@ function attempt_avoid_battle() {
 
 	// 6.8 Exception: Auxiliary and all-Auxiliary forces automatically succeed.
 	if (is_wilderness_or_mountain(from) && force_has_only_auxiliary_units(who)) {
-		log(`${piece_name_and_place(who)} avoided battle from ${from.type}.`);
+		log(`${piece_name(who)} avoided battle from ${from.type}.`);
 		game.state = 'avoid_to';
 		return;
 	}
@@ -3813,7 +3799,7 @@ states.militia_in_battle = {
 	piece(p) {
 		push_undo();
 		move_piece_to(p, game.battle.where);
-		log(`Deployed ${piece_name_and_place(p)}.`);
+		log(`Deployed ${piece_name(p)}.`);
 	},
 	next() {
 		clear_undo();
@@ -5274,7 +5260,7 @@ states.militia_against_raid = {
 	piece(p) {
 		push_undo();
 		move_piece_to(p, game.raid.where);
-		log(`Deployed ${piece_name_and_place(p)}.`);
+		log(`Deployed ${piece_name(p)}.`);
 		game.count --;
 	},
 	next() {
@@ -6635,7 +6621,8 @@ states.governor_vaudreuil_interferes = {
 			let p_loc = piece_space(p);
 			move_piece_to(a, p_loc);
 			move_piece_to(p, a_loc);
-			log(`${piece_name_and_place(p)} and ${piece_name_and_place(a)} reversed locations.`);
+			log(`${piece_name(a)} moved to ${space_name(p_loc)}.`);
+			log(`${piece_name(p)} moved to ${space_name(a_loc)}.`);
 			end_action_phase();
 		} else {
 			push_undo();
