@@ -8493,7 +8493,6 @@ exports.view = function(state, current) {
 	} else {
 		states[game.state].prompt();
 		gen_action_undo();
-		view.prompt = game.active + ": " + view.prompt;
 	}
 
 	return view;
