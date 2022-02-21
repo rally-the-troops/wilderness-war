@@ -8233,6 +8233,8 @@ exports.setup = function (seed, scenario, options) {
 		end_year: 1762,
 		season: 0,
 		vp: 0,
+		niagara: 1,
+		ohio_forks: 1,
 		pa: 0,
 		events: {},
 		last_card: 0,
@@ -8247,8 +8249,6 @@ exports.setup = function (seed, scenario, options) {
 		sieges: {},
 		amphib: [],
 		fieldworks: [],
-		niagara: 1,
-		ohio_forks: 1,
 		french: {
 			hand: [],
 			held: 0,
@@ -8429,7 +8429,7 @@ exports.action = function (state, current, action, arg) {
 exports.view = function(state, current) {
 	load_game_state(state);
 	view = {
-		tracks: { vp: game.vp, pa: game.pa, year: game.year, season: game.season },
+		vp: game.vp, pa: game.pa, year: game.year, season: game.season,
 		events: game.events,
 		pieces: game.pieces,
 		sieges: game.sieges,
@@ -8439,22 +8439,20 @@ exports.view = function(state, current) {
 		// deck: game.deck.length,
 		// discard: game.discard,
 		// removed: game.removed,
-		markers: {
-			France: {
-				allied: game.french.allied,
-				stockades: game.french.stockades,
-				forts_uc: game.french.forts_uc,
-				forts: game.french.forts,
-				raids: game.french.raids,
-			},
-			Britain: {
-				allied: game.british.allied,
-				stockades: game.british.stockades,
-				forts_uc: game.british.forts_uc,
-				forts: game.british.forts,
-				raids: game.british.raids,
-				pool: game.british.pool,
-			},
+		french: {
+			allied: game.french.allied,
+			stockades: game.french.stockades,
+			forts_uc: game.french.forts_uc,
+			forts: game.french.forts,
+			raids: game.french.raids,
+		},
+		british: {
+			allied: game.british.allied,
+			stockades: game.british.stockades,
+			forts_uc: game.british.forts_uc,
+			forts: game.british.forts,
+			raids: game.british.raids,
+			pool: game.british.pool,
 		},
 		active: game.active,
 		prompt: null,
