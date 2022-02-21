@@ -71,7 +71,7 @@ for (let c = 1; c < cards.length; ++c) {
 // Figure out piece indices.
 for (let p = 1; p < pieces.length; ++p) {
 	if (pieces[p].faction === 'british') {
-		if (pieces[p].type === 'militias')
+		if (pieces[p].type === 'militia')
 			british_militia_units.push(p);
 		if (first_british_piece < 0)
 			first_british_piece = p;
@@ -79,7 +79,7 @@ for (let p = 1; p < pieces.length; ++p) {
 			last_british_leader = p;
 		last_british_piece = p;
 	} else {
-		if (pieces[p].type === 'militias')
+		if (pieces[p].type === 'militia')
 			french_militia_units.push(p);
 		if (first_french_piece < 0)
 			first_french_piece = p;
@@ -359,16 +359,16 @@ const departments = {
 }
 
 const indian_spaces = {
-	"pays-d-en-haut": [
+	"blue-orange": [
 		find_space("Pays d'en Haut")
 	],
-	northern: [
+	blue: [
 		"Kahnawake",
 		"Lac des Deux Montagnes",
 		"Mississauga",
 		"St-François",
 	].map(name => spaces.findIndex(space => space.name === name)),
-	western: [
+	orange: [
 		"Kittaning",
 		"Logstown",
 		"Mingo Town",
@@ -376,7 +376,7 @@ const indian_spaces = {
 	mohawks: [
 		"Canajoharie",
 	].map(name => spaces.findIndex(space => space.name === name)),
-	iroquois: [
+	gray: [
 		"Cayuga",
 		"Karaghiyadirha",
 		"Oneida Castle",
@@ -478,10 +478,10 @@ for_each_exit(CANAJOHARIE, one => {
 });
 
 const within_two_of_gray_settlement = [];
-indian_spaces.iroquois.forEach(zero => {
+indian_spaces.gray.forEach(zero => {
 	within_two_of_gray_settlement.push(zero);
 });
-indian_spaces.iroquois.forEach(zero => {
+indian_spaces.gray.forEach(zero => {
 	for_each_exit(zero, one => {
 		if (!within_two_of_gray_settlement.includes(one)) {
 			within_two_of_gray_settlement.push(one);
@@ -514,7 +514,7 @@ const british_iroquois_or_mohawk_names = [
 const british_iroquois_or_mohawk_units = [];
 for (let i = 0; i < pieces.length; ++i) {
 	let piece = pieces[i];
-	if (piece.faction === 'british' && piece.type === 'indians' && british_iroquois_or_mohawk_names.includes(piece.name))
+	if (piece.faction === 'british' && piece.type === 'indian' && british_iroquois_or_mohawk_names.includes(piece.name))
 		british_iroquois_or_mohawk_units.push(i);
 }
 
@@ -799,76 +799,77 @@ function is_british_iroquois_or_mohawk(p) {
 
 function is_provincial_unit(p) {
 	switch (pieces[p].type) {
-	case 'northern-provincials': return true;
-	case 'southern-provincials': return true;
+	case 'northern provincial': return true;
+	case 'southern provincial': return true;
 	}
 	return false;
 }
 
 function is_provincial_unit_from(p, type) {
 	switch (pieces[p].type) {
-	case 'northern-provincials': return type === 'northern';
-	case 'southern-provincials': return type === 'southern';
+	case 'northern provincial': return type === 'northern';
+	case 'southern provincial': return type === 'southern';
 	}
 	return false;
 }
 
 function is_drilled_troops(p) {
 	switch (pieces[p].type) {
-	case 'regulars': return true;
-	case 'light-infantry': return true;
-	case 'northern-provincials': return true;
-	case 'southern-provincials': return true;
+	case 'regular': return true;
+	case 'light infantry': return true;
+	case 'northern provincial': return true;
+	case 'southern provincial': return true;
 	}
 	return false;
 }
 
 function is_militia_unit(p) {
-	return pieces[p].type === 'militias';
+	return pieces[p].type === 'militia';
 }
 
 function is_light_infantry_unit(p) {
-	return pieces[p].type === 'light-infantry';
+	return pieces[p].type === 'light infantry';
 }
 
 function is_indian_unit(p) {
-	return pieces[p].type === 'indians';
+	return pieces[p].type === 'indian';
 }
 
 function is_indian_tribe(p, tribe) {
-	return pieces[p].type === 'indians' && pieces[p].name === tribe;
+	return pieces[p].type === 'indian' && pieces[p].name === tribe;
 }
 
 function indian_home_settlement(p) {
 	return pieces[p].settlement || 0;
 }
 
-function is_regulars_unit(p) {
-	return pieces[p].type === 'regulars';
+function is_regular_unit(p) {
+	let type = pieces[p].type;
+	return type === 'regular' || type === 'marine' || type === 'highland' || type === 'royal';
 }
 
 function is_highland_unit(p) {
-	return pieces[p].type === 'regulars' && pieces[p].subtype === 'highland';
+	return pieces[p].type === 'highland';
 }
 
 function is_royal_american_unit(p) {
-	return pieces[p].type === 'regulars' && pieces[p].subtype === 'royal';
+	return pieces[p].type === 'royal';
 }
 
-function is_3_4_regular_unit(p) {
-	return pieces[p].type === 'regulars' && pieces[p].subtype === undefined;
+function is_34_regular_unit(p) {
+	return pieces[p].type === 'regular';
 }
 
 function is_western_indian_unit(p) {
-	return pieces[p].type === 'indians' && pieces[p].subtype === 'western';
+	return pieces[p].type === 'indian' && pieces[p].subtype === 'orange';
 }
 
 function is_pays_d_en_haut_indian_unit(p) {
-	return pieces[p].type === 'indians' && pieces[p].subtype === 'pays-d-en-haut';
+	return pieces[p].type === 'indian' && pieces[p].subtype === 'blue-orange';
 }
 
-function is_rangers_unit(p) {
-	return pieces[p].type === 'rangers';
+function is_ranger_unit(p) {
+	return pieces[p].type === 'ranger';
 }
 
 function is_coureurs_unit(p) {
@@ -877,9 +878,9 @@ function is_coureurs_unit(p) {
 
 function is_auxiliary_unit(p) {
 	switch (pieces[p].type) {
-	case 'indians': return true;
+	case 'indian': return true;
 	case 'coureurs': return true;
-	case 'rangers': return true;
+	case 'ranger': return true;
 	}
 	return false;
 }
@@ -1328,7 +1329,7 @@ function has_friendly_drilled_troops(space) {
 
 function has_friendly_regulars(space) {
 	for (let p = first_friendly_unit; p <= last_friendly_unit; ++p)
-		if (is_regulars_unit(p) && is_piece_in_space(p, space))
+		if (is_regular_unit(p) && is_piece_in_space(p, space))
 			return true;
 	return false;
 }
@@ -1336,7 +1337,7 @@ function has_friendly_regulars(space) {
 function has_friendly_rangers(space) {
 	if (game.active === BRITAIN)
 		for (let p = first_british_unit; p <= last_british_unit; ++p)
-			if (is_rangers_unit(p) && is_piece_in_space(p, space))
+			if (is_ranger_unit(p) && is_piece_in_space(p, space))
 				return true;
 	return false;
 }
@@ -2215,7 +2216,7 @@ states.activate_individually = {
 							gen_action_piece(p);
 					}
 					if (game.count >= 1) {
-						if (is_rangers_unit(p))
+						if (is_ranger_unit(p))
 							gen_action_piece(p);
 						if (is_coureurs_unit(p))
 							gen_action_piece(p);
@@ -3732,7 +3733,7 @@ function goto_battle(where, is_assault) {
 		for_each_attacking_piece(p => {
 			if (is_unit(p))
 				++n_atk;
-			if (is_regulars_unit(p))
+			if (is_regular_unit(p))
 				game.battle.atk_worth_vp = 1;
 		});
 		if (n_atk > 4)
@@ -3742,7 +3743,7 @@ function goto_battle(where, is_assault) {
 		for_each_defending_piece(p => {
 			if (is_unit(p))
 				++n_def;
-			if (is_regulars_unit(p))
+			if (is_regular_unit(p))
 				game.battle.def_worth_vp = 1;
 		});
 		if (n_def > 4)
@@ -4201,8 +4202,8 @@ function goto_atk_fire() {
 				die = modify(die, -1, "vs auxiliaries in wilderness");
 		}
 		if (is_cultivated(game.battle.where)) {
-			let atk_has_reg = some_attacking_piece(p => is_regulars_unit(p));
-			let def_has_reg = some_defending_piece(p => is_regulars_unit(p));
+			let atk_has_reg = some_attacking_piece(p => is_regular_unit(p));
+			let def_has_reg = some_defending_piece(p => is_regular_unit(p));
 			if (!atk_has_reg && def_has_reg)
 				die = modify(die, -1, "vs regulars in cultivated");
 		}
@@ -4254,8 +4255,8 @@ function goto_def_fire() {
 				die = modify(die, -1, "vs auxiliaries in wilderness");
 		}
 		if (is_cultivated(game.battle.where)) {
-			let atk_has_reg = some_attacking_piece(p => is_regulars_unit(p));
-			let def_has_reg = some_defending_piece(p => is_regulars_unit(p));
+			let atk_has_reg = some_attacking_piece(p => is_regular_unit(p));
+			let def_has_reg = some_defending_piece(p => is_regular_unit(p));
 			if (atk_has_reg && !def_has_reg)
 				die = modify(die, -1, "vs regulars in cultivated");
 		}
@@ -6231,9 +6232,9 @@ events.northern_indian_alliance = {
 		else
 			game.count = Math.ceil(roll / 2);
 		if (has_friendly_fort(NIAGARA))
-			game.alliance = [ 'northern', 'pays-d-en-haut' ];
+			game.alliance = [ 'blue', 'blue-orange' ];
 		else
-			game.alliance = [ 'northern' ];
+			game.alliance = [ 'blue' ];
 		game.state = 'indian_alliance';
 	}
 }
@@ -6250,9 +6251,9 @@ events.western_indian_alliance = {
 		else
 			game.count = Math.ceil(roll / 2);
 		if (has_friendly_fort(NIAGARA))
-			game.alliance = [ 'western', 'pays-d-en-haut' ];
+			game.alliance = [ 'orange', 'blue-orange' ];
 		else
-			game.alliance = [ 'western' ];
+			game.alliance = [ 'orange' ];
 		game.state = 'indian_alliance';
 	}
 }
@@ -6279,7 +6280,7 @@ events.iroquois_alliance = {
 		let roll = roll_die();
 		game.state = 'indian_alliance';
 		game.count = roll;
-		game.alliance = [ 'iroquois' ];
+		game.alliance = [ 'gray' ];
 	},
 }
 
@@ -6475,7 +6476,7 @@ states.cherokee_uprising = {
 		for (let p = first_british_unit; p <= last_british_unit; ++p) {
 			if (is_piece_on_map(p) && is_piece_unbesieged(p)) {
 				let x = false;
-				if (game.uprising.regular > 0 && is_regulars_unit(p))
+				if (game.uprising.regular > 0 && is_regular_unit(p))
 					x = true;
 				if (game.uprising.southern > 0 && is_provincial_unit_from(p, 'southern'))
 					x = true;
@@ -6492,7 +6493,7 @@ states.cherokee_uprising = {
 	},
 	piece(p) {
 		push_undo();
-		if (is_regulars_unit(p))
+		if (is_regular_unit(p))
 			game.uprising.regular --;
 		if (is_provincial_unit_from(p, 'southern'))
 			game.uprising.southern --;
@@ -7155,7 +7156,7 @@ states.bastions_repaired = {
 }
 
 function is_colonial_recruit(p) {
-	return is_coureurs_unit(p) || is_rangers_unit(p) || is_light_infantry_unit(p) || is_provincial_unit(p);
+	return is_coureurs_unit(p) || is_ranger_unit(p) || is_light_infantry_unit(p) || is_provincial_unit(p);
 }
 
 events.colonial_recruits = {
@@ -7206,7 +7207,7 @@ states.colonial_recruits = {
 
 function has_unbesieged_reduced_regular_or_light_infantry_units() {
 	for (let p = first_friendly_unit; p <= last_friendly_unit; ++p)
-		if (is_regulars_unit(p) || is_light_infantry_unit(p))
+		if (is_regular_unit(p) || is_light_infantry_unit(p))
 			if (is_piece_unbesieged(p) && is_unit_reduced(p))
 				return true;
 	return false;
@@ -7254,7 +7255,7 @@ states.restore_regular_or_light_infantry_units = {
 		let can_restore = false;
 		if (game.count > 0) {
 			for (let p = first_friendly_unit; p <= last_friendly_unit; ++p) {
-				if (is_regulars_unit(p) || is_light_infantry_unit(p)) {
+				if (is_regular_unit(p) || is_light_infantry_unit(p)) {
 					if (can_restore_unit(p)) {
 						can_restore = true;
 						gen_action_piece(p);
@@ -7340,7 +7341,7 @@ states.call_out_militias = {
 
 function find_unused_ranger_unit() {
 	for (let p = first_friendly_unit; p <= last_friendly_unit; ++p)
-		if (is_rangers_unit(p) && is_piece_unused(p))
+		if (is_ranger_unit(p) && is_piece_unused(p))
 			return p;
 	return 0;
 }
@@ -7369,7 +7370,7 @@ states.rangers = {
 		}
 		if (game.count > 0) {
 			for (let p = first_friendly_unit; p <= last_friendly_unit; ++p) {
-				if (is_rangers_unit(p)) {
+				if (is_ranger_unit(p)) {
 					if (can_restore_unit(p)) {
 						can_place = true;
 						gen_action_piece(p);
@@ -7398,7 +7399,7 @@ states.rangers = {
 
 function find_unused_french_regular_unit() {
 	for (let p = first_french_unit; p <= last_french_unit; ++p)
-		if (is_regulars_unit(p) && is_piece_unused(p))
+		if (is_34_regular_unit(p) && is_piece_unused(p))
 			return p;
 	return 0;
 }
@@ -7528,9 +7529,9 @@ states.light_infantry = {
 	},
 }
 
-function find_unused_3_4_british_regular_unit() {
+function find_unused_british_regular_unit() {
 	for (let p = first_british_unit; p <= last_british_unit; ++p)
-		if (is_3_4_regular_unit(p) && is_piece_unused(p))
+		if (is_34_regular_unit(p) && is_piece_unused(p))
 			return p;
 	return 0;
 }
@@ -7575,7 +7576,7 @@ states.british_regulars = {
 			place_piece(game.leader, s);
 			game.leader = 0;
 		} else {
-			let p = find_unused_3_4_british_regular_unit();
+			let p = find_unused_british_regular_unit();
 			if (p) {
 				place_piece(p, s);
 				game.count --;
@@ -7741,7 +7742,7 @@ events.acadians_expelled = {
 	play() {
 		// TODO: acadians_expelled_halifax state for manual placing?
 		for (let i = 0; i < 2; ++i) {
-			let p = find_unused_3_4_british_regular_unit();
+			let p = find_unused_british_regular_unit();
 			place_piece(p, HALIFAX);
 		}
 
