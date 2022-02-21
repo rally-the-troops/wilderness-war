@@ -13,6 +13,9 @@
 // Extra next confirmation?
 // Governor Vaudreuil Interferes
 
+// SERVER
+// add 'query' message to show supply lines, discarded cards, removed cards, etc
+
 // WONTFIX
 // TODO: select leader for defense instead of automatically picking the best
 // TODO: remove old 7 command leader(s) immediately as they're drawn, before placing reinforcements
@@ -1622,7 +1625,6 @@ function unstack_piece_from_force(p) {
 }
 
 function restore_unit(p) {
-	let s = piece_space(p);
 	log(`Restored ${piece_name_and_place(p)}.`);
 	set_unit_reduced(p, 0);
 }
@@ -1775,15 +1777,15 @@ function capture_enemy_stockade(s) {
 	award_vp(1);
 }
 
-function destroy_enemy_stockade_after_battle(space) {
+function destroy_enemy_stockade_after_battle(s) {
 	log(`Destroyed stockade at ${space_name(s)}.`);
-	remove_from_array(enemy_player.stockades, space);
+	remove_from_array(enemy_player.stockades, s);
 	award_vp(1);
 }
 
-function destroy_enemy_stockade_in_raid(space) {
+function destroy_enemy_stockade_in_raid(s) {
 	log(`Destroyed stockade at ${space_name(s)}.`);
-	remove_from_array(enemy_player.stockades, space);
+	remove_from_array(enemy_player.stockades, s);
 }
 
 function add_raid(who) {
@@ -1792,11 +1794,11 @@ function add_raid(who) {
 		game.raid.list.push(where);
 }
 
-function is_fort_or_fortress_vacant_of_besieging_units(space) {
-	if (has_french_fort(space) || is_french_fortress(space))
-		return !has_british_units(space);
+function is_fort_or_fortress_vacant_of_besieging_units(s) {
+	if (has_french_fort(s) || is_french_fortress(s))
+		return !has_british_units(s);
 	else
-		return !has_french_units(space);
+		return !has_french_units(s);
 }
 
 function lift_sieges_and_amphib() {
@@ -3549,7 +3551,7 @@ states.avoid_to = {
 				});
 			}
 		}
-		log(`Avoided battle with ${describe_force(who)}!`);
+		log(`Avoided battle with ${describe_force(moving_piece())}!`);
 	},
 	space(to) {
 		end_avoid_battle_success(to);
@@ -4630,7 +4632,7 @@ function determine_winner_battle() {
 		if (has_unbesieged_enemy_units(where)) {
 			goto_retreat_defender();
 		} else {
-			if (def_surv === 0 && game.battle.def_result === 0) {
+			if (def_eliminated && game.battle.def_result === 0) {
 				log("OVERRUN");
 				end_move_step(false);
 			} else {
