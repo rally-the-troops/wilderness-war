@@ -26,6 +26,8 @@
 // TODO: abbreviate per-player (game.British.xxx) property name (game.b.xxx)
 // TODO: move core of is_friendly/enemy to is_british/french and branch in is_friendly/enemy
 // TODO: for_each_exit -> flat list of all exits
+// TODO: use is_enemy_occupied(s) instead of has_unbesieged_enemy_units || has_unbesieged_enemy_fortifications
+// TODO: use game.french.fortresses for victory checks
 // UI: show discard/removed card list in UI
 // UI: show pool leaders in their own box
 // UI: show dead leaders as grayed out in own box
@@ -64,15 +66,6 @@ let last_french_piece = -1;
 
 let british_militia_units = [];
 let french_militia_units = [];
-
-// Create card event names.
-for (let c = 1; c < cards.length; ++c) {
-	cards[c].event = cards[c].name
-		.replace(/&/g, "and")
-		.replace(/!/g, "")
-		.replace(/ /g, "_")
-		.toLowerCase();
-}
 
 // Figure out piece indices.
 for (let p = 1; p <= last_piece; ++p) {
