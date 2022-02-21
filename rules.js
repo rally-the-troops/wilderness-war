@@ -6341,22 +6341,28 @@ states.indian_alliance = {
 }
 
 // Used by Mohawks and Cherokees events.
-function place_and_restore_british_indian_tribe(s, tribe) {
+function place_british_indian_tribe(s, tribe) {
 	push_undo();
-
-	// TODO: restore_mohawks/cherokee state for manual restoring?
 
 	// OPTIMIZE: use mohawks piece list
 	for (let p = first_british_unit; p <= last_british_unit; ++p) {
 		if (is_indian_tribe(p, tribe)) {
 			if (is_piece_unused(p))
 				place_piece(p, s);
-			if (can_restore_unit(p))
-				restore_unit(p);
 		}
 	}
 
 	game.count = 0;
+}
+
+function restore_british_indian_tribe(tribe) {
+	// TODO: restore_mohawks/cherokee state for manual restoring?
+	for (let p = first_british_unit; p <= last_british_unit; ++p) {
+		if (is_indian_tribe(p, tribe)) {
+			if (can_restore_unit(p))
+				restore_unit(p);
+		}
+	}
 }
 
 events.mohawks = {
@@ -6370,12 +6376,12 @@ events.mohawks = {
 	play() {
 		game.state = 'mohawks';
 		game.count = 1;
+		restore_british_indian_tribe('Mohawk');
 	},
 }
 
 states.mohawks = {
 	prompt() {
-		view.prompt = "Place all Mohawk units not on the map with Johnson.";
 		let can_place = false;
 		if (game.count > 0) {
 			let s = piece_space(JOHNSON);
@@ -6384,11 +6390,15 @@ states.mohawks = {
 				gen_action_space(s);
 			}
 		}
-		if (!can_place)
+		if (can_place) {
+			view.prompt = "Place all Mohawk units not on the map with Johnson.";
+		} else {
+			view.prompt = "Place all Mohawk units not on the map with Johnson \u2014 done.";
 			gen_action_next();
+		}
 	},
 	space(s) {
-		place_and_restore_british_indian_tribe(s, 'Mohawk');
+		place_british_indian_tribe(s, 'Mohawk');
 	},
 	next() {
 		end_action_phase();
@@ -6405,12 +6415,12 @@ events.cherokees = {
 		game.events.cherokees = 1;
 		game.state = 'cherokees';
 		game.count = 1;
+		restore_british_indian_tribe(s, 'Cherokee');
 	},
 }
 
 states.cherokees = {
 	prompt() {
-		view.prompt = "Place all Cherokee units not on the map at a British fortification in the southern dept.";
 		let can_place = false;
 		if (game.count > 0) {
 			for (let i = 0; i < departments.southern.length; ++i) {
@@ -6421,11 +6431,15 @@ states.cherokees = {
 				}
 			}
 		}
-		if (!can_place)
+		if (can_place) {
+			view.prompt = "Place all Cherokee units not on the map at a British fortification in the southern dept.";
+		} else {
+			view.prompt = "Place all Cherokee units not on the map at a British fortification in the southern dept \u2014 done.";
 			gen_action_next();
+		}
 	},
 	space(s) {
-		place_and_restore_british_indian_tribe(s, 'Cherokee');
+		place_british_indian_tribe(s, 'Cherokee');
 	},
 	next() {
 		end_action_phase();
