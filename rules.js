@@ -503,8 +503,8 @@ for_each_exit(OHIO_FORKS, one => {
 	in_or_adjacent_to_ohio_forks.push(one);
 });
 
-function has_amphibious_arrow(space) {
-	return space === HALIFAX || space === LOUISBOURG;
+function has_amphibious_arrow(s) {
+	return s === HALIFAX || s === LOUISBOURG;
 }
 
 // Map spaces except militia boxes and leader boxes.
@@ -654,30 +654,30 @@ function for_each_friendly_unit_in_node(node, fn) {
 	}
 }
 
-function for_each_friendly_piece_in_space(space, fn) {
+function for_each_friendly_piece_in_space(s, fn) {
 	for (let p = first_friendly_piece; p <= last_friendly_piece; ++p) {
-		if (is_piece_in_space(p, space))
+		if (is_piece_in_space(p, s))
 			fn(p);
 	}
 }
 
-function for_each_friendly_leader_in_space(space, fn) {
+function for_each_friendly_leader_in_space(s, fn) {
 	for (let p = first_friendly_leader; p <= last_friendly_leader; ++p) {
-		if (is_piece_in_space(p, space))
+		if (is_piece_in_space(p, s))
 			fn(p);
 	}
 }
 
-function for_each_friendly_unit_in_space(space, fn) {
+function for_each_friendly_unit_in_space(s, fn) {
 	for (let p = first_friendly_unit; p <= last_friendly_unit; ++p) {
-		if (is_piece_in_space(p, space))
+		if (is_piece_in_space(p, s))
 			fn(p);
 	}
 }
 
-function for_each_unbesieged_enemy_in_space(space, fn) {
+function for_each_unbesieged_enemy_in_space(s, fn) {
 	for (let p = first_enemy_unit; p <= last_enemy_unit; ++p) {
-		if (is_piece_unbesieged(p) && is_piece_in_space(p, space))
+		if (is_piece_unbesieged(p) && is_piece_in_space(p, s))
 			fn(p);
 	}
 }
@@ -724,12 +724,12 @@ function list_auxiliary_units_in_force(force) {
 
 // STATIC PROPERTIES
 
-function department_militia(space) {
-	if (departments.st_lawrence.includes(space))
+function department_militia(s) {
+	if (departments.st_lawrence.includes(s))
 		return ST_LAWRENCE_CANADIAN_MILITIAS;
-	if (departments.northern.includes(space))
+	if (departments.northern.includes(s))
 		return NORTHERN_COLONIAL_MILITIAS;
-	if (departments.southern.includes(space))
+	if (departments.southern.includes(s))
 		return SOUTHERN_COLONIAL_MILITIAS;
 	return 0;
 }
@@ -746,29 +746,29 @@ function is_lake_connection(from, to) {
 	return false;
 }
 
-function is_wilderness_or_mountain(space) {
-	let type = spaces[space].type;
+function is_wilderness_or_mountain(s) {
+	let type = spaces[s].type;
 	return type === 'wilderness' || type === 'mountain';
 }
 
-function is_wilderness(space) {
-	return spaces[space].type === 'wilderness';
+function is_wilderness(s) {
+	return spaces[s].type === 'wilderness';
 }
 
-function is_mountain(space) {
-	return spaces[space].type === 'mountain';
+function is_mountain(s) {
+	return spaces[s].type === 'mountain';
 }
 
-function is_cultivated(space) {
-	return spaces[space].type === 'cultivated';
+function is_cultivated(s) {
+	return spaces[s].type === 'cultivated';
 }
 
-function is_militia_box(space) {
-	return spaces[space].type === 'militia-box';
+function is_militia_box(s) {
+	return spaces[s].type === 'militia-box';
 }
 
-function is_leader_box(space) {
-	return spaces[space].type === 'leader-box';
+function is_leader_box(s) {
+	return spaces[s].type === 'leader-box';
 }
 
 function is_originally_friendly(s) {
@@ -777,18 +777,18 @@ function is_originally_friendly(s) {
 	return originally_friendly_british_spaces.includes(s);
 }
 
-function is_originally_enemy(space) {
+function is_originally_enemy(s) {
 	if (game.active === BRITAIN)
 		return originally_friendly_french_spaces.includes(s);
 	return originally_friendly_british_spaces.includes(s);
 }
 
-function is_fortress(space) {
-	return fortresses.includes(space);
+function is_fortress(s) {
+	return fortresses.includes(s);
 }
 
-function is_only_port_space(space) {
-	return space === HALIFAX || space === LOUISBOURG;
+function is_only_port_space(s) {
+	return s === HALIFAX || s === LOUISBOURG;
 }
 
 function is_leader(p) {
@@ -1049,24 +1049,24 @@ function is_piece_in_node(p, node) {
 	return piece_node(p) === node;
 }
 
-function is_piece_in_space(p, space) {
-	return piece_space(p) === space;
+function is_piece_in_space(p, s) {
+	return piece_space(p) === s;
 }
 
-function has_amphib(space) {
-	return game.amphib.includes(space);
+function has_amphib(s) {
+	return game.amphib.includes(s);
 }
 
-function has_friendly_amphib(space) {
-	return game.active === BRITAIN && game.amphib.includes(space);
+function has_friendly_amphib(s) {
+	return game.active === BRITAIN && game.amphib.includes(s);
 }
 
-function has_enemy_amphib(space) {
-	return game.active === FRANCE && game.amphib.includes(space);
+function has_enemy_amphib(s) {
+	return game.active === FRANCE && game.amphib.includes(s);
 }
 
-function has_fieldworks(space) {
-	return game.fieldworks.includes(space);
+function has_fieldworks(s) {
+	return game.fieldworks.includes(s);
 }
 
 function place_fieldworks(s) {
@@ -1081,303 +1081,303 @@ function remove_fieldworks(s) {
 	}
 }
 
-function place_friendly_raided_marker(space) {
-	log(`Placed raided marker at $(space_name(space)}.`);
-	player.raids.push(space);
+function place_friendly_raided_marker(s) {
+	log(`Placed raided marker at $(space_name(s)}.`);
+	player.raids.push(s);
 }
 
-function has_friendly_raided_marker(space) {
-	return player.raids.includes(space);
+function has_friendly_raided_marker(s) {
+	return player.raids.includes(s);
 }
 
-function has_enemy_raided_marker(space) {
-	return enemy_player.raids.includes(space);
+function has_enemy_raided_marker(s) {
+	return enemy_player.raids.includes(s);
 }
 
-function is_space_besieged(space) {
-	return space in game.sieges;
+function is_space_besieged(s) {
+	return s in game.sieges;
 }
 
-function is_space_unbesieged(space) {
-	return !is_space_besieged(space);
+function is_space_unbesieged(s) {
+	return !is_space_besieged(s);
 }
 
-function has_enemy_allied_settlement(space) {
-	return enemy_player.allied.includes(space);
+function has_enemy_allied_settlement(s) {
+	return enemy_player.allied.includes(s);
 }
 
-function has_friendly_allied_settlement(space) {
-	return player.allied.includes(space);
+function has_friendly_allied_settlement(s) {
+	return player.allied.includes(s);
 }
 
-function has_enemy_stockade(space) {
-	return enemy_player.stockades.includes(space);
+function has_enemy_stockade(s) {
+	return enemy_player.stockades.includes(s);
 }
 
-function has_friendly_stockade(space) {
-	return player.stockades.includes(space);
+function has_friendly_stockade(s) {
+	return player.stockades.includes(s);
 }
 
-function has_enemy_fortress(space) {
-	return enemy_player.fortresses.includes(space);
+function has_enemy_fortress(s) {
+	return enemy_player.fortresses.includes(s);
 }
 
-function has_friendly_fortress(space) {
-	return player.fortresses.includes(space);
+function has_friendly_fortress(s) {
+	return player.fortresses.includes(s);
 }
 
-function has_enemy_fort(space) {
-	return enemy_player.forts.includes(space);
+function has_enemy_fort(s) {
+	return enemy_player.forts.includes(s);
 }
 
-function has_friendly_fort(space) {
-	return player.forts.includes(space);
+function has_friendly_fort(s) {
+	return player.forts.includes(s);
 }
 
-function has_enemy_fort_uc(space) {
-	return enemy_player.forts_uc.includes(space);
+function has_enemy_fort_uc(s) {
+	return enemy_player.forts_uc.includes(s);
 }
 
-function has_friendly_fort_uc(space) {
-	return player.forts_uc.includes(space);
+function has_friendly_fort_uc(s) {
+	return player.forts_uc.includes(s);
 }
 
-function has_enemy_fort_or_fortress(space) {
-	return has_enemy_fort(space) || has_enemy_fortress(space);
+function has_enemy_fort_or_fortress(s) {
+	return has_enemy_fort(s) || has_enemy_fortress(s);
 }
 
-function has_enemy_fortifications(space) {
-	return has_enemy_stockade(space) || has_enemy_fort(space) || has_enemy_fortress(space);
+function has_enemy_fortifications(s) {
+	return has_enemy_stockade(s) || has_enemy_fort(s) || has_enemy_fortress(s);
 }
 
-function has_friendly_fort_or_fortress(space) {
-	return has_friendly_fort(space) || has_friendly_fortress(space);
+function has_friendly_fort_or_fortress(s) {
+	return has_friendly_fort(s) || has_friendly_fortress(s);
 }
 
-function has_friendly_fortifications(space) {
-	return has_friendly_stockade(space) || has_friendly_fort(space) || has_friendly_fortress(space);
+function has_friendly_fortifications(s) {
+	return has_friendly_stockade(s) || has_friendly_fort(s) || has_friendly_fortress(s);
 }
 
-function has_unbesieged_friendly_fortifications(space) {
-	return is_space_unbesieged(space) && has_friendly_fortifications(space);
+function has_unbesieged_friendly_fortifications(s) {
+	return is_space_unbesieged(s) && has_friendly_fortifications(s);
 }
 
-function has_unbesieged_friendly_fortress(space) {
-	return is_space_unbesieged(space) && has_friendly_fortress(space);
+function has_unbesieged_friendly_fortress(s) {
+	return is_space_unbesieged(s) && has_friendly_fortress(s);
 }
 
-function has_friendly_pieces(space) {
+function has_friendly_pieces(s) {
 	for (let p = first_friendly_piece; p <= last_friendly_piece; ++p)
-		if (is_piece_in_space(p, space))
+		if (is_piece_in_space(p, s))
 			return true;
 	return false;
 }
 
-function has_friendly_units(space) {
+function has_friendly_units(s) {
 	for (let p = first_friendly_unit; p <= last_friendly_unit; ++p)
-		if (is_piece_in_space(p, space))
+		if (is_piece_in_space(p, s))
 			return true;
 	return false;
 }
 
-function has_enemy_units(space) {
+function has_enemy_units(s) {
 	for (let p = first_enemy_unit; p <= last_enemy_unit; ++p)
-		if (is_piece_in_space(p, space))
+		if (is_piece_in_space(p, s))
 			return true;
 	return false;
 }
 
-function has_french_units(space) {
+function has_french_units(s) {
 	for (let p = first_french_unit; p <= last_french_unit; ++p)
-		if (is_piece_in_space(p, space))
+		if (is_piece_in_space(p, s))
 			return true;
 	return false;
 }
 
-function has_british_units(space) {
+function has_british_units(s) {
 	for (let p = first_british_unit; p <= last_british_unit; ++p)
-		if (is_piece_in_space(p, space))
+		if (is_piece_in_space(p, s))
 			return true;
 	return false;
 }
 
-function has_french_drilled_troops(space) {
+function has_french_drilled_troops(s) {
 	for (let p = first_french_unit; p <= last_french_unit; ++p)
-		if (is_piece_in_space(p, space))
+		if (is_piece_in_space(p, s))
 			if (is_drilled_troops(p))
 				return true;
 	return false;
 }
 
-function has_british_drilled_troops(space) {
+function has_british_drilled_troops(s) {
 	for (let p = first_british_unit; p <= last_british_unit; ++p)
-		if (is_piece_in_space(p, space))
+		if (is_piece_in_space(p, s))
 			if (is_drilled_troops(p))
 				return true;
 	return false;
 }
 
-function is_french_controlled_space(space) {
+function is_french_controlled_space(s) {
 	if (game.active === FRANCE)
-		return is_friendly_controlled_space(space);
-	return is_enemy_controlled_space(space);
+		return is_friendly_controlled_space(s);
+	return is_enemy_controlled_space(s);
 }
 
-function has_french_stockade(space) {
-	return game.french.stockades.includes(space);
+function has_french_stockade(s) {
+	return game.french.stockades.includes(s);
 }
 
-function has_french_fort(space) {
-	return game.french.forts.includes(space);
+function has_french_fort(s) {
+	return game.french.forts.includes(s);
 }
 
-function is_french_fortress(space) {
-	return originally_french_fortresses.includes(space);
+function is_french_fortress(s) {
+	return originally_french_fortresses.includes(s);
 }
 
-function has_french_fortifications(space) {
-	return has_french_stockade(space) || has_french_fort(space) || is_french_fortress(space);
+function has_french_fortifications(s) {
+	return has_french_stockade(s) || has_french_fort(s) || is_french_fortress(s);
 }
 
-function has_unbesieged_french_fortification(space) {
-	return is_space_unbesieged(space) && has_french_fortifications(space);
+function has_unbesieged_french_fortification(s) {
+	return is_space_unbesieged(s) && has_french_fortifications(s);
 }
 
-function count_enemy_units_in_space(space) {
+function count_enemy_units_in_space(s) {
 	let n = 0;
 	for (let p = first_enemy_unit; p <= last_enemy_unit; ++p)
-		if (is_piece_in_space(p, space))
+		if (is_piece_in_space(p, s))
 			++n;
 	return n;
 }
 
-function has_unbesieged_friendly_leader(space) {
+function has_unbesieged_friendly_leader(s) {
 	for (let p = first_friendly_leader; p <= last_friendly_leader; ++p)
-		if (is_piece_in_space(p, space) && !is_piece_inside(p))
+		if (is_piece_in_space(p, s) && !is_piece_inside(p))
 			return true;
 	return false;
 }
 
-function has_unbesieged_enemy_leader(space) {
+function has_unbesieged_enemy_leader(s) {
 	for (let p = first_enemy_leader; p <= last_enemy_leader; ++p)
-		if (is_piece_in_space(p, space) && !is_piece_inside(p))
+		if (is_piece_in_space(p, s) && !is_piece_inside(p))
 			return true;
 	return false;
 }
 
-function has_unbesieged_enemy_units(space) {
+function has_unbesieged_enemy_units(s) {
 	for (let p = first_enemy_unit; p <= last_enemy_unit; ++p)
-		if (is_piece_in_space(p, space) && !is_piece_inside(p))
+		if (is_piece_in_space(p, s) && !is_piece_inside(p))
 			return true;
 	return false;
 }
 
-function has_unbesieged_enemy_units_that_did_not_intercept(space) {
+function has_unbesieged_enemy_units_that_did_not_intercept(s) {
 	for (let p = first_enemy_unit; p <= last_enemy_unit; ++p)
-		if (is_piece_in_space(p, space) && !is_piece_inside(p) && !did_piece_intercept(p))
+		if (is_piece_in_space(p, s) && !is_piece_inside(p) && !did_piece_intercept(p))
 			return true;
 	return false;
 }
 
-function is_friendly_controlled_space(space) {
-	if (is_space_unbesieged(space) && !has_enemy_units(space)) {
-		if (is_originally_enemy(space)) {
-			if (has_friendly_units(space) || has_friendly_stockade(space) || has_friendly_fort(space))
+function is_friendly_controlled_space(s) {
+	if (is_space_unbesieged(s) && !has_enemy_units(s)) {
+		if (is_originally_enemy(s)) {
+			if (has_friendly_units(s) || has_friendly_stockade(s) || has_friendly_fort(s))
 				return true;
-			if (has_friendly_amphib(space))
+			if (has_friendly_amphib(s))
 				return true;
-		} else if (is_originally_friendly(space)) {
+		} else if (is_originally_friendly(s)) {
 			return true;
 		} else {
-			if (has_friendly_units(space) || has_friendly_stockade(space) || has_friendly_fort(space))
+			if (has_friendly_units(s) || has_friendly_stockade(s) || has_friendly_fort(s))
 				return true;
 		}
 	}
 	return false;
 }
 
-function is_enemy_controlled_space(space) {
-	if (is_space_unbesieged(space) && !has_friendly_units(space)) {
-		if (is_originally_friendly(space)) {
-			if (has_enemy_units(space) || has_enemy_stockade(space) || has_enemy_fort(space))
+function is_enemy_controlled_space(s) {
+	if (is_space_unbesieged(s) && !has_friendly_units(s)) {
+		if (is_originally_friendly(s)) {
+			if (has_enemy_units(s) || has_enemy_stockade(s) || has_enemy_fort(s))
 				return true;
-			if (has_enemy_amphib(space))
+			if (has_enemy_amphib(s))
 				return true;
-		} else if (is_originally_enemy(space)) {
+		} else if (is_originally_enemy(s)) {
 			return true;
 		} else {
-			if (has_enemy_units(space) || has_enemy_stockade(space) || has_enemy_fort(space))
+			if (has_enemy_units(s) || has_enemy_stockade(s) || has_enemy_fort(s))
 				return true;
 		}
 	}
 	return false;
 }
 
-function is_british_controlled_space(space) {
+function is_british_controlled_space(s) {
 	if (game.active === BRITAIN)
-		return is_friendly_controlled_space(space);
-	return is_enemy_controlled_space(space);
+		return is_friendly_controlled_space(s);
+	return is_enemy_controlled_space(s);
 }
 
-function has_friendly_supplied_drilled_troops(space) {
+function has_friendly_supplied_drilled_troops(s) {
 	for (let p = first_friendly_unit; p <= last_friendly_unit; ++p)
-		if (is_drilled_troops(p) && is_piece_in_space(p, space) && is_in_supply(space))
+		if (is_drilled_troops(p) && is_piece_in_space(p, s) && is_in_supply(s))
 			return true;
 	return false;
 }
 
-function has_friendly_drilled_troops(space) {
+function has_friendly_drilled_troops(s) {
 	for (let p = first_friendly_unit; p <= last_friendly_unit; ++p)
-		if (is_drilled_troops(p) && is_piece_in_space(p, space))
+		if (is_drilled_troops(p) && is_piece_in_space(p, s))
 			return true;
 	return false;
 }
 
-function has_friendly_regulars(space) {
+function has_friendly_regulars(s) {
 	for (let p = first_friendly_unit; p <= last_friendly_unit; ++p)
-		if (is_regular_unit(p) && is_piece_in_space(p, space))
+		if (is_regular_unit(p) && is_piece_in_space(p, s))
 			return true;
 	return false;
 }
 
-function has_friendly_rangers(space) {
+function has_friendly_rangers(s) {
 	if (game.active === BRITAIN)
 		for (let p = first_british_unit; p <= last_british_unit; ++p)
-			if (is_ranger_unit(p) && is_piece_in_space(p, space))
+			if (is_ranger_unit(p) && is_piece_in_space(p, s))
 				return true;
 	return false;
 }
 
-function has_friendly_indians(space) {
+function has_friendly_indians(s) {
 	for (let p = first_friendly_unit; p <= last_friendly_unit; ++p)
-		if (is_indian_unit(p) && is_piece_in_space(p, space))
+		if (is_indian_unit(p) && is_piece_in_space(p, s))
 			return true;
 	return false;
 }
 
-function has_unbesieged_enemy_auxiliary(space) {
+function has_unbesieged_enemy_auxiliary(s) {
 	for (let p = first_enemy_unit; p <= last_enemy_unit; ++p)
-		if (is_auxiliary_unit(p) && is_piece_in_space(p, space) && !is_piece_inside(p))
+		if (is_auxiliary_unit(p) && is_piece_in_space(p, s) && !is_piece_inside(p))
 			return true;
 	return false;
 }
 
-function has_unbesieged_enemy_fortifications(space) {
-	return is_space_unbesieged(space) && has_enemy_fortifications(space);
+function has_unbesieged_enemy_fortifications(s) {
+	return is_space_unbesieged(s) && has_enemy_fortifications(s);
 }
 
-function has_besieged_enemy_fortifications(space) {
-	return is_space_besieged(space) && has_enemy_fortifications(space);
+function has_besieged_enemy_fortifications(s) {
+	return is_space_besieged(s) && has_enemy_fortifications(s);
 }
 
-function has_unbesieged_enemy_fort_or_fortress(space) {
-	return is_space_unbesieged(space) && has_enemy_fort_or_fortress(space);
+function has_unbesieged_enemy_fort_or_fortress(s) {
+	return is_space_unbesieged(s) && has_enemy_fort_or_fortress(s);
 }
 
-function has_non_moving_unbesieged_friendly_units(space) {
+function has_non_moving_unbesieged_friendly_units(s) {
 	let force = moving_piece();
 	for (let p = first_friendly_unit; p <= last_friendly_unit; ++p) {
-		if (is_piece_in_space(p, space) && is_piece_unbesieged(p)) {
+		if (is_piece_in_space(p, s) && is_piece_unbesieged(p)) {
 			if (!is_piece_in_force(p, force))
 				return true;
 		}
@@ -1385,16 +1385,16 @@ function has_non_moving_unbesieged_friendly_units(space) {
 	return false;
 }
 
-function has_unbesieged_friendly_units(space) {
+function has_unbesieged_friendly_units(s) {
 	for (let p = first_friendly_unit; p <= last_friendly_unit; ++p)
-		if (is_piece_in_space(p, space) && is_piece_unbesieged(p))
+		if (is_piece_in_space(p, s) && is_piece_unbesieged(p))
 			return true;
 	return false;
 }
 
-function has_besieged_friendly_units(space) {
+function has_besieged_friendly_units(s) {
 	for (let p = first_friendly_unit; p <= last_friendly_unit; ++p)
-		if (is_piece_in_space(p, space) && is_piece_inside(p))
+		if (is_piece_in_space(p, s) && is_piece_inside(p))
 			return true;
 	return false;
 }
@@ -1481,21 +1481,21 @@ function force_has_only_auxiliary_units(who) {
 	return is_auxiliary_unit(who);
 }
 
-function is_raid_space(space) {
-	if (has_friendly_fort(space))
+function is_raid_space(s) {
+	if (has_friendly_fort(s))
 		return false;
-	if (has_friendly_fortress(space))
+	if (has_friendly_fortress(s))
 		return false;
-	if (has_friendly_stockade(space))
+	if (has_friendly_stockade(s))
 		return false;
-	if (has_friendly_drilled_troops(space))
+	if (has_friendly_drilled_troops(s))
 		return false;
 
-	if (is_originally_enemy(space))
+	if (is_originally_enemy(s))
 		return true;
-	if (has_enemy_stockade(space))
+	if (has_enemy_stockade(s))
 		return true;
-	if (has_enemy_allied_settlement(space))
+	if (has_enemy_allied_settlement(s))
 		return true;
 
 	return false;
@@ -1535,20 +1535,20 @@ function battle_space() {
 	return game.battle.where;
 }
 
-function find_friendly_commanding_leader_in_space(space) {
+function find_friendly_commanding_leader_in_space(s) {
 	let commander = 0;
 	for (let p = first_friendly_leader; p <= last_friendly_leader; ++p)
-		if (is_piece_in_space(p, space))
+		if (is_piece_in_space(p, s))
 			if (!commander || leader_command(p) > leader_command(commander))
 				// TODO: prefer commander with higher tactics rating if same command rating
 				commander = p;
 	return commander;
 }
 
-function find_enemy_commanding_leader_in_space(space) {
+function find_enemy_commanding_leader_in_space(s) {
 	let commander = 0;
 	for (let p = first_enemy_leader; p <= last_enemy_leader; ++p)
-		if (is_piece_in_space(p, space))
+		if (is_piece_in_space(p, s))
 			if (!commander || leader_command(p) > leader_command(commander))
 				commander = p;
 	return commander;
@@ -1590,30 +1590,30 @@ function award_british_vp(n) {
 	game.vp -= n;
 }
 
-function remove_friendly_stockade(space) {
-	remove_from_array(player.stockades, space);
+function remove_friendly_stockade(s) {
+	remove_from_array(player.stockades, s);
 }
 
-function remove_friendly_fort_uc(space) {
-	remove_from_array(player.forts_uc, space);
+function remove_friendly_fort_uc(s) {
+	remove_from_array(player.forts_uc, s);
 }
 
-function remove_friendly_fort(space) {
-	remove_from_array(player.forts, space);
+function remove_friendly_fort(s) {
+	remove_from_array(player.forts, s);
 }
 
-function remove_enemy_fort_uc(space) {
-	remove_from_array(enemy_player.forts_uc, space);
+function remove_enemy_fort_uc(s) {
+	remove_from_array(enemy_player.forts_uc, s);
 }
 
-function place_friendly_fort(space) {
-	remove_friendly_stockade(space);
-	remove_friendly_fort_uc(space);
-	player.forts.push(space);
+function place_friendly_fort(s) {
+	remove_friendly_stockade(s);
+	remove_friendly_fort_uc(s);
+	player.forts.push(s);
 }
 
-function place_friendly_fort_uc(space) {
-	player.forts_uc.push(space);
+function place_friendly_fort_uc(s) {
+	player.forts_uc.push(s);
 }
 
 // Isolate piece from any forces it may be involved in.
@@ -1807,13 +1807,13 @@ function is_fort_or_fortress_vacant_of_besieging_units(s) {
 function lift_sieges_and_amphib() {
 	console.log("LIFT SIEGES AND AMPHIB AND RECAPTURE FORTRESSES");
 
-	for_each_siege(space => {
-		if (is_fort_or_fortress_vacant_of_besieging_units(space)) {
-			log(`Lifted siege at ${space_name(space)}.`);
+	for_each_siege(s => {
+		if (is_fort_or_fortress_vacant_of_besieging_units(s)) {
+			log(`Lifted siege at ${space_name(s)}.`);
 			for (let p = 1; p <= last_piece; ++p)
-				if (is_piece_in_space(p, space))
+				if (is_piece_in_space(p, s))
 					set_piece_outside(p);
-			delete game.sieges[space];
+			delete game.sieges[s];
 		}
 	});
 
@@ -1920,16 +1920,16 @@ states.debug_supply = {
 	space: pop_undo
 }
 
-function is_in_supply(space) {
-	if (game.active === BRITAIN && has_amphib(space))
+function is_in_supply(from) {
+	if (game.active === BRITAIN && has_amphib(from))
 		return true;
 	if (!supply_cache)
 		search_supply_spaces();
-	if (supply_cache.includes(space))
+	if (supply_cache.includes(from))
 		return true;
 	let x = false;
-	for_each_exit(space, s => {
-		if (supply_cache.includes(s))
+	for_each_exit(from, next => {
+		if (supply_cache.includes(next))
 			x = true;
 	})
 	return x;
@@ -2381,19 +2381,19 @@ function can_drop_off_leader(commander, subordinate) {
 states.define_force = {
 	prompt() {
 		let commander = game.force.commander;
-		let space = piece_space(commander);
+		let where = piece_space(commander);
 
 		// 5.534 Johnson commands British Iroquois and Mohawk units for free
 		let cmd_use = count_non_british_iroquois_and_mohawk_units_in_force(commander);
 		let cmd_cap = force_command(commander);
 
-		view.prompt = `Define the force to ${game.force.reason} with ${piece_name(commander)} from ${space_name(space)} (${cmd_use}/${cmd_cap}).`;
+		view.prompt = `Define the force to ${game.force.reason} with ${piece_name(commander)} from ${space_name(where)} (${cmd_use}/${cmd_cap}).`;
 		view.who = commander;
 
 		let can_pick_up = false;
 
 		// pick up sub-commanders
-		for_each_friendly_leader_in_node(space, p => {
+		for_each_friendly_leader_in_node(where, p => {
 			if (game.force.reason === 'avoid' && is_piece_inside(p))
 				return; // continue
 			if (p !== commander && leader_command(p) <= leader_command(commander)) {
@@ -2403,7 +2403,7 @@ states.define_force = {
 		});
 
 		// pick up units
-		for_each_friendly_unit_in_node(space, p => {
+		for_each_friendly_unit_in_node(where, p => {
 			if (game.force.reason === 'avoid' && is_piece_inside(p))
 				return; // continue
 			if (is_british_iroquois_or_mohawk(p)) {
@@ -2442,11 +2442,11 @@ states.define_force = {
 		push_undo();
 
 		let commander = game.force.commander;
-		let space = piece_space(commander);
+		let where = piece_space(commander);
 		let box = leader_box(commander);
 
 		// pick up all sub-commanders
-		for_each_friendly_leader_in_node(space, p => {
+		for_each_friendly_leader_in_node(where, p => {
 			if (game.force.reason === 'avoid' && is_piece_inside(p))
 				return; // continue
 			if (p !== commander && leader_command(p) <= leader_command(commander))
@@ -2454,7 +2454,7 @@ states.define_force = {
 		});
 
 		// pick up as many units as possible
-		for_each_friendly_unit_in_node(space, p => {
+		for_each_friendly_unit_in_node(where, p => {
 			if (game.force.reason === 'avoid' && is_piece_inside(p))
 				return; // continue
 			if (is_british_iroquois_or_mohawk(p)) {
@@ -2471,9 +2471,9 @@ states.define_force = {
 	piece(p) {
 		push_undo();
 		let commander = game.force.commander;
-		let space = piece_space(commander);
+		let where = piece_space(commander);
 		if (piece_node(p) === leader_box(commander))
-			move_piece_to(p, space);
+			move_piece_to(p, where);
 		else
 			move_piece_to(p, leader_box(commander));
 	},
@@ -2511,21 +2511,21 @@ states.define_force = {
 states.define_force_lone_ax = {
 	prompt() {
 		let commander = game.force.commander;
-		let space = piece_space(commander);
+		let where = piece_space(commander);
 		let n = count_units_in_force(commander);
 
-		view.prompt = `Define lone auxiliary force to intercept with ${piece_name(commander)} from ${space_name(space)}.`;
+		view.prompt = `Define lone auxiliary force to intercept with ${piece_name(commander)} from ${space_name(where)}.`;
 		view.who = commander;
 
 		// pick up sub-commanders
-		for_each_friendly_leader_in_node(space, p => {
+		for_each_friendly_leader_in_node(where, p => {
 			if (p !== commander && leader_command(p) <= leader_command(commander))
 				gen_action_piece(p);
 		});
 
 		// pick up units (max 1 auxiliary)
 		if (n === 0) {
-			for_each_friendly_unit_in_node(space, p => {
+			for_each_friendly_unit_in_node(where, p => {
 				if (is_auxiliary_unit(p)) {
 					if (is_british_iroquois_or_mohawk(p)) {
 						// 5.534 Only Johnson can command British Iroquois and Mohawk (and for free)
@@ -2556,9 +2556,9 @@ states.define_force_lone_ax = {
 	piece(p) {
 		push_undo();
 		let commander = game.force.commander;
-		let space = piece_space(commander);
+		let where = piece_space(commander);
 		if (piece_node(p) === leader_box(commander))
-			move_piece_to(p, space);
+			move_piece_to(p, where);
 		else
 			move_piece_to(p, leader_box(commander));
 	},
@@ -3449,18 +3449,18 @@ states.declare_inside = {
 // AVOID BATTLE
 
 function goto_avoid_battle() {
-	let space = moving_piece_space();
-	if (has_unbesieged_enemy_units(space)) {
+	let from = moving_piece_space();
+	if (has_unbesieged_enemy_units(from)) {
 		if (!game.move.did_attempt_intercept) {
-			if (can_enemy_avoid_battle(space)) {
-				console.log("AVOID BATTLE " + space_name(space));
+			if (can_enemy_avoid_battle(from)) {
+				console.log("AVOID BATTLE " + space_name(from));
 				set_active_enemy();
 				game.state = 'avoid_who';
 				return;
 			}
 		}
 	}
-	goto_battle_check(space);
+	goto_battle_check();
 }
 
 function did_piece_intercept(p) {
@@ -4988,9 +4988,9 @@ const SIEGE_TABLE = [ 0, 0, 0, 1, 1, 1, 2, 2 ];
 
 function can_moving_force_siege_or_assault() {
 	let leader = moving_piece();
-	let space = moving_piece_space();
-	if (has_besieged_enemy_fortifications(space)) {
-		let commanding = find_friendly_commanding_leader_in_space(space);
+	let where = moving_piece_space();
+	if (has_besieged_enemy_fortifications(where)) {
+		let commanding = find_friendly_commanding_leader_in_space(where);
 		if (leader === commanding && force_has_supplied_drilled_troops(leader)) {
 			return true;
 		}
@@ -4998,8 +4998,8 @@ function can_moving_force_siege_or_assault() {
 	return false;
 }
 
-function can_play_coehorns_in_siege(space) {
-	return is_friendly_card_available(COEHORNS) && has_friendly_regulars(space);
+function can_play_coehorns_in_siege(s) {
+	return is_friendly_card_available(COEHORNS) && has_friendly_regulars(s);
 }
 
 function goto_siege(space) {
@@ -5149,40 +5149,40 @@ function end_surrender() {
 }
 
 function resolve_siege() {
-	let space = game.siege_where;
-	log("Resolve siege in " + space_name(space));
-	let att_leader = find_friendly_commanding_leader_in_space(space);
-	let def_leader = find_enemy_commanding_leader_in_space(space);
+	let where = game.siege_where;
+	log("Resolve siege in " + space_name(where));
+	let att_leader = find_friendly_commanding_leader_in_space(where);
+	let def_leader = find_enemy_commanding_leader_in_space(where);
 	let die = roll_die("for siege");
 	die = modify(die, leader_tactics(att_leader), "besieging leader");
 	if (def_leader)
 		die = modify(die, -leader_tactics(def_leader), "defending leader");
-	if (space === LOUISBOURG)
+	if (where === LOUISBOURG)
 		die = modify(die, -1, "for Louisbourg");
 	let result = SIEGE_TABLE[clamp(die, 0, 7)];
 	log(`Result(${die}): ${result}`);
 	if (result > 0) {
-		let level = change_siege_marker(space, result);
+		let level = change_siege_marker(where, result);
 		log("Siege level " + level + ".");
 	}
-	goto_assault_possible(space);
+	goto_assault_possible(where);
 }
 
 // ASSAULT
 
-function is_assault_possible(space) {
-	let siege_level = game.sieges[space] | 0;
-	if (has_enemy_fort(space) && siege_level >= 1)
+function is_assault_possible(where) {
+	let siege_level = game.sieges[where] | 0;
+	if (has_enemy_fort(where) && siege_level >= 1)
 		return true;
-	if (has_enemy_fortress(space) && siege_level >= 2)
+	if (has_enemy_fortress(where) && siege_level >= 2)
 		return true;
 	return false;
 }
 
-function goto_assault_possible(space) {
-	if (is_assault_possible(space)) {
+function goto_assault_possible(where) {
+	if (is_assault_possible(where)) {
 		game.state = 'assault_possible';
-		game.assault_possible = space;
+		game.assault_possible = where;
 	} else {
 		end_move_step(true);
 	}
@@ -6008,27 +6008,27 @@ states.construct_stockades = {
 		view.prompt = `Construct stockades \u2014 ${format_remain(game.count)}.`;
 		gen_action_next();
 		if (game.count > 0) {
-			for (let space = first_space; space <= last_space; ++space) {
-				if (has_friendly_supplied_drilled_troops(space) || is_originally_friendly(space)) {
-					if (has_enemy_units(space))
+			for (let s = first_space; s <= last_space; ++s) {
+				if (has_friendly_supplied_drilled_troops(s) || is_originally_friendly(s)) {
+					if (has_enemy_units(s))
 						continue;
-					if (has_enemy_fortifications(space))
+					if (has_enemy_fortifications(s))
 						continue;
-					if (has_friendly_fortifications(space))
+					if (has_friendly_fortifications(s))
 						continue;
-					if (is_space_besieged(space))
+					if (is_space_besieged(s))
 						continue;
-					if (is_fortress(space))
+					if (is_fortress(s))
 						continue;
-					gen_action_space(space);
+					gen_action_space(s);
 				}
 			}
 		}
 	},
-	space(space) {
+	space(s) {
 		push_undo();
-		log(`Built stockade in ${space_name(space)}.`);
-		player.stockades.push(space);
+		log(`Built stockade in ${space_name(s)}.`);
+		player.stockades.push(s);
 		game.count --;
 	},
 	next() {
@@ -6050,30 +6050,30 @@ states.construct_forts = {
 		view.prompt = `Construct forts \u2014 ${format_remain(game.count)}.`;
 		gen_action_next();
 		if (game.count > 0) {
-			for (let space = first_space; space <= last_space; ++space) {
-				if (has_friendly_supplied_drilled_troops(space)) {
-					if (game.list.includes(space))
+			for (let s = first_space; s <= last_space; ++s) {
+				if (has_friendly_supplied_drilled_troops(s)) {
+					if (game.list.includes(s))
 						continue;
-					if (has_friendly_fort(space))
+					if (has_friendly_fort(s))
 						continue;
-					if (is_space_besieged(space))
+					if (is_space_besieged(s))
 						continue;
-					if (is_fortress(space))
+					if (is_fortress(s))
 						continue;
-					gen_action_space(space);
+					gen_action_space(s);
 				}
 			}
 		}
 	},
-	space(space) {
+	space(s) {
 		push_undo();
-		if (has_friendly_fort_uc(space)) {
-			log(`Finished building fort in ${space_name(space)}.`);
-			place_friendly_fort(space);
+		if (has_friendly_fort_uc(s)) {
+			log(`Finished building fort in ${space_name(s)}.`);
+			place_friendly_fort(s);
 		} else {
-			log(`Started building fort in ${space_name(space)}.`);
-			place_friendly_fort_uc(space);
-			game.list.push(space); // don't finish it in the same action phase
+			log(`Started building fort in ${space_name(s)}.`);
+			place_friendly_fort_uc(s);
+			game.list.push(s); // don't finish it in the same action phase
 		}
 		game.count --;
 	},
@@ -8254,7 +8254,7 @@ exports.setup = function (seed, scenario, options) {
 		fieldworks: [],
 		niagara: 1,
 		ohio_forks: 1,
-		France: {
+		french: {
 			hand: [],
 			held: 0,
 			did_construct: 0,
@@ -8265,7 +8265,7 @@ exports.setup = function (seed, scenario, options) {
 			fortresses: originally_french_fortresses.slice(),
 			raids: [],
 		},
-		Britain: {
+		british: {
 			hand: [],
 			held: 0,
 			did_construct: 0,
@@ -8390,16 +8390,16 @@ function gen_action_next() {
 	gen_action('next');
 }
 
-function gen_action_space(space) {
-	gen_action('space', space);
+function gen_action_space(s) {
+	gen_action('space', s);
 }
 
-function gen_action_piece(piece) {
-	gen_action('piece', piece);
+function gen_action_piece(p) {
+	gen_action('piece', p);
 }
 
-function gen_action_discard(card) {
-	gen_action('card', card);
+function gen_action_discard(c) {
+	gen_action('card', c);
 }
 
 function load_game_state(state) {
