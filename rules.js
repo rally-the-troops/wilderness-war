@@ -1567,21 +1567,21 @@ function log_vp(n) {
 function award_vp(n) {
 	if (game.active === FRANCE) {
 		log_vp(n);
-		game.tracks.vp += n;
+		game.vp += n;
 	} else {
 		log_vp(-n);
-		game.tracks.vp -= n;
+		game.vp -= n;
 	}
 }
 
 function award_french_vp(n) {
 	log_vp(n);
-	game.tracks.vp += n;
+	game.vp += n;
 }
 
 function award_british_vp(n) {
 	log_vp(-n);
-	game.tracks.vp -= n;
+	game.vp -= n;
 }
 
 function remove_friendly_stockade(space) {
@@ -1967,27 +1967,27 @@ function find_closest_friendly_unbesieged_fortification(start) {
 // SEQUENCE OF PLAY
 
 function start_year() {
-	if (game.tracks.year === 1759 && !game.events.pitt) {
+	if (game.year === 1759 && !game.events.pitt) {
 		log("Placed Amherst, Forbes, and Wolfe into the British leader pool.");
 		game.pieces.pool.push(AMHERST);
 		game.pieces.pool.push(FORBES);
 		game.pieces.pool.push(WOLFE);
 	}
 
-	game.tracks.season = EARLY;
+	game.season = EARLY;
 	start_season();
 }
 
 function start_season() {
-	switch (game.tracks.season) {
+	switch (game.season) {
 	case EARLY:
 		log("");
-		log(`.h1 Early Season of ${game.tracks.year}`);
+		log(`.h1 Early Season of ${game.year}`);
 		log("");
 		break;
 	case LATE:
 		log("");
-		log(`.h1 Late Season of ${game.tracks.year}`);
+		log(`.h1 Late Season of ${game.year}`);
 		log("");
 		break;
 	}
@@ -2019,8 +2019,8 @@ function end_season() {
 	delete player.passed;
 	delete enemy_player.passed;
 
-	if (game.tracks.season === EARLY) {
-		game.tracks.season = LATE;
+	if (game.season === EARLY) {
+		game.season = LATE;
 		start_season();
 	} else {
 		end_late_season();
@@ -5830,34 +5830,34 @@ function goto_victory_check() {
 
 	if (are_all_british_controlled_spaces(fortresses) && are_all_british_controlled_spaces([NIAGARA, OHIO_FORKS]))
 		return goto_game_over(BRITAIN, "Sudden Death: The British control all fortresses, Niagara, and Ohio Forks.");
-	if (game.tracks.vp >= 11)
+	if (game.vp >= 11)
 		return goto_game_over(FRANCE, "Sudden Death: France has 11 or more VP.");
-	if (game.tracks.vp <= -11)
+	if (game.vp <= -11)
 		return goto_game_over(BRITAIN, "Sudden Death: Britain has 11 or more VP.");
-	if (game.tracks.year === 1760 && game.tracks.vp >= 8)
+	if (game.year === 1760 && game.vp >= 8)
 		return goto_game_over(FRANCE, "Sudden Death: France has 8 or more VP in 1760.");
-	if (game.tracks.year === 1761 && game.tracks.vp >= 8)
+	if (game.year === 1761 && game.vp >= 8)
 		return goto_game_over(FRANCE, "Sudden Death: France has 5 or more VP in 1761.");
-	if (game.tracks.year === game.tracks.end_year) {
-		if (game.tracks.year === 1759) {
+	if (game.year === game.end_year) {
+		if (game.year === 1759) {
 			// NOTE: active is FRANCE
 			if (are_all_enemy_controlled_fortresses_for_vp(originally_british_fortresses) &&
 				count_british_controlled_spaces([QUEBEC, MONTREAL, NIAGARA, OHIO_FORKS]) >= 2)
 				return goto_game_over(BRITAIN, "Britain control all originally-British fortresses and two of Québec, Montréal, Niagara, and Ohio Forks.");
-			if (game.tracks.vp >= 1)
+			if (game.vp >= 1)
 				return goto_game_over(FRANCE, "France has at least 1 VP.");
-			if (game.tracks.vp <= -1)
+			if (game.vp <= -1)
 				return goto_game_over(BRITAIN, "Britain has at least 1 VP.");
 		}
-		if (game.tracks.year === 1762) {
-			if (game.tracks.vp >= 1)
+		if (game.year === 1762) {
+			if (game.vp >= 1)
 				return goto_game_over(FRANCE, "France has at least 1 VP.");
-			if (game.tracks.vp <= -5)
+			if (game.vp <= -5)
 				return goto_game_over(BRITAIN, "Britain has at least 5 VP.");
 		}
 		return goto_game_over(FRANCE, "Draw.");
 	} else {
-		game.tracks.year++;
+		game.year++;
 		start_year();
 	}
 }
@@ -6227,7 +6227,7 @@ events.northern_indian_alliance = {
 	play() {
 		clear_undo(); // rolling die
 		let roll = roll_die();
-		if (game.tracks.vp > 4)
+		if (game.vp > 4)
 			game.count = roll;
 		else
 			game.count = Math.ceil(roll / 2);
@@ -6246,7 +6246,7 @@ events.western_indian_alliance = {
 	play() {
 		clear_undo(); // rolling die
 		let roll = roll_die();
-		if (game.tracks.vp > 4)
+		if (game.vp > 4)
 			game.count = roll;
 		else
 			game.count = Math.ceil(roll / 2);
@@ -6819,7 +6819,7 @@ function count_provincial_units_from(dept) {
 
 events.stingy_provincial_assembly = {
 	can_play() {
-		if (game.tracks.pa === ENTHUSIASTIC)
+		if (game.pa === ENTHUSIASTIC)
 			return false;
 		let num_n = count_unbesieged_provincial_units_from('northern');
 		let num_s = count_unbesieged_provincial_units_from('southern');
@@ -6887,16 +6887,16 @@ states.stingy_provincial_assembly = {
 events.british_colonial_politics = {
 	can_play() {
 		if (game.active === FRANCE)
-			return game.tracks.pa > 0;
-		return game.tracks.pa < 2;
+			return game.pa > 0;
+		return game.pa < 2;
 	},
 	play() {
 		if (game.active === FRANCE) {
-			game.tracks.pa -= 1;
+			game.pa -= 1;
 			log(`Provincial Assemblies reduced to ${pa_name()}.`);
 			goto_enforce_provincial_limits();
 		} else {
-			game.tracks.pa += 1;
+			game.pa += 1;
 			log(`Provincial Assemblies increased to ${pa_name()}.`);
 			end_action_phase();
 		}
@@ -6904,7 +6904,7 @@ events.british_colonial_politics = {
 }
 
 function pa_name() {
-	switch (game.tracks.pa) {
+	switch (game.pa) {
 	case RELUCTANT: return "Reluctant";
 	case SUPPORTIVE: return "Supportive";
 	case ENTHUSIASTIC: return "Enthusiastic";
@@ -6916,13 +6916,13 @@ const provincial_limit_northern = [ 6, 10, 18 ];
 
 function provincial_limit(dept) {
 	if (dept === 'northern')
-		return provincial_limit_northern[game.tracks.pa];
+		return provincial_limit_northern[game.pa];
 	else
-		return provincial_limit_southern[game.tracks.pa];
+		return provincial_limit_southern[game.pa];
 }
 
 function goto_enforce_provincial_limits() {
-	if (game.tracks.pa < ENTHUSIASTIC) {
+	if (game.pa < ENTHUSIASTIC) {
 		let num_s = count_provincial_units_from('southern');
 		let num_n = count_provincial_units_from('northern');
 		let max_n = provincial_limit('northern');
@@ -6986,7 +6986,7 @@ function can_restore_provincial_regiments(dept) {
 
 events.raise_provincial_regiments = {
 	can_play() {
-		if (game.tracks.pa === RELUCTANT)
+		if (game.pa === RELUCTANT)
 			return false;
 		if (can_raise_provincial_regiments('northern') || can_restore_provincial_regiments('northern'))
 			return true;
@@ -7096,7 +7096,7 @@ events.quiberon_bay = {
 			return true;
 		if (is_friendly_controlled_space(LOUISBOURG))
 			return true;
-		if (game.tracks.year > 1759)
+		if (game.year > 1759)
 			return true;
 		return false;
 	},
@@ -7234,7 +7234,7 @@ events.troop_transports_and_local_enlistments = {
 
 events.victories_in_germany_release_troops_and_finances_for_new_world = {
 	can_play() {
-		if (game.tracks.year <= 1755)
+		if (game.year <= 1755)
 			return false;
 		if (game.active === FRANCE) {
 			if (game.events.quiberon)
@@ -7429,7 +7429,7 @@ events.french_regulars = {
 			delete game.events.once_french_regulars;
 		}
 		game.count = 2;
-		if (game.options.regulars_vp && game.tracks.year <= 1756)
+		if (game.options.regulars_vp && game.year <= 1756)
 			award_vp(-1);
 	}
 }
@@ -7548,7 +7548,7 @@ events.british_regulars = {
 		game.state = 'british_regulars';
 		game.count = 3;
 		game.leader = draw_leader_from_pool();
-		if (game.options.regulars_vp && game.tracks.year <= 1756)
+		if (game.options.regulars_vp && game.year <= 1756)
 			award_vp(-1);
 	}
 }
@@ -7601,7 +7601,7 @@ function find_unused_highland_unit() {
 events.highlanders = {
 	can_play() {
 		// TODO: check available ports
-		if (game.events.pitt || game.tracks.year > 1758)
+		if (game.events.pitt || game.year > 1758)
 			return true;
 		return false;
 	},
@@ -7871,7 +7871,7 @@ states.diplomatic_revolution = {
 
 events.intrigues_against_shirley = {
 	can_play() {
-		return game.tracks.vp >= 1 && is_piece_on_map(SHIRLEY) && is_piece_unbesieged(SHIRLEY);
+		return game.vp >= 1 && is_piece_on_map(SHIRLEY) && is_piece_unbesieged(SHIRLEY);
 	},
 	play() {
 		game.state = 'intrigues_against_shirley';
@@ -7920,11 +7920,11 @@ function setup_unit(where, who) {
 }
 
 function setup_1757(end_year) {
-	game.tracks.year = 1757;
-	game.tracks.end_year = end_year;
-	game.tracks.season = EARLY;
-	game.tracks.vp = 4;
-	game.tracks.pa = SUPPORTIVE;
+	game.year = 1757;
+	game.end_year = end_year;
+	game.season = EARLY;
+	game.vp = 4;
+	game.pa = SUPPORTIVE;
 
 	// TODO: optional rule start at 2VP for balance
 	// see https://boardgamegeek.com/thread/1366550/article/19163465#19163465
@@ -8089,10 +8089,10 @@ function setup_1757(end_year) {
 }
 
 function setup_1755() {
-	game.tracks.year = 1755;
-	game.tracks.season = EARLY;
-	game.tracks.vp = 0;
-	game.tracks.pa = SUPPORTIVE;
+	game.year = 1755;
+	game.season = EARLY;
+	game.vp = 0;
+	game.pa = SUPPORTIVE;
 
 	for (let i = 1; i <= 70; ++i)
 		game.cards.draw_pile.push(i);
@@ -8217,13 +8217,11 @@ exports.setup = function (seed, scenario, options) {
 		options: options,
 		state: null,
 		active: FRANCE,
-		tracks: {
-			year: 1755,
-			end_year: 1762,
-			season: 0,
-			vp: 0,
-			pa: 0,
-		},
+		year: 1755,
+		end_year: 1762,
+		season: 0,
+		vp: 0,
+		pa: 0,
 		events: {},
 		cards: {
 			current: 0,
@@ -8283,7 +8281,7 @@ exports.setup = function (seed, scenario, options) {
 		game.cards.discarded.push(FOUL_WEATHER);
 	}
 
-	if (game.options.pitt_dip_rev && game.tracks.year < 1757) {
+	if (game.options.pitt_dip_rev && game.year < 1757) {
 		// TODO
 		log(`${card_name(67)} and ${card_name(69)} are linked.`);
 	}
@@ -8293,7 +8291,7 @@ exports.setup = function (seed, scenario, options) {
 		log(`Enemy raid in a department cause a militia step loss.`);
 	}
 
-	if (game.options.regulars_vp && game.tracks.year < 1757) {
+	if (game.options.regulars_vp && game.year < 1757) {
 		log(`${card_name(55)} and ${card_name(57)} cost 1 VP in 1755 and 1756.`);
 	}
 
@@ -8414,7 +8412,7 @@ exports.action = function (state, current, action, arg) {
 exports.view = function(state, current) {
 	load_game_state(state);
 	view = {
-		tracks: game.tracks,
+		tracks: { vp: game.vp, pa: game.pa, year: game.year, season: game.season },
 		events: game.events,
 		pieces: game.pieces,
 		sieges: game.sieges,
