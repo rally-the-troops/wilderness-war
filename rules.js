@@ -232,7 +232,7 @@ function find_leader(name) {
 
 function find_unused_unit(name) {
 	for (let i = 0; i <= last_piece; ++i)
-		if (pieces[i].name === name && game.pieces.location[i] === 0)
+		if (pieces[i].name === name && game.location[i] === 0)
 			return i;
 	throw new Error("cannot find unit " + name);
 }
@@ -929,7 +929,7 @@ function leader_tactics(p) {
 // DYNAMIC PROPERTIES
 
 function piece_node(p) {
-	return game.pieces.location[p];
+	return game.location[p];
 }
 
 function piece_space(p) {
@@ -1001,33 +1001,33 @@ function unit_strength(p) {
 }
 
 function is_unit_reduced(p) {
-	return game.pieces.reduced.includes(p);
+	return game.reduced.includes(p);
 }
 
 function set_unit_reduced(p, v) {
 	if (v) {
-		if (!game.pieces.reduced.includes(p))
-			game.pieces.reduced.push(p);
+		if (!game.reduced.includes(p))
+			game.reduced.push(p);
 	} else {
-		remove_from_array(game.pieces.reduced, p);
+		remove_from_array(game.reduced, p);
 	}
 }
 
 function is_piece_inside(p) {
-	return game.pieces.inside.includes(p);
+	return game.inside.includes(p);
 }
 
 function is_piece_unbesieged(p) {
-	return !game.pieces.inside.includes(p);
+	return !game.inside.includes(p);
 }
 
 function set_piece_inside(p) {
-	if (!game.pieces.inside.includes(p))
-		game.pieces.inside.push(p);
+	if (!game.inside.includes(p))
+		game.inside.push(p);
 }
 
 function set_piece_outside(p) {
-	remove_from_array(game.pieces.inside, p);
+	remove_from_array(game.inside, p);
 }
 
 function is_piece_on_map(p) {
@@ -1639,7 +1639,7 @@ function eliminate_piece(p) {
 	log(`Eliminated ${piece_name_and_place(p)}.`);
 	unstack_force(p);
 	set_unit_reduced(p, 0);
-	game.pieces.location[p] = 0;
+	game.location[p] = 0;
 	if (is_indian_unit(p)) {
 		let home = indian_home_settlement(p);
 		if (home) {
@@ -1683,7 +1683,7 @@ function is_indian_tribe_eliminated(home) {
 }
 
 function move_piece_to(who, to) {
-	game.pieces.location[who] = to;
+	game.location[who] = to;
 }
 
 function is_seven_command_leader(who) {
@@ -1691,7 +1691,7 @@ function is_seven_command_leader(who) {
 }
 
 function place_piece(who, to) {
-	game.pieces.location[who] = to;
+	game.location[who] = to;
 
 	log(`Placed ${piece_name_and_place(who)}.`);
 
@@ -7924,11 +7924,11 @@ function setup_markers(m, list) {
 }
 
 function setup_leader(where, who) {
-	game.pieces.location[find_leader(who)] = find_space(where);
+	game.location[find_leader(who)] = find_space(where);
 }
 
 function setup_unit(where, who) {
-	game.pieces.location[find_unused_unit(who)] = find_space(where);
+	game.location[find_unused_unit(who)] = find_space(where);
 }
 
 function setup_1757(end_year) {
@@ -8229,26 +8229,34 @@ exports.setup = function (seed, scenario, options) {
 		options: options,
 		state: null,
 		active: FRANCE,
+
+		// Tracks, VP, and event triggers
 		year: 1755,
 		end_year: 1762,
 		season: 0,
+		pa: 0,
 		vp: 0,
 		niagara: 1,
 		ohio_forks: 1,
-		pa: 0,
 		events: {},
+
+		// Cards
 		last_card: 0,
 		deck: [],
 		discard: [],
 		removed: [],
-		pieces: {
-			location: pieces.map(() => 0),
-			reduced: [],
-			inside: [],
-		},
+
+		// Leaders and units
+		location: pieces.map(() => 0),
+		reduced: [],
+		inside: [],
+
+		// Markers
 		sieges: {},
 		amphib: [],
 		fieldworks: [],
+
+		// Per-player state
 		french: {
 			hand: [],
 			held: 0,
@@ -8269,10 +8277,12 @@ exports.setup = function (seed, scenario, options) {
 			forts_uc: [],
 			forts: [],
 			fortresses: originally_british_fortresses.slice(),
-			pool: [],
 			raids: [],
+			pool: [],
 		},
 
+		// Temporary action state
+		count: 0,
 		// activation_value: 0,
 		// activation: [],
 		// move: {},
@@ -8431,7 +8441,9 @@ exports.view = function(state, current) {
 	view = {
 		vp: game.vp, pa: game.pa, year: game.year, season: game.season,
 		events: game.events,
-		pieces: game.pieces,
+		location: game.location,
+		reduced: game.reduced,
+		inside: game.inside,
 		sieges: game.sieges,
 		amphib: game.amphib,
 		fieldworks: game.fieldworks,
