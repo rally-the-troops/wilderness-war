@@ -111,8 +111,8 @@ let view = null;
 let states = {};
 let events = {};
 
-let player; // aliased to game[friendly()] per-player state
-let enemy_player; // aliased to game[enemy()] per-player state
+let player; // aliased to game.french/british per-player state
+let enemy_player; // aliased to game.french/british per-player state
 let supply_cache; // cleared when setting active player and loading game state
 
 // These looping indices are updated with update_active_aliases()
@@ -166,17 +166,13 @@ function log(...args) {
 	game.log.push(s);
 }
 
-function friendly() {
-	return game.active;
-}
-
 function enemy() {
 	return game.active === FRANCE ? BRITAIN : FRANCE;
 }
 
-function set_enemy_active(new_state) {
-	game.state = new_state;
-	set_active(enemy());
+function set_active_enemy() {
+	game.active = (game.active === FRANCE) ? BRITAIN : FRANCE;
+	update_active_aliases();
 }
 
 function set_active(new_active) {
@@ -186,9 +182,9 @@ function set_active(new_active) {
 
 function update_active_aliases() {
 	supply_cache = null;
-	player = game[friendly()];
-	enemy_player = game[enemy()];
 	if (game.active === BRITAIN) {
+		player = game.british;
+		enemy_player = game.french;
 		first_enemy_piece = first_french_piece;
 		last_enemy_leader = last_french_leader;
 		last_enemy_piece = last_french_piece;
@@ -196,6 +192,8 @@ function update_active_aliases() {
 		last_friendly_leader = last_british_leader;
 		last_friendly_piece = last_british_piece;
 	} else {
+		player = game.french;
+		enemy_player = game.british;
 		first_enemy_piece = first_british_piece;
 		last_enemy_leader = last_british_leader;
 		last_enemy_piece = last_british_piece;
@@ -521,10 +519,8 @@ for (let i = 0; i < pieces.length; ++i) {
 		british_iroquois_or_mohawk_units.push(i);
 }
 
-const originally_friendly_spaces = {
-	France: departments.st_lawrence.concat([LOUISBOURG]),
-	Britain: departments.northern.concat(departments.southern).concat([HALIFAX]),
-}
+const originally_friendly_french_spaces = departments.st_lawrence.concat([LOUISBOURG]);
+const originally_friendly_british_spaces = departments.northern.concat(departments.southern).concat([HALIFAX]);
 
 // CARD DECK
 
@@ -554,19 +550,19 @@ function deal_cards() {
 	if (game.events.pitt)
 		bn = 9;
 
-	fn = fn - game.France.hand.length;
-	bn = bn - game.Britain.hand.length;
+	fn = fn - game.french.hand.length;
+	bn = bn - game.british.hand.length;
 
 	log("Dealt " + fn + " cards to France.");
 	log("Dealt " + bn + " cards to Britain.");
 
 	while (fn > 0 || bn > 0) {
 		if (fn > 0) {
-			game.France.hand.push(deal_card());
+			game.french.hand.push(deal_card());
 			--fn;
 		}
 		if (bn > 0) {
-			game.Britain.hand.push(deal_card());
+			game.british.hand.push(deal_card());
 			--bn;
 		}
 	}
@@ -772,12 +768,16 @@ function is_leader_box(space) {
 	return spaces[space].type === 'leader-box';
 }
 
-function is_originally_friendly(space) {
-	return originally_friendly_spaces[friendly()].includes(space);
+function is_originally_friendly(s) {
+	if (game.active === FRANCE)
+		return originally_friendly_french_spaces.includes(s);
+	return originally_friendly_british_spaces.includes(s);
 }
 
 function is_originally_enemy(space) {
-	return originally_friendly_spaces[enemy()].includes(space);
+	if (game.active === BRITAIN)
+		return originally_friendly_french_spaces.includes(s);
+	return originally_friendly_british_spaces.includes(s);
 }
 
 function is_fortress(space) {
@@ -1221,11 +1221,11 @@ function is_french_controlled_space(space) {
 }
 
 function has_french_stockade(space) {
-	return game.France.stockades.includes(space);
+	return game.french.stockades.includes(space);
 }
 
 function has_french_fort(space) {
-	return game.France.forts.includes(space);
+	return game.french.forts.includes(space);
 }
 
 function is_french_fortress(space) {
@@ -1654,9 +1654,9 @@ function eliminate_piece(p) {
 				else
 					log(`Removed ${tribe} settlement.`);
 				if (pieces[p].faction === 'british')
-					remove_from_array(game.Britain.allied, home);
+					remove_from_array(game.british.allied, home);
 				else
-					remove_from_array(game.France.allied, home);
+					remove_from_array(game.french.allied, home);
 			}
 		}
 	}
@@ -1714,14 +1714,14 @@ function place_piece(who, to) {
 		if (home) {
 			let tribe = indian_tribe[home];
 			if (pieces[who].faction === 'british') {
-				if (!game.Britain.allied.includes(home)) {
+				if (!game.british.allied.includes(home)) {
 					log(`Placed ${tribe} settlement at ${space_name(home)}.`);
-					game.Britain.allied.push(home);
+					game.british.allied.push(home);
 				}
 			} else {
-				if (!game.France.allied.includes(home)) {
+				if (!game.french.allied.includes(home)) {
 					log(`Placed ${tribe} settlement at ${space_name(home)}.`);
-					game.France.allied.push(home);
+					game.french.allied.push(home);
 				}
 			}
 		}
@@ -1744,15 +1744,15 @@ function capture_enemy_fortress(s) {
 
 function recapture_french_fortress(s) {
 	log(`France recaptured fortress at ${space_name(s)}.`);
-	remove_from_array(game.Britain.fortresses, s);
-	game.France.fortresses.push(s);
+	remove_from_array(game.british.fortresses, s);
+	game.french.fortresses.push(s);
 	award_french_vp(3);
 }
 
 function recapture_british_fortress(s) {
 	log(`Britain recaptured fortress at ${space_name(s)}.`);
-	remove_from_array(game.France.fortresses, s);
-	game.Britain.fortresses.push(s);
+	remove_from_array(game.french.fortresses, s);
+	game.british.fortresses.push(s);
 	award_british_vp(3);
 }
 
@@ -1826,10 +1826,10 @@ function lift_sieges_and_amphib() {
 
 	// Recapture abandoned enemy fortresses.
 	for (let s of originally_french_fortresses)
-		if (game.Britain.fortresses.includes(s) && is_french_controlled_space(s))
+		if (game.british.fortresses.includes(s) && is_french_controlled_space(s))
 			recapture_french_fortress(s);
 	for (let s of originally_british_fortresses)
-		if (game.France.fortresses.includes(s) && is_british_controlled_space(s))
+		if (game.french.fortresses.includes(s) && is_british_controlled_space(s))
 			recapture_british_fortress(s);
 
 	// Check ownership of other VP locations:
@@ -2005,15 +2005,15 @@ function start_season() {
 
 function end_season() {
 
-	if (game.Britain.hand.length > 0)
-		game.Britain.held = 1;
+	if (game.british.hand.length > 0)
+		game.british.held = 1;
 	else
-		game.Britain.held = 0;
+		game.british.held = 0;
 
-	if (game.France.hand.length > 0)
-		game.France.held = 1;
+	if (game.french.hand.length > 0)
+		game.french.held = 1;
 	else
-		game.France.held = 0;
+		game.french.held = 0;
 
 	delete game.events.french_regulars;
 	delete game.events.british_regulars;
@@ -2058,7 +2058,7 @@ function end_action_phase() {
 
 	if (!enemy_player.passed && enemy_player.hand.length > 0) {
 		console.log("END ACTION PHASE - NEXT PLAYER");
-		set_active(enemy());
+		set_active_enemy();
 		start_action_phase();
 		return;
 	}
@@ -2701,7 +2701,7 @@ function resume_move() {
 	// Interrupt for Foul Weather response at first opportunity to move.
 	if (game.move.used < 0) {
 		if (is_enemy_card_available(FOUL_WEATHER)) {
-			set_active(enemy());
+			set_active_enemy();
 			game.state = 'foul_weather';
 			return;
 		}
@@ -2978,7 +2978,7 @@ states.move = {
 			let from = moving_piece_came_from();
 			if (has_enemy_fortifications(to) && is_lake_connection(from, to)) {
 				clear_undo();
-				set_active(enemy());
+				set_active_enemy();
 				game.state = 'lake_schooner';
 				return;
 			}
@@ -3028,12 +3028,12 @@ states.foul_weather = {
 		play_card(c);
 		game.events.foul_weather = 1;
 		game.move.used = 0;
-		set_active(enemy());
+		set_active_enemy();
 		resume_move();
 	},
 	pass() {
 		game.move.used = 0;
-		set_active(enemy());
+		set_active_enemy();
 		resume_move();
 	}
 }
@@ -3057,7 +3057,7 @@ states.lake_schooner = {
 		play_card(c);
 		let who = moving_piece();
 		let from = moving_piece_came_from();
-		set_active(enemy());
+		set_active_enemy();
 		stop_move();
 		move_piece_to(who, from);
 		log(`${piece_name(who)} stops in ${space_name(from)}.`);
@@ -3073,7 +3073,7 @@ states.lake_schooner = {
 		resume_move();
 	},
 	pass() {
-		set_active(enemy());
+		set_active_enemy();
 		goto_intercept();
 	}
 }
@@ -3179,7 +3179,7 @@ states.massacre_after_move = {
 		resume_move();
 	},
 	next() {
-		set_active(enemy());
+		set_active_enemy();
 		resume_move();
 	}
 }
@@ -3305,7 +3305,8 @@ function goto_intercept() {
 
 	if (can_be_intercepted()) {
 		clear_undo();
-		set_enemy_active('intercept_who');
+		set_active_enemy();
+		game.state = 'intercept_who';
 	} else {
 		if (game.move.infiltrated)
 			end_move_step();
@@ -3383,7 +3384,8 @@ function end_intercept_fail() {
 	let who = intercepting_piece();
 	if (who)
 		unstack_force(who);
-	set_enemy_active('move');
+	set_active_enemy();
+	game.state = 'move';
 	if (game.move.infiltrated)
 		end_move_step();
 	else
@@ -3396,7 +3398,8 @@ function end_intercept_success() {
 	console.log("INTERCEPT SUCCESS " + piece_name(who) + " TO " + space_name(to));
 	move_piece_to(who, to);
 	unstack_force(who);
-	set_enemy_active('move');
+	set_active_enemy();
+	game.state = 'move';
 	goto_declare_inside();
 }
 
@@ -3407,7 +3410,8 @@ function goto_declare_inside() {
 	if (has_unbesieged_enemy_units_that_did_not_intercept(where)) {
 		if (is_fortress(where) || has_enemy_fort(where)) {
 			console.log("DECLARE INSIDE/OUTSIDE");
-			set_enemy_active('declare_inside');
+			set_active_enemy();
+			game.state = 'declare_inside';
 			return;
 		}
 	}
@@ -3434,7 +3438,7 @@ states.declare_inside = {
 		set_piece_inside(p);
 	},
 	next() {
-		set_active(enemy());
+		set_active_enemy();
 		goto_avoid_battle();
 	},
 }
@@ -3447,7 +3451,8 @@ function goto_avoid_battle() {
 		if (!game.move.did_attempt_intercept) {
 			if (can_enemy_avoid_battle(space)) {
 				console.log("AVOID BATTLE " + space_name(space));
-				set_enemy_active('avoid_who');
+				set_active_enemy();
+				game.state = 'avoid_who';
 				return;
 			}
 		}
@@ -3570,7 +3575,8 @@ function end_avoid_battle() {
 	if (who)
 		unstack_force(who);
 	console.log("END AVOID BATTLE");
-	set_enemy_active('move');
+	set_active_enemy();
+	game.state = 'move';
 	goto_battle_check();
 }
 
@@ -4697,7 +4703,7 @@ states.massacre_after_assault = {
 		end_move_step(true);
 	},
 	next() {
-		set_active(enemy());
+		set_active_enemy();
 		end_move_step(true);
 	}
 }
@@ -4898,7 +4904,7 @@ function end_retreat() {
 
 function goto_retreat_lone_leader(from, reason) {
 	clear_undo();
-	set_active(enemy());
+	set_active_enemy();
 	game.state = 'retreat_lone_leader';
 	game.retreat = { from, reason };
 }
@@ -4959,7 +4965,7 @@ states.retreat_lone_leader = {
 function resume_retreat_lone_leader(from) {
 	let who = pick_unbesieged_leader(from);
 	if (!who) {
-		set_active(enemy());
+		set_active_enemy();
 		switch (game.retreat.reason) {
 		case 'indian_alliance':
 			delete game.retreat;
@@ -5024,7 +5030,7 @@ states.siege_coehorns_attacker = {
 }
 
 function end_siege_coehorns_attacker() {
-	set_active(enemy());
+	set_active_enemy();
 	if (can_play_coehorns_in_siege(game.siege_where))
 		game.state = 'siege_coehorns_defender';
 	else
@@ -5052,7 +5058,7 @@ states.siege_coehorns_defender = {
 }
 
 function end_siege_coehorns_defender() {
-	set_active(enemy());
+	set_active_enemy();
 	if (is_friendly_card_available(SURRENDER)) {
 		if (game.siege_where === LOUISBOURG && game.sieges[LOUISBOURG] !== 1 && game.sieges[LOUISBOURG] !== 2)
 			resolve_siege();
@@ -5103,13 +5109,13 @@ states.massacre_after_surrender = {
 		goto_surrender_place();
 	},
 	next() {
-		set_active(enemy());
+		set_active_enemy();
 		goto_surrender_place();
 	}
 }
 
 function goto_surrender_place() {
-	set_active(enemy());
+	set_active_enemy();
 	game.state = 'surrender';
 	if (game.siege_where === LOUISBOURG)
 		game.surrender = find_closest_friendly_unbesieged_fortification(QUEBEC);
@@ -5133,7 +5139,7 @@ states.surrender = {
 }
 
 function end_surrender() {
-	set_active(enemy());
+	set_active_enemy();
 	delete game.surrender;
 	delete game.siege_where;
 	end_move_step(true);
@@ -5246,7 +5252,7 @@ function goto_raid_militia() {
 			console.log("BATTLED AGAINST STOCKADE, NO MILITIA ALLOWED", space_name(game.raid.battle));
 			goto_raid_events();
 		} else {
-			set_active(enemy());
+			set_active_enemy();
 			game.state = 'militia_against_raid';
 			game.count = 1;
 		}
@@ -5275,7 +5281,7 @@ states.militia_against_raid = {
 	},
 	next() {
 		clear_undo();
-		set_active(enemy());
+		set_active_enemy();
 		if (game.count === 0)
 			goto_battle(game.raid.where, false);
 		else
@@ -5290,7 +5296,7 @@ const RAID_TABLE = {
 
 function goto_raid_events() {
 	if (is_enemy_card_available(BLOCKHOUSES)) {
-		set_active(enemy());
+		set_active_enemy();
 		game.state = 'raid_blockhouses';
 	} else {
 		resolve_raid();
@@ -5310,11 +5316,11 @@ states.raid_blockhouses = {
 	play_event(c) {
 		play_card(c);
 		game.events.blockhouses = game.active;
-		set_active(enemy());
+		set_active_enemy();
 		resolve_raid();
 	},
 	pass() {
-		set_active(enemy());
+		set_active_enemy();
 		resolve_raid();
 	}
 }
@@ -5672,18 +5678,18 @@ function end_go_home_to() {
 // LATE SEASON - REMOVE RAIDED MARKERS
 
 function goto_remove_raided_markers() {
-	if (game.France.raids.length > 0) {
+	if (game.french.raids.length > 0) {
 		log("");
-		log(`France removes ${game.France.raids.length} raided markers.`);
-		award_french_vp(Math.ceil(game.France.raids.length / 2));
-		game.France.raids = [];
+		log(`France removes ${game.french.raids.length} raided markers.`);
+		award_french_vp(Math.ceil(game.french.raids.length / 2));
+		game.french.raids = [];
 	}
 
-	if (game.Britain.raids.length > 0) {
+	if (game.british.raids.length > 0) {
 		log("");
-		log(`Britain removes ${game.Britain.raids.length} raided markers.`);
-		award_british_vp(Math.ceil(game.Britain.raids.length / 2));
-		game.Britain.raids = [];
+		log(`Britain removes ${game.british.raids.length} raided markers.`);
+		award_british_vp(Math.ceil(game.british.raids.length / 2));
+		game.british.raids = [];
 	}
 
 	goto_winter_attrition();
@@ -6130,7 +6136,7 @@ function can_play_massacre() {
 
 function goto_massacre(st) {
 	clear_undo();
-	set_active(enemy());
+	set_active_enemy();
 	game.state = st;
 }
 
@@ -6152,7 +6158,7 @@ function massacre_play(c) {
 		if (is_indian_unit(p) && is_piece_in_space(p, s))
 			eliminate_piece(p);
 	award_vp(1);
-	set_active(enemy());
+	set_active_enemy();
 }
 
 function can_place_in_space(s) {
@@ -6176,8 +6182,8 @@ function can_restore_unit(p) {
 
 function count_french_raids_in_dept(dept) {
 	let n = 0;
-	for (let i = 0; i < game.France.raids.length; ++i) {
-		let s = game.France.raids[i];
+	for (let i = 0; i < game.french.raids.length; ++i) {
+		let s = game.french.raids[i];
 		if (departments[dept].includes(s))
 			++n;
 	}
@@ -6467,7 +6473,7 @@ events.cherokee_uprising = {
 		clear_undo();
 		delete game.events.cherokees;
 		game.events.cherokee_uprising = 1;
-		set_active(enemy());
+		set_active_enemy();
 		game.state = 'cherokee_uprising';
 		game.uprising = {
 			regular: 2,
@@ -6508,7 +6514,7 @@ states.cherokee_uprising = {
 	},
 	next() {
 		delete game.uprising;
-		set_active(enemy());
+		set_active_enemy();
 		end_action_phase();
 	},
 }
@@ -6672,7 +6678,7 @@ states.small_pox = {
 		clear_undo();
 		game.state = 'reduce_from_small_pox';
 		game.small_pox = s;
-		set_active(enemy());
+		set_active_enemy();
 	},
 }
 
@@ -6708,7 +6714,7 @@ states.reduce_from_small_pox = {
 				eliminate_piece(p);
 		});
 		delete game.small_pox;
-		set_active(enemy());
+		set_active_enemy();
 		end_action_phase();
 	},
 }
@@ -6762,7 +6768,7 @@ events.british_ministerial_crisis = {
 				++n;
 		}
 		if (n > 0) {
-			set_active(enemy());
+			set_active_enemy();
 			game.state = 'british_ministerial_crisis';
 			game.count = 1;
 		} else {
@@ -6791,7 +6797,7 @@ states.british_ministerial_crisis = {
 		discard_card(c, "");
 	},
 	next() {
-		set_active(enemy());
+		set_active_enemy();
 		end_action_phase();
 	}
 }
@@ -6862,7 +6868,7 @@ states.stingy_provincial_assembly_department = {
 
 function goto_stingy_provincial_assembly(dept) {
 	clear_undo();
-	set_active(enemy());
+	set_active_enemy();
 	game.state = 'stingy_provincial_assembly';
 	game.department = dept;
 	game.count = 1;
@@ -6886,7 +6892,7 @@ states.stingy_provincial_assembly = {
 		eliminate_piece(p);
 	},
 	next() {
-		set_active(enemy());
+		set_active_enemy();
 		end_action_phase();
 	},
 }
@@ -6936,7 +6942,7 @@ function goto_enforce_provincial_limits() {
 		let max_s = provincial_limit('southern');
 		if (num_s > max_s || num_n > max_n) {
 			clear_undo();
-			set_active(enemy());
+			set_active_enemy();
 			game.state = 'enforce_provincial_limits';
 			return;
 		}
@@ -6976,7 +6982,7 @@ states.enforce_provincial_limits = {
 		eliminate_piece(p);
 	},
 	next() {
-		set_active(enemy());
+		set_active_enemy();
 		end_action_phase();
 	},
 }
@@ -7941,21 +7947,21 @@ function setup_1757(end_year) {
 	for (let i = 63; i <= 70; ++i)
 		game.removed.push(i);
 
-	setup_markers(game.France.allied, [
+	setup_markers(game.french.allied, [
 		"Mingo Town",
 		"Logstown",
 		"Pays d'en Haut",
 		"Mississauga",
 	]);
 
-	setup_markers(game.France.forts, [
+	setup_markers(game.french.forts, [
 		"Ticonderoga",
 		"Crown Point",
 		"Niagara",
 		"Ohio Forks",
 	]);
 
-	setup_markers(game.France.stockades, [
+	setup_markers(game.french.stockades, [
 		"Île-aux-Noix",
 		"St-Jean",
 		"Oswegatchie",
@@ -8018,19 +8024,19 @@ function setup_1757(end_year) {
 	setup_leader("eliminated", "Dieskau");
 	setup_leader("eliminated", "Beaujeu");
 
-	setup_markers(game.Britain.forts, [
+	setup_markers(game.british.forts, [
 		"Hudson Carry South",
 		"Hudson Carry North",
 		"Will's Creek",
 		"Shamokin",
 	]);
 
-	setup_markers(game.Britain.forts_uc, [
+	setup_markers(game.british.forts_uc, [
 		"Winchester",
 		"Shepherd's Ferry",
 	]);
 
-	setup_markers(game.Britain.stockades, [
+	setup_markers(game.british.stockades, [
 		"Schenectady",
 		"Hoosic",
 		"Charlestown",
@@ -8104,21 +8110,21 @@ function setup_1755() {
 	for (let i = 1; i <= 70; ++i)
 		game.deck.push(i);
 
-	setup_markers(game.France.allied, [
+	setup_markers(game.french.allied, [
 		"Pays d'en Haut",
 		"Kahnawake",
 		"St-François",
 	]);
-	setup_markers(game.Britain.allied, [
+	setup_markers(game.british.allied, [
 		"Canajoharie",
 	]);
 
-	setup_markers(game.France.forts, [
+	setup_markers(game.french.forts, [
 		"Crown Point",
 		"Niagara",
 		"Ohio Forks",
 	]);
-	setup_markers(game.France.stockades, [
+	setup_markers(game.french.stockades, [
 		"Île-aux-Noix",
 		"St-Jean",
 		"Oswegatchie",
@@ -8173,12 +8179,12 @@ function setup_1755() {
 	setup_unit("Ohio Forks", "Ottawa");
 	setup_unit("Ohio Forks", "Potawatomi");
 
-	setup_markers(game.Britain.forts, [
+	setup_markers(game.british.forts, [
 		"Hudson Carry South",
 		"Will's Creek",
 		"Oswego",
 	]);
-	setup_markers(game.Britain.stockades, [
+	setup_markers(game.british.stockades, [
 		"Oneida Carry West",
 		"Oneida Carry East",
 		"Schenectady",
@@ -8436,18 +8442,18 @@ exports.view = function(state, current) {
 		// removed: game.removed,
 		markers: {
 			France: {
-				allied: game.France.allied,
-				stockades: game.France.stockades,
-				forts_uc: game.France.forts_uc,
-				forts: game.France.forts,
-				raids: game.France.raids,
+				allied: game.french.allied,
+				stockades: game.french.stockades,
+				forts_uc: game.french.forts_uc,
+				forts: game.french.forts,
+				raids: game.french.raids,
 			},
 			Britain: {
-				allied: game.Britain.allied,
-				stockades: game.Britain.stockades,
-				forts_uc: game.Britain.forts_uc,
-				forts: game.Britain.forts,
-				raids: game.Britain.raids,
+				allied: game.british.allied,
+				stockades: game.british.stockades,
+				forts_uc: game.british.forts_uc,
+				forts: game.british.forts,
+				raids: game.british.raids,
 			},
 		},
 		active: game.active,
@@ -8462,15 +8468,15 @@ exports.view = function(state, current) {
 		view.move = game.move;
 	if (game.force)
 		view.force = game.force;
-	if (game.Britain.held)
+	if (game.british.held)
 		view.british_held = 1;
-	if (game.France.held)
+	if (game.french.held)
 		view.french_held = 1;
 
 	if (current === FRANCE)
-		view.hand = game.France.hand;
+		view.hand = game.french.hand;
 	else if (current === BRITAIN)
-		view.hand = game.Britain.hand;
+		view.hand = game.british.hand;
 	else
 		view.hand = [];
 
