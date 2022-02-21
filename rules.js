@@ -53,7 +53,6 @@ const { spaces, pieces, cards } = require("./data");
 const BRITAIN = 'Britain';
 const FRANCE = 'France';
 
-
 // Order of pieces: br.leaders/br.units/fr.leaders/fr.units
 const last_piece = pieces.length - 1;
 
@@ -565,9 +564,9 @@ function deal_cards() {
 }
 
 function draw_leader_from_pool() {
-	if (game.pieces.pool.length > 0) {
-		let i = random(game.pieces.pool.length);
-		let p = game.pieces.pool[i];
+	if (game.british.pool.length > 0) {
+		let i = random(game.british.pool.length);
+		let p = game.british.pool[i];
 
 		// 5.55 If both on-map 7 leaders are besieged, return the third to the pool without substitution.
 		if (is_seven_command_leader(p)) {
@@ -582,7 +581,7 @@ function draw_leader_from_pool() {
 			}
 		}
 
-		game.pieces.pool.splice(i, 1);
+		game.british.pool.splice(i, 1);
 		move_piece_to(p, leader_box(p)); // TODO: yes/no show drawn leader here?
 		return p;
 	}
@@ -1966,9 +1965,9 @@ function find_closest_friendly_unbesieged_fortification(start) {
 function start_year() {
 	if (game.year === 1759 && !game.events.pitt) {
 		log("Placed Amherst, Forbes, and Wolfe into the British leader pool.");
-		game.pieces.pool.push(AMHERST);
-		game.pieces.pool.push(FORBES);
-		game.pieces.pool.push(WOLFE);
+		game.british.pool.push(AMHERST);
+		game.british.pool.push(FORBES);
+		game.british.pool.push(WOLFE);
 	}
 
 	game.season = EARLY;
@@ -8084,11 +8083,11 @@ function setup_1757(end_year) {
 
 	setup_unit("Southern Colonial Militias", "Colonial Militia");
 
-	game.pieces.pool.push(find_leader("Amherst"));
-	game.pieces.pool.push(find_leader("Bradstreet"));
-	game.pieces.pool.push(find_leader("Forbes"));
-	game.pieces.pool.push(find_leader("Murray"));
-	game.pieces.pool.push(find_leader("Wolfe"));
+	game.british.pool.push(find_leader("Amherst"));
+	game.british.pool.push(find_leader("Bradstreet"));
+	game.british.pool.push(find_leader("Forbes"));
+	game.british.pool.push(find_leader("Murray"));
+	game.british.pool.push(find_leader("Wolfe"));
 
 	setup_leader("eliminated", "Braddock");
 	setup_leader("eliminated", "Shirley");
@@ -8211,11 +8210,11 @@ function setup_1755() {
 	setup_unit("Will's Creek", "Virginia");
 	setup_unit("Will's Creek", "Maryland");
 
-	game.pieces.pool.push(find_leader("Abercromby"));
-	game.pieces.pool.push(find_leader("Bradstreet"));
-	game.pieces.pool.push(find_leader("Loudoun"));
-	game.pieces.pool.push(find_leader("Murray"));
-	game.pieces.pool.push(find_leader("Webb"));
+	game.british.pool.push(find_leader("Abercromby"));
+	game.british.pool.push(find_leader("Bradstreet"));
+	game.british.pool.push(find_leader("Loudoun"));
+	game.british.pool.push(find_leader("Murray"));
+	game.british.pool.push(find_leader("Webb"));
 
 	game.events.once_french_regulars = 1;
 }
@@ -8240,7 +8239,6 @@ exports.setup = function (seed, scenario, options) {
 			location: pieces.map(() => 0),
 			reduced: [],
 			inside: [],
-			pool: [],
 		},
 		sieges: {},
 		amphib: [],
@@ -8267,6 +8265,7 @@ exports.setup = function (seed, scenario, options) {
 			forts_uc: [],
 			forts: [],
 			fortresses: originally_british_fortresses.slice(),
+			pool: [],
 			raids: [],
 		},
 
@@ -8450,6 +8449,7 @@ exports.view = function(state, current) {
 				forts_uc: game.british.forts_uc,
 				forts: game.british.forts,
 				raids: game.british.raids,
+				pool: game.british.pool,
 			},
 		},
 		active: game.active,
