@@ -28,6 +28,7 @@
 // TODO: for_each_exit -> flat list of all exits
 // TODO: use is_enemy_occupied(s) instead of has_unbesieged_enemy_units || has_unbesieged_enemy_fortifications
 // TODO: use game.french.fortresses for victory checks
+// TODO: use leader box location for 'pool'
 // UI: show discard/removed card list in UI
 // UI: show pool leaders in their own box
 // UI: show dead leaders as grayed out in own box
@@ -1962,14 +1963,16 @@ function find_closest_friendly_unbesieged_fortification(start) {
 
 // SEQUENCE OF PLAY
 
-function start_year() {
-	if (game.year === 1759 && !game.events.pitt) {
-		log("Placed Amherst, Forbes, and Wolfe into the British leader pool.");
-		game.british.pool.push(AMHERST);
-		game.british.pool.push(FORBES);
-		game.british.pool.push(WOLFE);
-	}
+function place_amherst_forbes_and_wolfe_in_pool() {
+	log("Placed Amherst, Forbes, and Wolfe into the British leader pool.");
+	game.british.pool.push(AMHERST);
+	game.british.pool.push(FORBES);
+	game.british.pool.push(WOLFE);
+}
 
+function start_year() {
+	if (game.year === 1759 && !game.events.pitt)
+		place_amherst_forbes_and_wolfe_in_pool();
 	game.season = EARLY;
 	start_season();
 }
@@ -7806,6 +7809,7 @@ events.william_pitt = {
 		game.events.pitt = 1;
 		game.state = 'william_pitt';
 		game.count = 1;
+		place_amherst_forbes_and_wolfe_in_pool();
 	}
 }
 
