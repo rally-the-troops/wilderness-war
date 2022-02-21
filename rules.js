@@ -2732,6 +2732,8 @@ function stop_move() {
 
 function gen_naval_move() {
 	let from = moving_piece_space();
+	if (!piece_can_naval_move_from(moving_piece(), from))
+		return;
 	if (game.active === BRITAIN) {
 		game.amphib.forEach(to => {
 			if (to !== from)
@@ -5062,10 +5064,10 @@ function end_siege_coehorns_defender() {
 states.siege_surrender = {
 	prompt() {
 		if (player.hand.includes(SURRENDER)) {
-			view.prompt = `Siege in ${space_name(game.siege_where)}. You may play "Surrender!".`;
+			view.prompt = `Siege in ${space_name(game.siege_where)}. You may play "Surrender!"`;
 			gen_action('play_event', SURRENDER);
 		} else {
-			view.prompt = `Siege in ${space_name(game.siege_where)}. You don't have "Surrender!".`;
+			view.prompt = `Siege in ${space_name(game.siege_where)}. You don't have "Surrender!"`;
 		}
 		gen_action_pass();
 	},
@@ -6132,10 +6134,10 @@ function goto_massacre(st) {
 
 function massacre_prompt() {
 	if (player.hand.includes(MASSACRE)) {
-		view.prompt = `You may play "Massacre!".`;
+		view.prompt = `You may play "Massacre!"`;
 		gen_action('play_event', MASSACRE);
 	} else {
-		view.prompt = `You don't have "Massacre!".`;
+		view.prompt = `You don't have "Massacre!"`;
 	}
 	gen_action_next();
 }
