@@ -51,7 +51,10 @@ const { spaces, pieces, cards } = require("./data");
 const BRITAIN = 'Britain';
 const FRANCE = 'France';
 
+
 // Order of pieces: br.leaders/br.units/fr.leaders/fr.units
+const last_piece = pieces.length - 1;
+
 let first_british_piece = -1;
 let last_british_leader = -1;
 let last_british_piece = -1;
@@ -72,7 +75,7 @@ for (let c = 1; c < cards.length; ++c) {
 }
 
 // Figure out piece indices.
-for (let p = 1; p < pieces.length; ++p) {
+for (let p = 1; p <= last_piece; ++p) {
 	if (pieces[p].faction === 'british') {
 		if (pieces[p].type === 'militia')
 			british_militia_units.push(p);
@@ -235,7 +238,7 @@ function find_leader(name) {
 }
 
 function find_unused_unit(name) {
-	for (let i = 0; i < pieces.length; ++i)
+	for (let i = 0; i <= last_piece; ++i)
 		if (pieces[i].name === name && game.pieces.location[i] === 0)
 			return i;
 	throw new Error("cannot find unit " + name);
@@ -392,7 +395,7 @@ function define_indian_settlement(space_name, tribe) {
 	let space = find_space(space_name);
 	if (space_name !== "Pays d'en Haut")
 		indian_tribe[space] = tribe;
-	for (let p = 1; p < pieces.length; ++p)
+	for (let p = 1; p <= last_piece; ++p)
 		if (pieces[p].name === tribe)
 			pieces[p].settlement = space;
 }
@@ -513,7 +516,7 @@ const british_iroquois_or_mohawk_names = [
 ];
 
 const british_iroquois_or_mohawk_units = [];
-for (let i = 0; i < pieces.length; ++i) {
+for (let i = 1; i <= last_piece; ++i) {
 	let piece = pieces[i];
 	if (piece.faction === 'british' && piece.type === 'indian' && british_iroquois_or_mohawk_names.includes(piece.name))
 		british_iroquois_or_mohawk_units.push(i);
@@ -680,19 +683,19 @@ function for_each_unbesieged_enemy_in_space(space, fn) {
 }
 
 function for_each_piece_in_force(force, fn) {
-	for (let p = 0; p < pieces.length; ++p)
+	for (let p = 1; p <= last_piece; ++p)
 		if (is_piece_in_force(p, force))
 			fn(p);
 }
 
 function for_each_leader_in_force(force, fn) {
-	for (let p = 0; p < pieces.length; ++p)
+	for (let p = 1; p <= last_piece; ++p)
 		if (is_leader(p) && is_piece_in_force(p, force))
 			fn(p);
 }
 
 function for_each_unit_in_force(force, fn) {
-	for (let p = 0; p < pieces.length; ++p)
+	for (let p = 1; p <= last_piece; ++p)
 		if (!is_leader(p) && is_piece_in_force(p, force))
 			fn(p);
 }
@@ -1664,7 +1667,7 @@ function eliminate_piece(p) {
 
 function eliminate_indian_tribe(tribe) {
 	// OPTIMIZE: indian unit piece ranges
-	for (let p = 1; p < pieces.length; ++p)
+	for (let p = 1; p <= last_piece; ++p)
 		if (is_indian_tribe(p, tribe) && is_piece_unbesieged(p))
 			eliminate_piece(p);
 }
@@ -1672,13 +1675,13 @@ function eliminate_indian_tribe(tribe) {
 function is_indian_tribe_eliminated(home) {
 	// OPTIMIZE: indian unit piece ranges
 	if (home === PAYS_D_EN_HAUT) {
-		for (let p = 1; p < pieces.length; ++p)
+		for (let p = 1; p <= last_piece; ++p)
 			if (is_pays_d_en_haut_indian_unit(p))
 				if (is_piece_on_map(p))
 					return false;
 	} else {
 		let tribe = indian_tribe[home];
-		for (let p = 1; p < pieces.length; ++p)
+		for (let p = 1; p <= last_piece; ++p)
 			if (is_indian_tribe(p, tribe))
 				if (is_piece_on_map(p))
 					return false;
@@ -1729,7 +1732,7 @@ function place_piece(who, to) {
 }
 
 function move_pieces_from_node_to_node(from, to) {
-	for (let p = 0; p < pieces.length; ++p) {
+	for (let p = 1; p <= last_piece; ++p) {
 		if (piece_node(p) === from)
 			move_piece_to(p, to);
 	}
@@ -1807,7 +1810,7 @@ function lift_sieges_and_amphib() {
 	for_each_siege(space => {
 		if (is_fort_or_fortress_vacant_of_besieging_units(space)) {
 			log(`Lifted siege at ${space_name(space)}.`);
-			for (let p = 1; p < pieces.length; ++p)
+			for (let p = 1; p <= last_piece; ++p)
 				if (is_piece_in_space(p, space))
 					set_piece_outside(p);
 			delete game.sieges[space];
@@ -4534,7 +4537,7 @@ function return_militia(where) {
 	console.log("RETURN MILITIA", space_name(where), space_name(box));
 	if (box) {
 		let n = 0;
-		for (let p = 1; p < pieces.length; ++p) {
+		for (let p = 1; p <= last_piece; ++p) {
 			if (is_militia_unit(p) && is_piece_in_space(p, where)) {
 				move_piece_to(p, box);
 				++n;
@@ -5706,7 +5709,7 @@ function goto_winter_attrition() {
 function resume_winter_attrition() {
 	let done = true;
 	game.winter_attrition = {};
-	for (let s = 1; s < spaces.length; ++s) {
+	for (let s = first_space; s <= last_space; ++s) {
 		if (has_friendly_drilled_troops(s)) {
 			let safe = false;
 			if (is_originally_friendly(s))
@@ -6154,7 +6157,7 @@ function massacre_play(c) {
 	// TODO: massacre state for manual elimination?
 	play_card(c);
 	let s = moving_piece_space();
-	for (let p = 1; p < pieces.length; ++p)
+	for (let p = 1; p <= last_piece; ++p)
 		if (is_indian_unit(p) && is_piece_in_space(p, s))
 			eliminate_piece(p);
 	award_vp(1);
