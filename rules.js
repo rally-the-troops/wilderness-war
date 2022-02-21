@@ -527,16 +527,16 @@ const originally_friendly_spaces = {
 
 function reshuffle_deck() {
 	game.log.push("Deck reshuffled.");
-	game.cards.draw_pile = game.draw_pile.concat(game.cards.discarded);
-	game.cards.discarded = [];
+	game.deck = game.deck.concat(game.discard);
+	game.discard = [];
 }
 
 function deal_card() {
-	if (game.cards.draw_pile.length === 0)
+	if (game.deck.length === 0)
 		reshuffle_deck();
-	let i = random(game.cards.draw_pile.length);
-	let c = game.cards.draw_pile[i];
-	game.cards.draw_pile.splice(i, 1);
+	let i = random(game.deck.length);
+	let c = game.deck[i];
+	game.deck.splice(i, 1);
 	return c;
 }
 
@@ -595,7 +595,7 @@ function draw_leader_from_pool() {
 }
 
 function is_card_available(c) {
-	return !game.cards.discarded.includes(c) && !game.cards.removed.includes(c);
+	return !game.discard.includes(c) && !game.removed.includes(c);
 }
 
 function is_enemy_card_available(c) {
@@ -2105,27 +2105,27 @@ function card_name(card) {
 function play_card(card) {
 	log(`${game.active} played ${card_name(card)}.`);
 	remove_from_array(player.hand, card);
-	game.cards.current = card;
+	game.last_card = card;
 	if (card === SURRENDER)
 		game.events.surrender = 1;
 	if (cards[card].special === 'remove')
-		game.cards.removed.push(card);
+		game.removed.push(card);
 	else
-		game.cards.discarded.push(card);
+		game.discard.push(card);
 }
 
 function discard_card(card, reason) {
 	log(`Discarded ${card_name(card)}${reason}.`);
 	remove_from_array(player.hand, card);
-	game.cards.current = card;
+	game.last_card = card;
 	if (card === SURRENDER)
 		game.events.surrender = 1;
-	game.cards.discarded.push(card);
+	game.discard.push(card);
 }
 
 function remove_card(card) {
-	remove_from_array(game.cards.discarded, card);
-	game.cards.removed.push(card);
+	remove_from_array(game.discard, card);
+	game.removed.push(card);
 }
 
 states.action_phase = {
@@ -2177,6 +2177,7 @@ function goto_activate_individually(card) {
 	player.did_construct = 0;
 	discard_card(card, " to activate units individually");
 	game.state = 'activate_individually';
+	game.activation_value = 0;
 	game.count = cards[card].activation;
 	game.activation = [];
 }
@@ -2186,13 +2187,13 @@ function goto_activate_force(card) {
 	player.did_construct = 0;
 	discard_card(card, " to activate a force");
 	game.state = 'activate_force';
-	game.count = cards[card].activation;
+	game.activation_value = cards[card].activation;
 }
 
 events.campaign = {
 	play() {
 		game.state = 'select_campaign_1';
-		game.count = 3;
+		game.activation_value = 3;
 		game.activation = [];
 	}
 }
@@ -2247,7 +2248,7 @@ states.activate_force = {
 	prompt() {
 		view.prompt = "Activate a Force.";
 		for (let p = first_friendly_leader; p <= last_friendly_leader; ++p)
-			if (is_piece_on_map(p) && leader_initiative(p) <= game.count)
+			if (is_piece_on_map(p) && leader_initiative(p) <= game.activation_value)
 				gen_action_piece(p);
 		gen_action_pass();
 	},
@@ -2316,6 +2317,7 @@ function goto_pick_next_move() {
 	if (game.activation && game.activation.length > 0) {
 		game.state = 'pick_move';
 	} else {
+		delete game.activation_value;
 		delete game.activation;
 		end_action_phase();
 	}
@@ -2334,6 +2336,7 @@ states.pick_move = {
 	},
 	pass() {
 		// TODO: confirm!
+		delete game.activation_value;
 		delete game.activation;
 		end_action_phase();
 	},
@@ -2581,18 +2584,19 @@ function goto_move_piece(who) {
 	let from = piece_space(who);
 	game.state = 'move';
 	game.move = {
-		moving: who,
 		where: from,
 		came_from: 0,
-		infiltrated: 0,
-		intercepting: null,
-		intercepted: [],
-		did_attempt_intercept: 0,
-		avoiding: null,
-		start_space: from,
+		type: is_only_port_space(from) ? 'naval' : 'boat',
 		used: -1,
 		did_carry: 0,
-		type: is_only_port_space(from) ? 'naval' : 'boat',
+		infiltrated: 0,
+
+		moving: who,
+		intercepting: 0,
+		avoiding: 0,
+
+		intercepted: [],
+		did_attempt_intercept: 0,
 	};
 	game.raid = {
 		where: 0,
@@ -2659,7 +2663,7 @@ function piece_can_naval_move_from(who, from) {
 	if (game.active === FRANCE && game.no_fr_naval)
 		return false;
 	if (is_leader(who) && count_pieces_in_force(who) > 1)
-		if (cards[game.cards.current].activation < 3)
+		if (game.activation_value < 3)
 			return false;
 
 	if (game.active === FRANCE) {
@@ -6732,7 +6736,7 @@ events.françois_bigot = {
 		let i = random(enemy_player.hand.length);
 		let c = enemy_player.hand[i];
 		enemy_player.hand.splice(i, 1);
-		game.cards.discarded.push(c);
+		game.discard.push(c);
 		log(`France discards ${card_name(c)}.`);
 		if (c === SURRENDER)
 			game.events.surrender = 1;
@@ -7086,7 +7090,7 @@ states.raise_provincial_regiments = {
 }
 
 function is_card_removed(card) {
-	return game.cards.removed.includes(card);
+	return game.removed.includes(card);
 }
 
 events.quiberon_bay = {
@@ -7804,8 +7808,8 @@ states.william_pitt = {
 	prompt() {
 		if (game.count > 0) {
 			view.prompt = "Draw Highlanders, British Regulars, Light Infantry or Troop Transports from Discard.";
-			view.hand = game.cards.discarded;
-			for (let c of game.cards.discarded) {
+			view.hand = game.discard;
+			for (let c of game.discard) {
 				if (william_pitt_cards.includes(cards[c].event))
 					gen_action('card', c);
 			}
@@ -7817,7 +7821,7 @@ states.william_pitt = {
 	card(c) {
 		push_undo();
 		log(`Draws ${card_name(c)} from discard.`);
-		remove_from_array(game.cards.discarded, c);
+		remove_from_array(game.discard, c);
 		player.hand.push(c);
 		game.count = 0;
 	},
@@ -7846,8 +7850,8 @@ states.diplomatic_revolution = {
 	prompt() {
 		if (game.count > 0) {
 			view.prompt = "Draw French Regulars or Troop Transports from Discard.";
-			view.hand = view.cards.discarded;
-			for (let c of view.cards.discarded) {
+			view.hand = view.discard;
+			for (let c of view.discard) {
 				if (diplomatic_revolution_cards.includes(cards[c].event))
 					gen_action('card', c);
 			}
@@ -7859,7 +7863,7 @@ states.diplomatic_revolution = {
 	card(c) {
 		push_undo();
 		log(`Draws ${card_name(c)} from discard.`);
-		remove_from_array(game.cards.discarded, c);
+		remove_from_array(game.discard, c);
 		player.hand.push(c);
 		game.count = 0;
 	},
@@ -7929,9 +7933,9 @@ function setup_1757(end_year) {
 	// see https://boardgamegeek.com/thread/1366550/article/19163465#19163465
 
 	for (let i = 1; i <= 62; ++i)
-		game.cards.draw_pile.push(i);
+		game.deck.push(i);
 	for (let i = 63; i <= 70; ++i)
-		game.cards.removed.push(i);
+		game.removed.push(i);
 
 	setup_markers(game.France.allied, [
 		"Mingo Town",
@@ -8094,7 +8098,7 @@ function setup_1755() {
 	game.pa = SUPPORTIVE;
 
 	for (let i = 1; i <= 70; ++i)
-		game.cards.draw_pile.push(i);
+		game.deck.push(i);
 
 	setup_markers(game.France.allied, [
 		"Pays d'en Haut",
@@ -8222,12 +8226,10 @@ exports.setup = function (seed, scenario, options) {
 		vp: 0,
 		pa: 0,
 		events: {},
-		cards: {
-			current: 0,
-			draw_pile: [],
-			discarded: [],
-			removed: [],
-		},
+		last_card: 0,
+		deck: [],
+		discard: [],
+		removed: [],
 		pieces: {
 			location: pieces.map(() => 0),
 			reduced: [],
@@ -8262,6 +8264,13 @@ exports.setup = function (seed, scenario, options) {
 			raids: [],
 		},
 
+		// activation_value: 0,
+		// activation: [],
+		// move: {},
+		// battle: {},
+		// raid: {},
+		// go_home: {},
+
 		undo: [],
 		log: [],
 	});
@@ -8276,8 +8285,8 @@ exports.setup = function (seed, scenario, options) {
 
 	if (game.options.no_foul_weather) {
 		log(`${card_name(FOUL_WEATHER)} removed.`);
-		remove_from_array(game.cards.draw_pile, FOUL_WEATHER);
-		game.cards.discarded.push(FOUL_WEATHER);
+		remove_from_array(game.deck, FOUL_WEATHER);
+		game.discard.push(FOUL_WEATHER);
 	}
 
 	if (game.options.pitt_dip_rev && game.year < 1757) {
@@ -8417,6 +8426,10 @@ exports.view = function(state, current) {
 		sieges: game.sieges,
 		amphib: game.amphib,
 		fieldworks: game.fieldworks,
+		last_card: game.last_card,
+		// deck: game.deck.length,
+		// discard: game.discard,
+		// removed: game.removed,
 		markers: {
 			France: {
 				allied: game.France.allied,
@@ -8432,12 +8445,6 @@ exports.view = function(state, current) {
 				forts: game.Britain.forts,
 				raids: game.Britain.raids,
 			},
-		},
-		cards: {
-			current: game.cards.current,
-			draw_pile: game.cards.draw_pile.length,
-			discarded: game.cards.discarded,
-			removed: game.cards.removed,
 		},
 		active: game.active,
 		prompt: null,
