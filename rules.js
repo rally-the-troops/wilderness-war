@@ -708,7 +708,7 @@ function for_each_british_controlled_port_and_amphib(fn) {
 	for (let i = 0; i < ports.length; ++i)
 		if (is_british_controlled_space(ports[i]))
 			fn(ports[i]);
-	game.Britain.amphib.forEach(fn);
+	game.amphib.forEach(fn);
 }
 
 function list_auxiliary_units_in_force(force) {
@@ -1048,15 +1048,15 @@ function is_piece_in_space(p, space) {
 }
 
 function has_amphib(space) {
-	return game.Britain.amphib.includes(space);
+	return game.amphib.includes(space);
 }
 
 function has_friendly_amphib(space) {
-	return game.active === BRITAIN && game.Britain.amphib.includes(space);
+	return game.active === BRITAIN && game.amphib.includes(space);
 }
 
 function has_enemy_amphib(space) {
-	return game.active === FRANCE && game.Britain.amphib.includes(space);
+	return game.active === FRANCE && game.amphib.includes(space);
 }
 
 function has_fieldworks(space) {
@@ -1812,13 +1812,12 @@ function lift_sieges_and_amphib() {
 		}
 	});
 
-	let amphib = game.Britain.amphib;
-	for (let i = amphib.length-1; i >= 0; --i) {
-		let s = amphib[i];
+	for (let i = game.amphib.length-1; i >= 0; --i) {
+		let s = game.amphib[i];
 		if (!has_british_units(s)) {
 			if (has_french_drilled_troops(s) || has_unbesieged_french_fortification(s)) {
 				log(`Removed Amphib at ${space_name(s)}.`);
-				amphib.splice(i, 1);
+				game.amphib.splice(i, 1);
 			}
 		}
 	}
@@ -1890,7 +1889,7 @@ function search_supply_spaces() {
 		supply_cache = search_supply_spaces_imp(list);
 	} else {
 		let list = originally_british_fortresses_and_ports.filter(is_friendly_controlled_space);
-		for (let s of game.Britain.amphib)
+		for (let s of game.amphib)
 			if (!list.includes(s) && !is_space_besieged(s))
 				list.push(s);
 		supply_cache = search_supply_spaces_imp(list);
@@ -2730,12 +2729,12 @@ function stop_move() {
 function gen_naval_move() {
 	let from = moving_piece_space();
 	if (game.active === BRITAIN) {
-		game.Britain.amphib.forEach(to => {
+		game.amphib.forEach(to => {
 			if (to !== from)
 				gen_action_space(to);
 		});
 		ports.forEach(to => {
-			if (to !== from && !game.Britain.amphib.includes(to))
+			if (to !== from && !game.amphib.includes(to))
 				if (is_friendly_controlled_space(to))
 					gen_action_space(to);
 		});
@@ -3088,7 +3087,7 @@ states.amphibious_landing = {
 	},
 	space(to) {
 		push_undo();
-		game.Britain.amphib.push(to);
+		game.amphib.push(to);
 		apply_move(to);
 		goto_intercept();
 	},
@@ -8236,6 +8235,7 @@ exports.setup = function (seed, scenario, options) {
 			pool: [],
 		},
 		sieges: {},
+		amphib: [],
 		fieldworks: [],
 		niagara: 1,
 		ohio_forks: 1,
@@ -8260,7 +8260,6 @@ exports.setup = function (seed, scenario, options) {
 			forts: [],
 			fortresses: originally_british_fortresses.slice(),
 			raids: [],
-			amphib: [],
 		},
 
 		undo: [],
@@ -8416,6 +8415,7 @@ exports.view = function(state, current) {
 		events: game.events,
 		pieces: game.pieces,
 		sieges: game.sieges,
+		amphib: game.amphib,
 		fieldworks: game.fieldworks,
 		markers: {
 			France: {
@@ -8431,7 +8431,6 @@ exports.view = function(state, current) {
 				forts_uc: game.Britain.forts_uc,
 				forts: game.Britain.forts,
 				raids: game.Britain.raids,
-				amphib: game.Britain.amphib,
 			},
 		},
 		cards: {
