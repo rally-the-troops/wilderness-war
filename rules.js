@@ -8,20 +8,16 @@
 // TODO: remove old 7 command leader(s) immediately as they're drawn, before placing reinforcements
 
 // CLEANUPS
-// TODO: replace piece[p].type lookups with index range checks
 // TODO: make 'inside' negative location instead of separate array
-// TODO: abbreviate per-player (game.British.xxx) property name (game.b.xxx)
 // TODO: move core of is_friendly/enemy to is_british/french and branch in is_friendly/enemy
-// TODO: for_each_exit -> flat list of all exits
 // TODO: use is_enemy_occupied(s) instead of has_unbesieged_enemy_units || has_unbesieged_enemy_fortifications
-// TODO: use game.french.fortresses for victory checks
 // TODO: use leader box location for 'pool'
 // UI: show discard/removed card list in UI
 // UI: show pool leaders in their own box
 // UI: show dead leaders as grayed out in own box
 // UI: siege marker on top of besieged stack in fortresses
 
-// TODO: list possible battle response cards
+// TODO: summary of step losses in log (brief/verbose)
 
 // MAJOR
 // TODO: find closest path to non-infiltration space for allowing infiltration
@@ -41,52 +37,189 @@ const { spaces, pieces, cards } = require("./data");
 const BRITAIN = 'Britain';
 const FRANCE = 'France';
 
-// Order of pieces: br.leaders/br.units/fr.leaders/fr.units
-const last_piece = pieces.length - 1;
+// CARDS
+const first_amphib_card = 17;
+const last_amphib_card = 20;
+const SURRENDER = 6;
+const MASSACRE = 7;
+const COEHORNS = 8;
+const FIELDWORKS_1 = 9;
+const FIELDWORKS_2 = 10;
+const AMBUSH_1 = 11;
+const AMBUSH_2 = 12;
+const BLOCKHOUSES = 13;
+const FOUL_WEATHER = 14;
+const LAKE_SCHOONER = 15;
+const GEORGE_CROGHAN = 16;
+const LOUISBOURG_SQUADRONS = 21;
+const ACADIANS_EXPELLED = 66;
 
-let first_british_piece = -1;
-let last_british_leader = -1;
-let last_british_piece = -1;
-let first_french_piece = -1;
-let last_french_leader = -1;
-let last_french_piece = -1;
+// PIECE RANGES
+const first_piece = 1;
+const last_piece = 151;
+const first_british_piece = 1;
+const last_british_piece = 86;
+const first_british_leader = 1;
+const last_british_leader = 13;
+const first_british_unit = 14;
+const last_british_unit = 86;
+const first_french_piece = 87;
+const last_french_piece = 151;
+const first_french_leader = 87;
+const last_french_leader = 96;
+const first_french_unit = 97;
+const last_french_unit = 151;
+const first_british_militia = 83;
+const last_british_militia = 86;
+const first_french_militia = 148;
+const last_french_militia = 151;
+const first_french_regular = 134;
+const last_french_regular = 147;
+const first_coureurs = 119;
+const last_coureurs = 126;
+const first_british_regular = 56;
+const last_british_regular = 72;
+const first_highland = 77;
+const last_highland = 82;
+const first_royal_american = 73;
+const last_royal_american = 76;
+const first_light_infantry = 26;
+const last_light_infantry = 31;
+const first_southern_provincial = 50;
+const last_southern_provincial = 55;
+const first_northern_provincial = 32;
+const last_northern_provincial = 49;
+const first_ranger = 23;
+const last_ranger = 25;
+const first_cherokee = 14;
+const last_cherokee = 15;
+const first_mohawk = 21;
+const last_mohawk = 22;
+function is_leader(p) { return (p >= 1 && p <= 13) || (p >= 87 && p <= 96); }
+function is_unit(p) { return (p >= 14 && p <= 86) || (p >= 97 && p <= 151); }
+function is_auxiliary(p) { return (p >= 14 && p <= 25) || (p >= 97 && p <= 126); }
+function is_drilled_troops(p) { return (p >= 26 && p <= 82) || (p >= 127 && p <= 147); }
+function is_militia(p) { return (p >= 83 && p <= 86) || (p >= 148 && p <= 151); }
+function is_regular(p) { return (p >= 56 && p <= 82) || (p >= 127 && p <= 147); }
+function is_light_infantry(p) { return (p >= 26 && p <= 31); }
+function is_provincial(p) { return (p >= 32 && p <= 55); }
+function is_southern_provincial(p) { return (p >= 50 && p <= 55); }
+function is_northern_provincial(p) { return (p >= 32 && p <= 49); }
+function is_coureurs(p) { return (p >= 119 && p <= 126); }
+function is_ranger(p) { return (p >= 23 && p <= 25); }
+function is_indian(p) { return (p >= 14 && p <= 22) || (p >= 97 && p <= 118); }
+function is_french_indian(p) { return (p >= 97 && p <= 118); }
+function is_british_indian(p) { return (p >= 14 && p <= 22); }
+function is_blue_indian(p) { return (p >= 101 && p <= 107); }
+function is_orange_indian(p) { return (p >= 113 && p <= 118); }
+function is_blue_orange_indian(p) { return (p >= 97 && p <= 100); }
+function is_gray_indian(p) { return (p >= 16 && p <= 20) || (p >= 108 && p <= 112); }
+function is_cherokee(p) { return (p >= 14 && p <= 15); }
+function is_mohawk(p) { return (p >= 21 && p <= 22); }
+function is_british_iroquois_or_mohawk(p) { return (p >= 16 && p <= 22); }
+const AMHERST = 1;
+const BRADDOCK = 2;
+const ABERCROMBY = 3;
+const LOUDOUN = 4;
+const WOLFE = 5;
+const FORBES = 6;
+const SHIRLEY = 7;
+const MURRAY = 8;
+const MONCKTON = 9;
+const WEBB = 10;
+const BRADSTREET = 11;
+const DUNBAR = 12;
+const JOHNSON = 13;
+const MONTCALM = 87;
+const DIESKAU = 88;
+const LEVIS = 89;
+const VAUDREUIL = 90;
+const DRUCOUR = 91;
+const RIGAUD = 92;
+const VILLIERS = 93;
+const BOUGAINVILLE = 94;
+const BEAUJEU = 95;
+const DUMAS = 96;
 
-let british_militia_units = [];
-let french_militia_units = [];
-
-// Figure out piece indices.
-for (let p = 1; p <= last_piece; ++p) {
-	if (pieces[p].faction === 'british') {
-		if (pieces[p].type === 'militia')
-			british_militia_units.push(p);
-		if (first_british_piece < 0)
-			first_british_piece = p;
-		if (pieces[p].type === 'leader')
-			last_british_leader = p;
-		last_british_piece = p;
-	} else {
-		if (pieces[p].type === 'militia')
-			french_militia_units.push(p);
-		if (first_french_piece < 0)
-			first_french_piece = p;
-		if (pieces[p].type === 'leader')
-			last_french_leader = p;
-		last_french_piece = p;
-	}
-}
-
-let first_british_unit = last_british_leader;
-let last_british_unit = last_british_piece;
-let first_french_unit = last_french_leader;
-let last_french_unit = last_french_piece;
+// SPACE RANGES
+const first_space = 1;
+const last_space = 141;
+const first_leader_box = 145;
+const last_leader_box = 167;
+const first_northern_department = 1;
+const last_northern_department = 21;
+const first_southern_department = 22;
+const last_southern_department = 40;
+const first_st_lawrence_department = 41;
+const last_st_lawrence_department = 52;
+function is_leader_box(s) { return (s >= 145 && s <= 167); }
+function is_fortress(s) { return (s >= 1 && s <= 4) || (s >= 22 && s <= 24) || (s >= 41 && s <= 42) || (s >= 139 && s <= 140); }
+function is_port(s) { return (s >= 1 && s <= 3) || (s >= 22 && s <= 24) || (s === 41) || (s >= 139 && s <= 140); }
+function is_st_lawrence_department(s) { return (s >= 41 && s <= 52); }
+function is_southern_department(s) { return (s >= 22 && s <= 40); }
+function is_northern_department(s) { return (s >= 1 && s <= 21); }
+function is_originally_french(s) { return (s >= 41 && s <= 52) || (s === 140); }
+function is_originally_british(s) { return (s >= 1 && s <= 40) || (s === 139); }
+function is_wilderness_or_mountain(s) { return (s >= 53 && s <= 138); }
+function is_wilderness(s) { return (s >= 53 && s <= 119); }
+function is_mountain(s) { return (s >= 120 && s <= 138); }
+function is_cultivated(s) { return (s >= 1 && s <= 52); }
+const ALBANY = 4;
+const ALEXANDRIA = 22;
+const BAIE_ST_PAUL = 43;
+const BALTIMORE = 23;
+const BOSTON = 1;
+const CANAJOHARIE = 56;
+const CAYUGA = 60;
+const HALIFAX = 139;
+const KAHNAWAKE = 45;
+const KARAGHIYADIRHA = 76;
+const KITTANING = 77;
+const LAC_DES_DEUX_MONTAGNES = 46;
+const LOGSTOWN = 81;
+const LOUISBOURG = 140;
+const MINGO_TOWN = 83;
+const MISSISSAUGA = 84;
+const MONTREAL = 42;
+const NEW_HAVEN = 2;
+const NEW_YORK = 3;
+const NIAGARA = 86;
+const OHIO_FORKS = 88;
+const ONEIDA_CARRY_EAST = 89;
+const ONEIDA_CARRY_WEST = 90;
+const ONEIDA_CASTLE = 91;
+const ONONDAGA = 92;
+const OSWEGO = 96;
+const PAYS_D_EN_HAUT = 141;
+const PHILADELPHIA = 24;
+const QUEBEC = 41;
+const RIVIERE_OUELLE = 47;
+const SHAWIANGTO = 102;
+const ST_FRANCOIS = 49;
+const ILE_D_ORLEANS = 52;
+const NORTHERN_COLONIAL_MILITIAS = 142;
+const SOUTHERN_COLONIAL_MILITIAS = 143;
+const ST_LAWRENCE_CANADIAN_MILITIAS = 144;
 
 // Patch up leader/box associations.
-for (let s = 1; s < spaces.length; ++s) {
-	if (spaces[s].type === 'leader-box') {
-		let p = find_leader(spaces[s].name);
-		spaces[s].leader = p;
-		pieces[p].box = s;
-	}
+const box_from_leader = [];
+const leader_from_box = [];
+for (let p = 0; p <= last_french_leader; ++p)
+	box_from_leader[p] = 0;
+for (let s = first_leader_box; s <= last_leader_box; ++s) {
+	let p = pieces.findIndex(piece => piece.name === spaces[s].name);
+	box_from_leader[p] = s;
+	leader_from_box[s-first_leader_box] = p;
+}
+
+// Patch up space exits.
+for (let s = first_space; s <= last_space; ++s) {
+	let ss = spaces[s];
+	ss.exits = ss.land.concat(ss.river).concat(ss.lakeshore);
+	ss.exits_with_type = [];
+	ss.land.forEach(n => ss.exits_with_type.push([n,'land']));
+	ss.river.forEach(n => ss.exits_with_type.push([n,'river']));
+	ss.lakeshore.forEach(n => ss.exits_with_type.push([n,'lakeshore']));
 }
 
 let game;
@@ -102,12 +235,12 @@ let supply_cache; // cleared when setting active player and loading game state
 let first_enemy_leader;
 let first_enemy_piece;
 let first_enemy_unit;
-let first_friendly_leader;
-let first_friendly_piece;
-let first_friendly_unit;
 let last_enemy_leader;
 let last_enemy_piece;
 let last_enemy_unit;
+let first_friendly_leader;
+let first_friendly_piece;
+let first_friendly_unit;
 let last_friendly_leader;
 let last_friendly_piece;
 let last_friendly_unit;
@@ -145,7 +278,6 @@ function remove_from_array(array, item) {
 
 function log(...args) {
 	let s = Array.from(args).join(" ");
-	console.log("LOG", s);
 	game.log.push(s);
 }
 
@@ -168,28 +300,39 @@ function update_active_aliases() {
 	if (game.active === BRITAIN) {
 		player = game.british;
 		enemy_player = game.french;
-		first_enemy_piece = first_french_piece;
-		last_enemy_leader = last_french_leader;
-		last_enemy_piece = last_french_piece;
+
 		first_friendly_piece = first_british_piece;
-		last_friendly_leader = last_british_leader;
 		last_friendly_piece = last_british_piece;
+		first_friendly_leader = first_british_leader;
+		last_friendly_leader = last_british_leader;
+		first_friendly_unit = first_british_unit;
+		last_friendly_unit = last_british_unit;
+
+		first_enemy_piece = first_french_piece;
+		last_enemy_piece = last_french_piece;
+		first_enemy_leader = first_french_leader;
+		last_enemy_leader = last_french_leader;
+		first_enemy_unit = first_french_unit;
+		last_enemy_unit = last_french_unit;
+
 	} else {
 		player = game.french;
 		enemy_player = game.british;
-		first_enemy_piece = first_british_piece;
-		last_enemy_leader = last_british_leader;
-		last_enemy_piece = last_british_piece;
+
 		first_friendly_piece = first_french_piece;
-		last_friendly_leader = last_french_leader;
 		last_friendly_piece = last_french_piece;
+		first_friendly_leader = first_french_leader;
+		last_friendly_leader = last_french_leader;
+		first_friendly_unit = first_french_unit;
+		last_friendly_unit = last_french_unit;
+
+		first_enemy_piece = first_british_piece;
+		last_enemy_piece = last_british_piece;
+		first_enemy_leader = first_british_leader;
+		last_enemy_leader = last_british_leader;
+		first_enemy_unit = first_british_unit;
+		last_enemy_unit = last_british_unit;
 	}
-	first_enemy_leader = first_enemy_piece;
-	first_friendly_leader = first_friendly_piece;
-	first_enemy_unit = last_enemy_leader + 1;
-	first_friendly_unit = last_friendly_leader + 1;
-	last_enemy_unit = last_enemy_piece;
-	last_friendly_unit = last_friendly_piece;
 }
 
 // LISTS
@@ -210,244 +353,204 @@ function find_space(name) {
 	return ix;
 }
 
-function find_leader(name) {
-	let ix = pieces.findIndex(piece => piece.name === name);
-	if (ix < 0)
-		throw new Error("cannot find leader " + name);
-	return ix;
-}
-
-function find_unused_unit(name) {
+function find_unused_piece(name) {
 	for (let i = 0; i <= last_piece; ++i)
 		if (pieces[i].name === name && game.location[i] === 0)
 			return i;
 	throw new Error("cannot find unit " + name);
 }
 
-const ports = [
-	"Alexandria",
-	"Baltimore",
-	"Boston",
-	"Halifax",
-	"Louisbourg",
-	"New Haven",
-	"New York",
-	"Philadelphia",
-	"Québec",
-].map(name => spaces.findIndex(space => space.name === name));
+function find_unused_provincial(dept) {
+	if (dept === 'northern') {
+		for (let p = first_northern_provincial; p <= last_northern_provincial; ++p)
+			if (is_piece_unused(p))
+				return p;
+	} else {
+		for (let p = first_southern_provincial; p <= last_southern_provincial; ++p)
+			if (is_piece_unused(p))
+				return p;
+	}
+	return 0;
+}
 
-const all_fortresses = [
-	"Albany",
-	"Alexandria",
-	"Baltimore",
-	"Boston",
-	"Halifax",
-	"Louisbourg",
-	"Montréal",
-	"New Haven",
-	"New York",
-	"Philadelphia",
-	"Québec",
-].map(name => spaces.findIndex(space => space.name === name));
+function find_unused_friendly_militia() {
+	if (game.active === FRANCE) {
+		for (let p = first_french_militia; p <= last_french_militia; ++p)
+			if (is_piece_unused(p))
+				return p;
+	} else {
+		for (let p = first_british_militia; p <= last_british_militia; ++p)
+			if (is_piece_unused(p))
+				return p;
+	}
+	return 0;
+}
+
+function find_unused_coureurs() {
+	for (let p = first_french_unit; p <= last_french_unit; ++p)
+		if (is_coureurs(p) && is_piece_unused(p))
+			return p;
+	return 0;
+}
+
+function find_unused_ranger() {
+	for (let p = first_friendly_unit; p <= last_friendly_unit; ++p)
+		if (is_ranger(p) && is_piece_unused(p))
+			return p;
+	return 0;
+}
+
+function find_unused_british_regular() {
+	for (let p = first_british_regular; p <= last_british_regular; ++p)
+		if (is_piece_unused(p))
+			return p;
+	return 0;
+}
+
+function find_unused_french_regular() {
+	for (let p = first_french_regular; p <= last_french_regular; ++p)
+		if (is_piece_unused(p))
+			return p;
+	return 0;
+}
+
+function find_unused_highland() {
+	for (let p = first_highland; p <= last_highland; ++p)
+		if (is_piece_unused(p))
+			return p;
+	return 0;
+}
+
+function find_unused_royal_american() {
+	for (let p = first_royal_american; p <= last_royal_american; ++p)
+		if (is_piece_unused(p))
+			return p;
+	return 0;
+}
+
+function find_unused_light_infantry() {
+	for (let p = first_light_infantry; p <= last_light_infantry; ++p)
+		if (is_piece_unused(p))
+			return p;
+	return 0;
+}
+
+const ports = [
+	ALEXANDRIA,
+	BALTIMORE,
+	BOSTON,
+	HALIFAX,
+	LOUISBOURG,
+	NEW_HAVEN,
+	NEW_YORK,
+	PHILADELPHIA,
+	QUEBEC,
+]
+
+const fortresses = [
+	ALBANY,
+	ALEXANDRIA,
+	BALTIMORE,
+	BOSTON,
+	HALIFAX,
+	LOUISBOURG,
+	MONTREAL,
+	NEW_HAVEN,
+	NEW_YORK,
+	PHILADELPHIA,
+	QUEBEC,
+]
 
 const originally_french_fortresses = [
-	"Louisbourg",
-	"Montréal",
-	"Québec",
-].map(name => spaces.findIndex(space => space.name === name));
+	LOUISBOURG,
+	MONTREAL,
+	QUEBEC,
+];
 
 const originally_british_fortresses = [
-	"Albany",
-	"Alexandria",
-	"Baltimore",
-	"Boston",
-	"Halifax",
-	"New Haven",
-	"New York",
-	"Philadelphia",
-].map(name => spaces.findIndex(space => space.name === name));
+	ALBANY,
+	ALEXANDRIA,
+	BALTIMORE,
+	BOSTON,
+	HALIFAX,
+	NEW_HAVEN,
+	NEW_YORK,
+	PHILADELPHIA,
+];
 
 const originally_british_fortresses_and_all_ports = [
-	"Albany",
-	"Alexandria",
-	"Baltimore",
-	"Boston",
-	"Halifax",
-	"Louisbourg",
-	"New Haven",
-	"New York",
-	"Philadelphia",
-	"Québec",
-].map(name => spaces.findIndex(space => space.name === name));
+	ALBANY,
+	ALEXANDRIA,
+	BALTIMORE,
+	BOSTON,
+	HALIFAX,
+	LOUISBOURG,
+	NEW_HAVEN,
+	NEW_YORK,
+	PHILADELPHIA,
+	QUEBEC,
+];
 
-
-const departments = {
-	st_lawrence: [
-		"Baie-St-Paul",
-		"Bécancour",
-		"Kahnawake",
-		"Lac des Deux Montagnes",
-		"Montréal",
-		"Québec",
-		"Rivière-Ouelle",
-		"Sorel",
-		"St-François",
-		"St-Jean",
-		"Trois-Rivières",
-		"Île d'Orléans",
-	].map(name => spaces.findIndex(space => space.name === name)),
-	northern: [
-		"Albany",
-		"Boston",
-		"Burlington",
-		"Charlestown",
-		"Concord",
-		"Deerfield",
-		"Gloucester",
-		"Hartford",
-		"Hoosic",
-		"Kinderhook",
-		"Manchester",
-		"New Haven",
-		"New York",
-		"Northampton",
-		"Peekskill",
-		"Portsmouth",
-		"Poughkeepsie",
-		"Providence",
-		"Schenectady",
-		"Trenton",
-		"Worcester",
-	].map(name => spaces.findIndex(space => space.name === name)),
-	southern: [
-		"Alexandria",
-		"Ashby's Gap",
-		"Augusta",
-		"Baltimore",
-		"Carlisle",
-		"Culpeper",
-		"Easton",
-		"Frederick",
-		"Harris's Ferry",
-		"Head of Elk",
-		"Lancaster",
-		"New Castle",
-		"Philadelphia",
-		"Reading",
-		"Shepherd's Ferry",
-		"Winchester",
-		"Woodstock",
-		"Wright's Ferry",
-		"York",
-	].map(name => spaces.findIndex(space => space.name === name)),
+function is_friendly_indian(p) {
+	if (game.active === FRANCE)
+		return is_french_indian(p);
+	return is_british_indian(p);
 }
 
-const indian_spaces = {
-	"blue-orange": [
-		find_space("Pays d'en Haut")
-	],
-	blue: [
-		"Kahnawake",
-		"Lac des Deux Montagnes",
-		"Mississauga",
-		"St-François",
-	].map(name => spaces.findIndex(space => space.name === name)),
-	orange: [
-		"Kittaning",
-		"Logstown",
-		"Mingo Town",
-	].map(name => spaces.findIndex(space => space.name === name)),
-	mohawks: [
-		"Canajoharie",
-	].map(name => spaces.findIndex(space => space.name === name)),
-	gray: [
-		"Cayuga",
-		"Karaghiyadirha",
-		"Oneida Castle",
-		"Onondaga",
-		"Shawiangto",
-	].map(name => spaces.findIndex(space => space.name === name)),
+const indians = {
+	spaces_from_color: {},
+	pieces_from_color: {},
+	pieces_from_space: {},
+	space_from_piece: {},
+	tribe_from_space: {},
+};
+
+function define_indian(color, space, tribe) {
+	if (!indians.pieces_from_color[color])
+		indians.pieces_from_color[color] = [];
+	if (!indians.spaces_from_color[color])
+		indians.spaces_from_color[color] = [];
+	if (space) {
+		if (!indians.spaces_from_color[color].includes(space))
+			indians.spaces_from_color[color].push(space);
+	}
+	if (!indians.pieces_from_space[space])
+		indians.pieces_from_space[space] = [];
+	if (space === PAYS_D_EN_HAUT)
+		indians.tribe_from_space[space] = "Pays d'en Haut";
+	else
+		indians.tribe_from_space[space] = tribe;
+	for (let p = 1; p <= last_piece; ++p) {
+		if (is_indian(p) && pieces[p].name === tribe) {
+			indians.pieces_from_color[color].push(p);
+			indians.pieces_from_space[space].push(p);
+			indians.space_from_piece[p] = space;
+		}
+	}
 }
 
-const indian_tribe = {};
+define_indian("cherokee", 0, "Cherokee");
+define_indian("mohawk", CANAJOHARIE, "Mohawk");
 
-function define_indian_settlement(space_name, tribe) {
-	let space = find_space(space_name);
-	if (space_name !== "Pays d'en Haut")
-		indian_tribe[space] = tribe;
-	for (let p = 1; p <= last_piece; ++p)
-		if (pieces[p].name === tribe)
-			pieces[p].settlement = space;
-}
+define_indian("blue", ST_FRANCOIS, "Abenaki");
+define_indian("blue", LAC_DES_DEUX_MONTAGNES, "Algonquin");
+define_indian("blue", KAHNAWAKE, "Caughnawaga");
+define_indian("blue", MISSISSAUGA, "Mississauga");
 
-define_indian_settlement("Kahnawake", "Caughnawaga");
-define_indian_settlement("Lac des Deux Montagnes", "Algonquin");
-define_indian_settlement("Mississauga", "Mississauga");
-define_indian_settlement("St-François", "Abenaki");
+define_indian("orange", KITTANING, "Delaware");
+define_indian("orange", MINGO_TOWN, "Mingo");
+define_indian("orange", LOGSTOWN, "Shawnee");
 
-define_indian_settlement("Mingo Town", "Mingo");
-define_indian_settlement("Logstown", "Shawnee");
-define_indian_settlement("Kittaning", "Delaware");
+define_indian("blue-orange", PAYS_D_EN_HAUT, "Huron");
+define_indian("blue-orange", PAYS_D_EN_HAUT, "Ojibwa");
+define_indian("blue-orange", PAYS_D_EN_HAUT, "Ottawa");
+define_indian("blue-orange", PAYS_D_EN_HAUT, "Potawatomi");
 
-define_indian_settlement("Canajoharie", "Mohawk");
-
-define_indian_settlement("Cayuga", "Cayuga");
-define_indian_settlement("Karaghiyadirha", "Seneca");
-define_indian_settlement("Oneida Castle", "Oneida");
-define_indian_settlement("Onondaga", "Onondaga");
-define_indian_settlement("Shawiangto", "Tuscarora");
-
-define_indian_settlement("Pays d'en Haut", "Ojibwa");
-define_indian_settlement("Pays d'en Haut", "Ottawa");
-define_indian_settlement("Pays d'en Haut", "Potawatomi");
-define_indian_settlement("Pays d'en Haut", "Huron");
-
-const JOHNSON = find_leader("Johnson");
-const ABERCROMBY = find_leader("Abercromby");
-const AMHERST = find_leader("Amherst");
-const FORBES = find_leader("Forbes");
-const WOLFE = find_leader("Wolfe");
-const BRADDOCK = find_leader("Braddock");
-const LOUDOUN = find_leader("Loudoun");
-const MONTCALM = find_leader("Montcalm");
-const LEVIS = find_leader("Lévis");
-const BOUGAINVILLE = find_leader("Bougainville");
-const SHIRLEY = find_leader("Shirley");
-
-const HALIFAX = find_space("Halifax");
-const LOUISBOURG = find_space("Louisbourg");
-const BAIE_ST_PAUL = find_space("Baie-St-Paul");
-const RIVIERE_OUELLE = find_space("Rivière-Ouelle");
-const ILE_D_ORLEANS = find_space("Île d'Orléans");
-const QUEBEC = find_space("Québec");
-const MONTREAL = find_space("Montréal");
-const OHIO_FORKS = find_space("Ohio Forks");
-const CANAJOHARIE = find_space("Canajoharie");
-const NIAGARA = find_space("Niagara");
-const OSWEGO = find_space("Oswego");
-const ONEIDA_CARRY_WEST = find_space("Oneida Carry West");
-const ONEIDA_CARRY_EAST = find_space("Oneida Carry East");
-const PAYS_D_EN_HAUT = find_space("Pays d'en Haut");
-
-const ST_LAWRENCE_CANADIAN_MILITIAS = find_space("St. Lawrence Canadian Militias");
-const NORTHERN_COLONIAL_MILITIAS = find_space("Northern Colonial Militias");
-const SOUTHERN_COLONIAL_MILITIAS = find_space("Southern Colonial Militias");
-
-const SURRENDER = 6;
-const MASSACRE = 7;
-const COEHORNS = 8;
-const FIELDWORKS_1 = 9;
-const FIELDWORKS_2 = 10;
-const AMBUSH_1 = 11;
-const AMBUSH_2 = 12;
-const BLOCKHOUSES = 13;
-const FOUL_WEATHER = 14;
-const LAKE_SCHOONER = 15;
-const GEORGE_CROGHAN = 16;
-const first_amphib_card = 17;
-const last_amphib_card = 20;
-const LOUISBOURG_SQUADRONS = 21;
-const ACADIANS_EXPELLED = 66;
+define_indian("gray", CAYUGA, "Cayuga");
+define_indian("gray", ONEIDA_CASTLE, "Oneida");
+define_indian("gray", ONONDAGA, "Onondaga");
+define_indian("gray", KARAGHIYADIRHA, "Seneca");
+define_indian("gray", SHAWIANGTO, "Tuscarora");
 
 const within_two_of_canajoharie = [ CANAJOHARIE ];
 for_each_exit(CANAJOHARIE, one => {
@@ -462,10 +565,10 @@ for_each_exit(CANAJOHARIE, one => {
 });
 
 const within_two_of_gray_settlement = [];
-indian_spaces.gray.forEach(zero => {
+indians.spaces_from_color.gray.forEach(zero => {
 	within_two_of_gray_settlement.push(zero);
 });
-indian_spaces.gray.forEach(zero => {
+indians.spaces_from_color.gray.forEach(zero => {
 	for_each_exit(zero, one => {
 		if (!within_two_of_gray_settlement.includes(one)) {
 			within_two_of_gray_settlement.push(one);
@@ -482,28 +585,6 @@ const in_or_adjacent_to_ohio_forks = [ OHIO_FORKS ];
 for_each_exit(OHIO_FORKS, one => {
 	in_or_adjacent_to_ohio_forks.push(one);
 });
-
-function has_amphibious_arrow(s) {
-	return s === HALIFAX || s === LOUISBOURG;
-}
-
-// Map spaces except militia boxes and leader boxes.
-const first_space = 1;
-const last_space = NORTHERN_COLONIAL_MILITIAS-1;
-
-const british_iroquois_or_mohawk_names = [
-	"Seneca", "Cayuga", "Onondaga", "Tuscarora", "Oneida", "Mohawk"
-];
-
-const british_iroquois_or_mohawk_units = [];
-for (let i = 1; i <= last_piece; ++i) {
-	let piece = pieces[i];
-	if (piece.faction === 'british' && piece.type === 'indian' && british_iroquois_or_mohawk_names.includes(piece.name))
-		british_iroquois_or_mohawk_units.push(i);
-}
-
-const originally_friendly_french_spaces = departments.st_lawrence.concat([LOUISBOURG]);
-const originally_friendly_british_spaces = departments.northern.concat(departments.southern).concat([HALIFAX]);
 
 // CARD DECK
 
@@ -570,7 +651,6 @@ function draw_leader_from_pool() {
 		}
 
 		game.british.pool.splice(i, 1);
-		move_piece_to(p, leader_box(p)); // TODO: yes/no show drawn leader here?
 		return p;
 	}
 	return 0;
@@ -588,12 +668,18 @@ function is_friendly_card_available(c) {
 	return player.hand.length > 0 && is_card_available(c);
 }
 
+function get_player_hand(role) {
+	if (role === FRANCE)
+		return game.french.hand;
+	return game.british.hand;
+}
+
 function is_card_available_for_attacker(c) {
-	return game[game.battle.attacker].hand.length > 0 && is_card_available(c);
+	return get_player_hand(game.battle.attacker).length > 0 && is_card_available(c);
 }
 
 function is_card_available_for_defender(c) {
-	return game[game.battle.defender].hand.length > 0 && is_card_available(c);
+	return get_player_hand(game.battle.defender).length > 0 && is_card_available(c);
 }
 
 // ITERATORS
@@ -603,14 +689,14 @@ function for_each_siege(fn) {
 		fn(sid|0, game.sieges[sid]);
 }
 
+function for_each_exit_with_type(s, fn) {
+	for (let [n, t] of spaces[s].exits_with_type)
+		fn(n, t);
+}
+
 function for_each_exit(s, fn) {
-	let { land, river, lakeshore } = spaces[s];
-	for (let i = 0; i < land.length; ++i)
-		fn(land[i], 'land');
-	for (let i = 0; i < river.length; ++i)
-		fn(river[i], 'river');
-	for (let i = 0; i < lakeshore.length; ++i)
-		fn(lakeshore[i], 'lakeshore');
+	for (let n of spaces[s].exits)
+		fn(n);
 }
 
 function for_each_friendly_piece_in_node(node, fn) {
@@ -696,7 +782,7 @@ function for_each_british_controlled_port_and_amphib(fn) {
 function list_auxiliary_units_in_force(force) {
 	let list = [];
 	for_each_unit_in_force(force, p => {
-		if (is_auxiliary_unit(p))
+		if (is_auxiliary(p))
 			list.push(p);
 	});
 	return list;
@@ -705,11 +791,11 @@ function list_auxiliary_units_in_force(force) {
 // STATIC PROPERTIES
 
 function department_militia(s) {
-	if (departments.st_lawrence.includes(s))
+	if (is_st_lawrence_department(s))
 		return ST_LAWRENCE_CANADIAN_MILITIAS;
-	if (departments.northern.includes(s))
+	if (is_northern_department(s))
 		return NORTHERN_COLONIAL_MILITIAS;
-	if (departments.southern.includes(s))
+	if (is_southern_department(s))
 		return SOUTHERN_COLONIAL_MILITIAS;
 	return 0;
 }
@@ -726,148 +812,20 @@ function is_lake_connection(from, to) {
 	return false;
 }
 
-function is_wilderness_or_mountain(s) {
-	let type = spaces[s].type;
-	return type === 'wilderness' || type === 'mountain';
-}
-
-function is_wilderness(s) {
-	return spaces[s].type === 'wilderness';
-}
-
-function is_mountain(s) {
-	return spaces[s].type === 'mountain';
-}
-
-function is_cultivated(s) {
-	return spaces[s].type === 'cultivated';
-}
-
-function is_militia_box(s) {
-	return spaces[s].type === 'militia-box';
-}
-
-function is_leader_box(s) {
-	return spaces[s].type === 'leader-box';
+function has_amphibious_arrow(s) {
+	return s === HALIFAX || s === LOUISBOURG;
 }
 
 function is_originally_friendly(s) {
 	if (game.active === FRANCE)
-		return originally_friendly_french_spaces.includes(s);
-	return originally_friendly_british_spaces.includes(s);
+		return is_originally_french(s);
+	return is_originally_british(s);
 }
 
 function is_originally_enemy(s) {
 	if (game.active === BRITAIN)
-		return originally_friendly_french_spaces.includes(s);
-	return originally_friendly_british_spaces.includes(s);
-}
-
-function is_fortress(s) {
-	return all_fortresses.includes(s);
-}
-
-function is_leader(p) {
-	return pieces[p].type === 'leader';
-}
-
-function is_unit(p) {
-	return pieces[p].type !== 'leader';
-}
-
-function is_british_iroquois_or_mohawk(p) {
-	return british_iroquois_or_mohawk_units.includes(p);
-}
-
-function is_provincial_unit(p) {
-	switch (pieces[p].type) {
-	case 'northern provincial': return true;
-	case 'southern provincial': return true;
-	}
-	return false;
-}
-
-function is_provincial_unit_from(p, type) {
-	switch (pieces[p].type) {
-	case 'northern provincial': return type === 'northern';
-	case 'southern provincial': return type === 'southern';
-	}
-	return false;
-}
-
-function is_drilled_troops(p) {
-	switch (pieces[p].type) {
-	case 'regular': return true;
-	case 'marine detachment': return true;
-	case 'royal': return true;
-	case 'highland': return true;
-	case 'light infantry': return true;
-	case 'northern provincial': return true;
-	case 'southern provincial': return true;
-	}
-	return false;
-}
-
-function is_militia_unit(p) {
-	return pieces[p].type === 'militia';
-}
-
-function is_light_infantry_unit(p) {
-	return pieces[p].type === 'light infantry';
-}
-
-function is_indian_unit(p) {
-	return pieces[p].type === 'indian';
-}
-
-function is_indian_tribe(p, tribe) {
-	return pieces[p].type === 'indian' && pieces[p].name === tribe;
-}
-
-function indian_home_settlement(p) {
-	return pieces[p].settlement || 0;
-}
-
-function is_regular_unit(p) {
-	let type = pieces[p].type;
-	return type === 'regular' || type === 'marine detachment' || type === 'highland' || type === 'royal';
-}
-
-function is_highland_unit(p) {
-	return pieces[p].type === 'highland';
-}
-
-function is_royal_american_unit(p) {
-	return pieces[p].type === 'royal';
-}
-
-function is_34_regular_unit(p) {
-	return pieces[p].type === 'regular';
-}
-
-function is_western_indian_unit(p) {
-	return pieces[p].type === 'indian' && pieces[p].subtype === 'orange';
-}
-
-function is_pays_d_en_haut_indian_unit(p) {
-	return pieces[p].type === 'indian' && pieces[p].subtype === 'blue-orange';
-}
-
-function is_ranger_unit(p) {
-	return pieces[p].type === 'ranger';
-}
-
-function is_coureurs_unit(p) {
-	return pieces[p].type === 'coureurs';
-}
-
-function is_auxiliary_unit(p) {
-	switch (pieces[p].type) {
-	case 'indian': return true;
-	case 'coureurs': return true;
-	case 'ranger': return true;
-	}
-	return false;
+		return is_originally_french(s);
+	return is_originally_british(s);
 }
 
 function piece_name(p) {
@@ -884,12 +842,8 @@ function piece_movement(p) {
 	return pieces[p].movement;
 }
 
-function leader_box_leader(s) {
-	return spaces[s].leader;
-}
-
 function leader_box(p) {
-	return pieces[p].box;
+	return box_from_leader[p];
 }
 
 function leader_initiative(p) {
@@ -919,9 +873,9 @@ function piece_node(p) {
 }
 
 function piece_space(p) {
-	let where = piece_node(p);
+	let where = game.location[p];
 	if (is_leader_box(where))
-		return piece_node(leader_box_leader(where));
+		return game.location[leader_from_box[where-first_leader_box]];
 	return where;
 }
 
@@ -1017,11 +971,11 @@ function set_piece_outside(p) {
 }
 
 function is_piece_on_map(p) {
-	return piece_node(p) !== 0;
+	return game.location[p] !== 0;
 }
 
 function is_piece_unused(p) {
-	return piece_node(p) === 0;
+	return game.location[p] === 0;
 }
 
 function is_piece_in_node(p, node) {
@@ -1049,13 +1003,13 @@ function has_fieldworks(s) {
 }
 
 function place_fieldworks(s) {
-	log(`Fieldworks placed at ${space_name(s)}.`);
+	log(`Placed fieldworks at ${space_name(s)}.`);
 	game.fieldworks.push(s);
 }
 
 function remove_fieldworks(s) {
 	if (game.fieldworks.includes(s)) {
-		log(`Fieldworks removed at ${space_name(s)}.`);
+		log(`Removed fieldworks at ${space_name(s)}.`);
 		remove_from_array(game.fieldworks, s);
 	}
 }
@@ -1314,7 +1268,7 @@ function has_friendly_drilled_troops(s) {
 
 function has_friendly_regulars(s) {
 	for (let p = first_friendly_unit; p <= last_friendly_unit; ++p)
-		if (is_regular_unit(p) && is_piece_in_space(p, s))
+		if (is_regular(p) && is_piece_in_space(p, s))
 			return true;
 	return false;
 }
@@ -1322,21 +1276,21 @@ function has_friendly_regulars(s) {
 function has_friendly_rangers(s) {
 	if (game.active === BRITAIN)
 		for (let p = first_british_unit; p <= last_british_unit; ++p)
-			if (is_ranger_unit(p) && is_piece_in_space(p, s))
+			if (is_ranger(p) && is_piece_in_space(p, s))
 				return true;
 	return false;
 }
 
 function has_friendly_indians(s) {
 	for (let p = first_friendly_unit; p <= last_friendly_unit; ++p)
-		if (is_indian_unit(p) && is_piece_in_space(p, s))
+		if (is_indian(p) && is_piece_in_space(p, s))
 			return true;
 	return false;
 }
 
 function has_unbesieged_enemy_auxiliary(s) {
 	for (let p = first_enemy_unit; p <= last_enemy_unit; ++p)
-		if (is_auxiliary_unit(p) && is_piece_in_space(p, s) && !is_piece_inside(p))
+		if (is_auxiliary(p) && is_piece_in_space(p, s) && !is_piece_inside(p))
 			return true;
 	return false;
 }
@@ -1379,10 +1333,17 @@ function has_besieged_friendly_units(s) {
 }
 
 function count_militia_in_department(box) {
-	let list = (box === ST_LAWRENCE_CANADIAN_MILITIAS ? french_militia_units : british_militia_units);
-	for (let i = 0; i < list.length; ++i)
-		if (piece_node(list[i]) === box)
-			return true;
+	if (box === ST_LAWRENCE_CANADIAN_MILITIAS) {
+		for (let p = first_french_militia; p <= last_french_militia; ++p) {
+			if (piece_node(p) === box)
+				return true;
+		}
+	} else {
+		for (let p = first_british_militia; p <= last_british_militia; ++p) {
+			if (piece_node(p) === box)
+				return true;
+		}
+	}
 	return false;
 }
 
@@ -1408,14 +1369,14 @@ function is_lone_auxiliary(who) {
 		let only_ax = true;
 		let ax_count = 0;
 		for_each_unit_in_force(who, p => {
-			if (is_auxiliary_unit(p))
+			if (is_auxiliary(p))
 				++ax_count;
 			else
 				only_ax = false;
 		});
 		return only_ax && ax_count === 1;
 	}
-	return is_auxiliary_unit(who);
+	return is_auxiliary(who);
 }
 
 function force_has_drilled_troops(who) {
@@ -1436,28 +1397,28 @@ function force_has_supplied_drilled_troops(who) {
 	return false;
 }
 
-function force_has_auxiliary_unit(who) {
+function force_has_auxiliary(who) {
 	if (is_leader(who)) {
 		let has_ax = false;
 		for_each_unit_in_force(who, p => {
-			if (is_auxiliary_unit(p))
+			if (is_auxiliary(p))
 				has_ax = true;
 		});
 		return has_ax;
 	}
-	return is_auxiliary_unit(who);
+	return is_auxiliary(who);
 }
 
 function force_has_only_auxiliary_units(who) {
 	if (is_leader(who)) {
 		let only_ax = true;
 		for_each_unit_in_force(who, p => {
-			if (!is_auxiliary_unit(p))
+			if (!is_auxiliary(p))
 				only_ax = false;
 		});
 		return only_ax;
 	}
-	return is_auxiliary_unit(who);
+	return is_auxiliary(who);
 }
 
 function is_raid_space(s) {
@@ -1607,31 +1568,33 @@ function restore_unit(p) {
 	set_unit_reduced(p, 0);
 }
 
-function reduce_unit(p) {
+function reduce_unit(p, verbose=true) {
 	if (is_unit_reduced(p)) {
-		eliminate_piece(p);
+		eliminate_piece(p, verbose);
 		return true;
 	}
 	set_unit_reduced(p, 1);
-	log(`Reduced ${piece_name_and_place(p)}.`);
+	if (verbose)
+		log(`Reduced ${piece_name_and_place(p)}.`);
+	else
+		log(`Reduced ${piece_name(p)}.`);
 	return false;
 }
 
-function eliminate_piece(p) {
-	log(`Eliminated ${piece_name_and_place(p)}.`);
+function eliminate_piece(p, verbose=true) {
+	if (verbose)
+		log(`Eliminated ${piece_name_and_place(p)}.`);
+	else
+		log(`Eliminated ${piece_name(p)}.`);
 	unstack_force(p);
 	set_unit_reduced(p, 0);
 	game.location[p] = 0;
-	if (is_indian_unit(p)) {
-		let home = indian_home_settlement(p);
+	if (is_indian(p)) {
+		let home = indians.space_from_piece[p];
 		if (home) {
-			let tribe = indian_tribe[home];
 			if (is_indian_tribe_eliminated(home)) {
-				if (home === PAYS_D_EN_HAUT)
-					log(`Removed Pays d'en Haut allied marker.`);
-				else
-					log(`Removed ${tribe} allied marker.`);
-				if (pieces[p].faction === 'british')
+				log(`Removed ${indians.tribe_from_space[home]} allied marker.`);
+				if (is_british_indian(p))
 					remove_from_array(game.british.allied, home);
 				else
 					remove_from_array(game.french.allied, home);
@@ -1640,27 +1603,16 @@ function eliminate_piece(p) {
 	}
 }
 
-function eliminate_indian_tribe(tribe) {
-	// OPTIMIZE: indian unit piece ranges
-	for (let p = 1; p <= last_piece; ++p)
-		if (is_indian_tribe(p, tribe) && is_piece_unbesieged(p))
+function eliminate_indian_tribe(s) {
+	for (let p of indians.pieces_from_space[s])
+		if (is_piece_unbesieged(p))
 			eliminate_piece(p);
 }
 
-function is_indian_tribe_eliminated(home) {
-	// OPTIMIZE: indian unit piece ranges
-	if (home === PAYS_D_EN_HAUT) {
-		for (let p = 1; p <= last_piece; ++p)
-			if (is_pays_d_en_haut_indian_unit(p))
-				if (is_piece_on_map(p))
-					return false;
-	} else {
-		let tribe = indian_tribe[home];
-		for (let p = 1; p <= last_piece; ++p)
-			if (is_indian_tribe(p, tribe))
-				if (is_piece_on_map(p))
-					return false;
-	}
+function is_indian_tribe_eliminated(s) {
+	for (let p of indians.pieces_from_space[s])
+		if (is_piece_on_map(p))
+			return false;
 	return true;
 }
 
@@ -1687,18 +1639,17 @@ function place_piece(who, to) {
 		}
 	}
 
-	if (is_indian_unit(who)) {
-		let home = indian_home_settlement(who);
+	if (is_indian(who)) {
+		let home = indians.space_from_piece[who];
 		if (home) {
-			let tribe = indian_tribe[home];
-			if (pieces[who].faction === 'british') {
+			if (is_british_indian(who)) {
 				if (!game.british.allied.includes(home)) {
-					log(`Placed ${tribe} allied marker.`);
+					log(`Placed ${indians.tribe_from_space[home]} allied marker.`);
 					game.british.allied.push(home);
 				}
 			} else {
 				if (!game.french.allied.includes(home)) {
-					log(`Placed ${tribe} allied marker.`);
+					log(`Placed ${indians.tribe_from_space[home]} allied marker.`);
 					game.french.allied.push(home);
 				}
 			}
@@ -1837,7 +1788,7 @@ function search_supply_spaces_imp(queue) {
 		// If we must have come here by water way:
 		let cultivated = is_cultivated(current) || has_friendly_fortifications(current) || has_friendly_amphib(current);
 		// console.log("SUPPLY", space_name(current), cultivated);
-		for_each_exit(current, (next, type) => {
+		for_each_exit_with_type(current, (next, type) => {
 			if (reached.includes(next))
 				return; // continue
 			if (has_unbesieged_enemy_units(next) || has_unbesieged_enemy_fortifications(next))
@@ -1931,7 +1882,7 @@ function find_closest_friendly_unbesieged_fortification(start) {
 			result.push(here);
 		}
 		if (dist < stop) {
-			for_each_exit(here, (next) => {
+			for_each_exit(here, next => {
 				if (!(next in seen))
 					queue.push([next, dist+1]);
 				seen[next] = 1;
@@ -2194,13 +2145,13 @@ states.activate_individually = {
 			for (let p = first_friendly_unit; p <= last_friendly_unit; ++p) {
 				if (is_piece_on_map(p)) {
 					if (game.count >= 0.5) {
-						if (is_indian_unit(p))
+						if (is_indian(p))
 							gen_action_piece(p);
 					}
 					if (game.count >= 1) {
-						if (is_ranger_unit(p))
+						if (is_ranger(p))
 							gen_action_piece(p);
-						if (is_coureurs_unit(p))
+						if (is_coureurs(p))
 							gen_action_piece(p);
 						if (is_drilled_troops(p))
 							if (game.activation.length === 0)
@@ -2215,7 +2166,7 @@ states.activate_individually = {
 		game.activation.push(p);
 		if (is_drilled_troops(p))
 			game.count = 0;
-		else if (is_indian_unit(p))
+		else if (is_indian(p))
 			game.count -= 0.5;
 		else
 			game.count -= 1.0;
@@ -2244,6 +2195,7 @@ states.activate_force = {
 }
 
 states.select_campaign_1 = {
+	inactive: "campaign",
 	prompt() {
 		view.prompt = "Campaign \u2014 select the first leader.";
 		for (let p = first_friendly_leader; p <= last_friendly_leader; ++p) {
@@ -2263,6 +2215,7 @@ states.select_campaign_1 = {
 }
 
 states.select_campaign_2 = {
+	inactive: "campaign",
 	prompt() {
 		view.prompt = "Campaign \u2014 select the second leader.";
 		for (let p = first_friendly_leader; p <= last_friendly_leader; ++p) {
@@ -2344,7 +2297,18 @@ function can_drop_off_leader(commander, subordinate) {
 	return count_non_british_iroquois_and_mohawk_units_in_force(commander) <= force_command(commander) - leader_command(subordinate);
 }
 
+const define_force_reason_prompt = {
+	'campaign_1': "for first campaign",
+	'campaign_2': "for second campaign",
+	'move': "to move",
+	'intercept': "to intercept",
+	'avoid': "to avoid battle",
+}
+
 states.define_force = {
+	get inactive() {
+		return "define force " + define_force_reason_prompt[game.force.reason];
+	},
 	prompt() {
 		let commander = game.force.commander;
 		let where = piece_space(commander);
@@ -2353,7 +2317,7 @@ states.define_force = {
 		let cmd_use = count_non_british_iroquois_and_mohawk_units_in_force(commander);
 		let cmd_cap = force_command(commander);
 
-		view.prompt = `Define the force to ${game.force.reason} with ${piece_name(commander)} from ${space_name(where)} (${cmd_use}/${cmd_cap}).`;
+		view.prompt = `Define force ${define_force_reason_prompt[game.force.reason]} with ${piece_name(commander)} from ${space_name(where)} (${cmd_use}/${cmd_cap}).`;
 		view.who = commander;
 
 		let can_pick_up = false;
@@ -2475,6 +2439,7 @@ states.define_force = {
 
 // TODO: merge with define_force using reason=intercept_lone_ax
 states.define_force_lone_ax = {
+	inactive: "define lone auxiliary force to intercept",
 	prompt() {
 		let commander = game.force.commander;
 		let where = piece_space(commander);
@@ -2492,7 +2457,7 @@ states.define_force_lone_ax = {
 		// pick up units (max 1 auxiliary)
 		if (n === 0) {
 			for_each_friendly_unit_in_node(where, p => {
-				if (is_auxiliary_unit(p)) {
+				if (is_auxiliary(p)) {
 					if (is_british_iroquois_or_mohawk(p)) {
 						// 5.534 Only Johnson can command British Iroquois and Mohawk (and for free)
 						if (is_piece_in_force(JOHNSON, commander))
@@ -2646,7 +2611,7 @@ function piece_can_naval_move_from(who, from) {
 	if (game.active === BRITAIN) {
 		if (has_amphib(from))
 			return true;
-		if (ports.includes(from))
+		if (is_port(from))
 			return is_friendly_controlled_space(from);
 		return false;
 	}
@@ -2804,7 +2769,7 @@ function apply_move(to) {
 		const from_ff = has_friendly_fortifications_or_cultivated(from);
 		const to_ff = has_friendly_fortifications_or_cultivated(to);
 		const has_dt = force_has_drilled_troops(who);
-		const has_ax = force_has_auxiliary_unit(who);
+		const has_ax = force_has_auxiliary(who);
 
 		// Must stop on mountains.
 		if (is_mountain(to) && !to_ff)
@@ -3233,7 +3198,7 @@ function gen_intercept() {
 				let has_br_indians = false;
 				for_each_friendly_unit_in_space(from, p => {
 					if (is_piece_unbesieged(p)) {
-						if (is_auxiliary_unit(p)) {
+						if (is_auxiliary(p)) {
 							gen_action_piece(p);
 							if (is_british_iroquois_or_mohawk(p))
 								has_br_indians = true;
@@ -3341,7 +3306,7 @@ function attempt_intercept() {
 	if (is_leader(who))
 		die = modify(die, leader_tactics(who), "leader tactics");
 	if (die >= 4) {
-		log(`Intercepted by ${describe_force(who)}!`);
+		log(`Intercepted by ${describe_force(who)}.`);
 		end_intercept_success();
 	} else {
 		log(`${piece_name_and_place(who)} failed interception.`);
@@ -3407,6 +3372,7 @@ states.declare_inside = {
 		set_piece_inside(p);
 	},
 	next() {
+		clear_undo();
 		set_active_enemy();
 		goto_avoid_battle();
 	},
@@ -3525,7 +3491,7 @@ states.avoid_to = {
 				});
 			}
 		}
-		log(`Avoided battle with ${describe_force(moving_piece())}!`);
+		log(`Avoided battle with ${describe_force(moving_piece())}.`);
 	},
 	space(to) {
 		end_avoid_battle_success(to);
@@ -3641,16 +3607,16 @@ function combat_result(die, str, shift) {
 			let k = clamp(i + shift, 0, COMBAT_RESULT_TABLE.length-1);
 			let r = COMBAT_RESULT_TABLE[k][1][die];
 			if (k === 0)
-				log(`Lookup ${die} on column 0: ${r}.`);
+				log(`Lookup ${die} on column 0.`);
 			else if (k === COMBAT_RESULT_TABLE.length - 1)
-				log(`Lookup ${die} on column >= 28: ${r}.`);
+				log(`Lookup ${die} on column >= 28.`);
 			else {
 				let a = COMBAT_RESULT_TABLE[k-1][0] + 1;
 				let b = COMBAT_RESULT_TABLE[k][0];
 				if (a === b)
-					log(`Lookup ${die} on column ${b}: ${r}.`);
+					log(`Lookup ${die} on column ${b}.`);
 				else
-					log(`Lookup ${die} on column ${a}-${b}: ${r}.`);
+					log(`Lookup ${die} on column ${a}-${b}.`);
 			}
 			return r;
 		}
@@ -3676,6 +3642,7 @@ function goto_battle(where, is_assault) {
 
 	// Make a list of attacking pieces (for sorties and so we can unstack from the leader box)
 	if (game.battle.assault) {
+		console.log("START ASSAULT");
 		game.battle.atk_commander = find_friendly_commanding_leader_in_space(game.battle.where);
 		let where = game.battle.where;
 		if (game.battle.attacker === BRITAIN) {
@@ -3687,12 +3654,14 @@ function goto_battle(where, is_assault) {
 				if (is_piece_in_space(p, where))
 					game.battle.atk_pcs.push(p);
 		}
-	} else if (game.raid) {
+	} else if (game.raid.where === where) {
+		console.log("START RAID BATTLE");
 		game.battle.atk_commander = find_friendly_commanding_leader_in_space(game.battle.where);
 		for_each_friendly_piece_in_space(game.battle.where, p => {
 			game.battle.atk_pcs.push(p);
 		});
 	} else {
+		console.log("START BATTLE");
 		game.battle.atk_commander = game.move.moving;
 		for_each_piece_in_force(game.move.moving, p => {
 			game.battle.atk_pcs.push(p);
@@ -3715,7 +3684,7 @@ function goto_battle(where, is_assault) {
 		for_each_attacking_piece(p => {
 			if (is_unit(p))
 				++n_atk;
-			if (is_regular_unit(p))
+			if (is_regular(p))
 				game.battle.atk_worth_vp = 1;
 		});
 		if (n_atk > 4)
@@ -3725,7 +3694,7 @@ function goto_battle(where, is_assault) {
 		for_each_defending_piece(p => {
 			if (is_unit(p))
 				++n_def;
-			if (is_regular_unit(p))
+			if (is_regular(p))
 				game.battle.def_worth_vp = 1;
 		});
 		if (n_def > 4)
@@ -3746,24 +3715,27 @@ function goto_battle_militia() {
 	let box = department_militia(game.battle.where);
 	if (box && count_militia_in_department(box) > 0) {
 		console.log("MILITIA", space_name(game.battle.where), space_name(box));
-		let dept = null;
+		let first = 0, last = 0;
 		switch (box) {
 		case ST_LAWRENCE_CANADIAN_MILITIAS:
 			set_active(FRANCE);
-			dept = departments.st_lawrence;
+			first = first_st_lawrence_department;
+			last = last_st_lawrence_department;
 			break;
 		case NORTHERN_COLONIAL_MILITIAS:
 			set_active(BRITAIN);
-			dept = departments.northern;
+			first = first_northern_department;
+			last = last_northern_department;
 			break;
 		case SOUTHERN_COLONIAL_MILITIAS:
 			set_active(BRITAIN);
-			dept = departments.southern;
+			first = first_southern_department;
+			last = last_southern_department;
 			break;
 		}
 		// 7.3 exception: No Militia if there are enemy raided markers.
-		for (let i = 0; i < dept.length; ++i)
-			if (has_enemy_raided_marker(dept[i]))
+		for (let s = first; s <= last; ++s)
+			if (has_enemy_raided_marker(s))
 				return goto_battle_sortie();
 		game.state = 'militia_in_battle';
 	} else {
@@ -3776,9 +3748,15 @@ states.militia_in_battle = {
 		view.prompt = "Determine which Militia units will participate.";
 		let box = department_militia(game.battle.where);
 		view.where = game.battle.where;
-		for (let p = first_friendly_unit; p <= last_friendly_unit; ++p)
-			if (piece_node(p) === box)
-				gen_action_piece(p);
+		if (game.active === FRANCE) {
+			for (let p = first_french_militia; p <= last_french_militia; ++p)
+				if (piece_node(p) === box)
+					gen_action_piece(p);
+		} else {
+			for (let p = first_british_militia; p <= last_british_militia; ++p)
+				if (piece_node(p) === box)
+					gen_action_piece(p);
+		}
 		gen_action_next();
 	},
 	piece(p) {
@@ -3830,7 +3808,7 @@ states.sortie = {
 function count_auxiliary_units_in_attack() {
 	let n = 0;
 	for_each_attacking_piece(p => {
-		if (is_auxiliary_unit(p))
+		if (is_auxiliary(p))
 			++n;
 	});
 	return n;
@@ -3839,7 +3817,7 @@ function count_auxiliary_units_in_attack() {
 function count_auxiliary_units_in_defense() {
 	let n = 0;
 	for_each_defending_piece(p => {
-		if (is_auxiliary_unit(p))
+		if (is_auxiliary(p))
 			++n;
 	});
 	return n;
@@ -3848,7 +3826,7 @@ function count_auxiliary_units_in_defense() {
 function has_light_infantry_in_attack() {
 	let n = 0;
 	for_each_attacking_piece(p => {
-		if (is_light_infantry_unit(p))
+		if (is_light_infantry(p))
 			++n;
 	});
 	return n > 0;
@@ -3857,7 +3835,7 @@ function has_light_infantry_in_attack() {
 function has_light_infantry_in_defense() {
 	let n = 0;
 	for_each_defending_piece(p => {
-		if (is_light_infantry_unit(p))
+		if (is_light_infantry(p))
 			++n;
 	});
 	return n > 0;
@@ -3984,7 +3962,8 @@ states.attacker_events = {
 			else
 				dont_have.push('"Fieldworks"');
 		}
-		view.prompt = "Attacker events.";
+		view.prompt = "Attacker at ${game.battle.where}.";
+		view.where = game.battle.where;
 		if (have.length > 0)
 			view.prompt += " You may play " + have.join(" or ") + ".";
 		if (dont_have.length > 0)
@@ -4051,6 +4030,7 @@ states.defender_events = {
 				dont_have.push('"Fieldworks"');
 		}
 		view.prompt = `Defender at ${space_name(game.battle.where)}.`;
+		view.where = game.battle.where;
 		if (have.length > 0)
 			view.prompt += " You may play " + have.join(" or ") + ".";
 		if (dont_have.length > 0)
@@ -4178,14 +4158,14 @@ function goto_atk_fire() {
 		shift -= 1;
 	} else {
 		if (is_wilderness_or_mountain(game.battle.where)) {
-			let atk_has_ax = some_attacking_piece(p => is_auxiliary_unit(p) || is_light_infantry_unit(p));
-			let def_has_ax = some_defending_piece(p => is_auxiliary_unit(p) || is_light_infantry_unit(p));
+			let atk_has_ax = some_attacking_piece(p => is_auxiliary(p) || is_light_infantry(p));
+			let def_has_ax = some_defending_piece(p => is_auxiliary(p) || is_light_infantry(p));
 			if (!atk_has_ax && def_has_ax)
 				die = modify(die, -1, "vs auxiliaries in wilderness");
 		}
 		if (is_cultivated(game.battle.where)) {
-			let atk_has_reg = some_attacking_piece(p => is_regular_unit(p));
-			let def_has_reg = some_defending_piece(p => is_regular_unit(p));
+			let atk_has_reg = some_attacking_piece(p => is_regular(p));
+			let def_has_reg = some_defending_piece(p => is_regular(p));
 			if (!atk_has_reg && def_has_reg)
 				die = modify(die, -1, "vs regulars in cultivated");
 		}
@@ -4231,14 +4211,14 @@ function goto_def_fire() {
 
 	if (!game.battle.assault) {
 		if (is_wilderness_or_mountain(game.battle.where)) {
-			let atk_has_ax = some_attacking_piece(p => is_auxiliary_unit(p) || is_light_infantry_unit(p));
-			let def_has_ax = some_defending_piece(p => is_auxiliary_unit(p) || is_light_infantry_unit(p));
+			let atk_has_ax = some_attacking_piece(p => is_auxiliary(p) || is_light_infantry(p));
+			let def_has_ax = some_defending_piece(p => is_auxiliary(p) || is_light_infantry(p));
 			if (atk_has_ax && !def_has_ax)
 				die = modify(die, -1, "vs auxiliaries in wilderness");
 		}
 		if (is_cultivated(game.battle.where)) {
-			let atk_has_reg = some_attacking_piece(p => is_regular_unit(p));
-			let def_has_reg = some_defending_piece(p => is_regular_unit(p));
+			let atk_has_reg = some_attacking_piece(p => is_regular(p));
+			let def_has_reg = some_defending_piece(p => is_regular(p));
 			if (atk_has_reg && !def_has_reg)
 				die = modify(die, -1, "vs regulars in cultivated");
 		}
@@ -4269,6 +4249,8 @@ function goto_atk_step_losses() {
 			if (is_unit(p))
 				game.battle.units.push(p);
 		});
+		log("");
+		log("ATTACKER LOSSES");
 	} else {
 		end_step_losses();
 	}
@@ -4292,6 +4274,10 @@ function goto_def_step_losses() {
 		// None to take!
 		if (game.battle.units.length === 0)
 			end_step_losses();
+		else {
+			log("");
+			log("DEFENDER LOSSES");
+		}
 	} else {
 		end_step_losses();
 	}
@@ -4345,7 +4331,7 @@ states.step_losses = {
 		--game.battle.step_loss;
 		if (game.battle.dt_loss > 0 && is_drilled_troops(p))
 			--game.battle.dt_loss;
-		if (reduce_unit(p)) {
+		if (reduce_unit(p, false)) {
 			remove_from_array(game.battle.atk_pcs, p);
 			remove_from_array(game.battle.units, p);
 		}
@@ -4398,7 +4384,7 @@ states.raid_step_losses = {
 	piece(p) {
 		push_undo();
 		--game.raid.step_loss;
-		if (reduce_unit(p))
+		if (reduce_unit(p, false))
 			remove_from_array(game.raid.units, p);
 	},
 	next() {
@@ -4413,32 +4399,32 @@ function goto_atk_leader_check() {
 	set_active(game.battle.attacker);
 	game.battle.leader_check = [];
 	if ((game.battle.def_result > 0) && (game.battle.def_die === 1 || game.battle.def_die === 6)) {
-		log(`${game.battle.attacker} leader loss check`);
 		for_each_attacking_piece(p => {
 			if (is_leader(p))
 				game.battle.leader_check.push(p);
 		});
 	}
-	if (game.battle.leader_check.length > 0)
+	if (game.battle.leader_check.length > 0) {
 		game.state = 'leader_check';
-	else
+	} else {
 		end_leader_check();
+	}
 }
 
 function goto_def_leader_check() {
 	set_active(game.battle.defender);
 	game.battle.leader_check = [];
 	if ((game.battle.atk_result > 0) && (game.battle.atk_die === 1 || game.battle.atk_die === 6)) {
-		log(`${game.battle.defender} leader loss check`);
 		for_each_defending_piece(p => {
 			if (is_leader(p))
 				game.battle.leader_check.push(p);
 		});
 	}
-	if (game.battle.leader_check.length > 0)
+	if (game.battle.leader_check.length > 0) {
 		game.state = 'leader_check';
-	else
+	} else {
 		end_leader_check();
+	}
 }
 
 states.leader_check = {
@@ -4448,7 +4434,7 @@ states.leader_check = {
 			gen_action_piece(game.battle.leader_check[i]);
 	},
 	piece(p) {
-		let die = roll_die("for " + piece_name(p) + " leader check");
+		let die = roll_die("for " + piece_name(p));
 		if (die === 1) {
 			if (game.battle)
 				remove_from_array(game.battle.atk_pcs, p);
@@ -4485,7 +4471,7 @@ states.raid_leader_check = {
 			gen_action_piece(game.raid.leader_check[i]);
 	},
 	piece(p) {
-		let die = roll_die("for " + piece_name(p) + " leader check");
+		let die = roll_die("for " + piece_name(p));
 		if (die === 1)
 			eliminate_piece(p);
 		remove_from_array(game.raid.leader_check, p);
@@ -4504,7 +4490,7 @@ function return_militia(where) {
 	if (box) {
 		let n = 0;
 		for (let p = 1; p <= last_piece; ++p) {
-			if (is_militia_unit(p) && is_piece_in_space(p, where)) {
+			if (is_militia(p) && is_piece_in_space(p, where)) {
 				move_piece_to(p, box);
 				++n;
 			}
@@ -4533,10 +4519,10 @@ function determine_winner_battle() {
 	let atk_eliminated = count_attacking_units() === 0;
 	let def_eliminated = count_unbesieged_enemy_units_in_space(where) === 0;
 
-	log("RESULT", "atk_eliminated", game.battle.atk_eliminated);
+	log("RESULT", "atk_eliminated", atk_eliminated);
 	log("RESULT", "atk_result", game.battle.atk_result);
 	log("RESULT", "atk_caused", game.battle.atk_caused);
-	log("RESULT", "def_eliminated", game.battle.def_eliminated);
+	log("RESULT", "def_eliminated", def_eliminated);
 	log("RESULT", "def_result", game.battle.def_result);
 	log("RESULT", "def_caused", game.battle.def_caused);
 
@@ -4856,10 +4842,10 @@ states.retreat_defender_to = {
 		let from = game.battle.where;
 		let who = game.battle.who;
 		if (from === to) {
-			log("retreats inside fortification");
+			log(`${piece_name(who)} retreats inside fortification.`);
 			set_piece_inside(who);
 		} else {
-			log("retreats to " + space_name(to));
+			log(`${piece_name(who)} retreats to ${space_name(to)}.`);
 			move_piece_to(who, to);
 		}
 		game.state = 'retreat_defender';
@@ -5236,9 +5222,15 @@ states.militia_against_raid = {
 		view.where = game.raid.where;
 		if (game.count > 0) {
 			let box = department_militia(game.raid.where);
-			for (let p = first_friendly_unit; p <= last_friendly_unit; ++p)
-				if (piece_node(p) === box)
-					gen_action_piece(p);
+			if (game.active === FRANCE) {
+				for (let p = first_french_militia; p <= last_french_militia; ++p)
+					if (piece_node(p) === box)
+						gen_action_piece(p);
+			} else {
+				for (let p = first_british_militia; p <= last_british_militia; ++p)
+					if (piece_node(p) === box)
+						gen_action_piece(p);
+			}
 		}
 		gen_action_next();
 	},
@@ -5330,7 +5322,7 @@ function resolve_raid() {
 		if (x_stockade)
 			destroy_enemy_stockade_in_raid(where);
 		if (x_allied)
-			eliminate_indian_tribe(indian_tribe[where]);
+			eliminate_indian_tribe(where);
 	} else {
 		log(`Result ${die} vs ${column}:\nFailure with ${losses} losses.`);
 	}
@@ -5359,7 +5351,7 @@ function can_follow_indians_home(from) {
 			return true;
 	}
 	for (let p = first_friendly_unit; p <= last_friendly_unit; ++p) {
-		if (is_coureurs_unit(p) && is_piece_in_space(p, from) && !is_piece_inside(p))
+		if (is_coureurs(p) && is_piece_in_space(p, from) && !is_piece_inside(p))
 			return true;
 	}
 	return false;
@@ -5416,14 +5408,14 @@ states.raiders_go_home = {
 		if (true) {
 			// INDIANS FIRST
 			for_each_friendly_unit_in_space(from, p => {
-				if (is_indian_unit(p)) {
+				if (is_indian(p)) {
 					done = false;
 					gen_action_piece(p);
 				}
 			});
 			if (done) {
 				for_each_friendly_piece_in_space(from, p => {
-					if (!is_indian_unit(p)) {
+					if (!is_indian(p)) {
 						done = false;
 						gen_action_piece(p);
 					}
@@ -5464,8 +5456,8 @@ states.indians_and_leaders_go_home = {
 			if (s && !is_piece_inside(p) && !has_friendly_fortifications(s)) {
 
 				// Indians not at their settlement
-				if (is_indian_unit(p)) {
-					if (s !== indian_home_settlement(p)) {
+				if (is_indian(p)) {
+					if (s !== indians.space_from_piece[p]) {
 						done = false;
 						gen_action_piece(p);
 					}
@@ -5511,8 +5503,8 @@ states.go_home_to = {
 
 		let can_go_home = false;
 
-		if (is_indian_unit(who)) {
-			let home = indian_home_settlement(who);
+		if (is_indian(who)) {
+			let home = indians.space_from_piece[who];
 			// 10.412: Cherokee have no home settlement
 			if (home && has_friendly_allied_settlement(home) && !has_enemy_units(home)) {
 				can_go_home = true;
@@ -5545,8 +5537,8 @@ states.go_home_to = {
 		let from = game.go_home.from;
 		log(`${piece_name(who)} went home to ${space_name(to)}.`);
 		move_piece_to(who, to);
-		if (is_indian_unit(who)) {
-			let home = indian_home_settlement(who);
+		if (is_indian(who)) {
+			let home = indians.space_from_piece[who];
 			console.log("go_home", space_name(from), space_name(to), space_name(home));
 			game.count = 0;
 			if (to !== home) {
@@ -5608,7 +5600,7 @@ states.go_home_with_indians = {
 				gen_action_piece(p);
 		}
 		for (let p = first_friendly_unit; p <= last_friendly_unit; ++p) {
-			if (is_coureurs_unit(p) && is_piece_in_space(p, from) && !is_piece_inside(p))
+			if (is_coureurs(p) && is_piece_in_space(p, from) && !is_piece_inside(p))
 				gen_action_piece(p);
 		}
 
@@ -5750,7 +5742,7 @@ states.winter_attrition = {
 		push_undo();
 		if (is_unit_reduced(p))
 			stack.n--;
-		reduce_unit(p);
+		reduce_unit(p, true);
 		remove_from_array(stack.dt, p);
 	},
 	next() {
@@ -5855,7 +5847,7 @@ function goto_game_over(result, victory) {
 
 states.game_over = {
 	inactive() {
-		return view.prompt = game.victory;
+		view.prompt = game.victory;
 	}
 }
 
@@ -5916,10 +5908,10 @@ states.demolish_fort = {
 	},
 	space(s) {
 		if (has_friendly_fort_uc(s)) {
-			log(`Demolishes fort U/C at ${space_name(s)}.`);
+			log(`Demolished fort U/C at ${space_name(s)}.`);
 			remove_friendly_fort_uc(s);
 		} else if (has_friendly_fort(s)) {
-			log(`Demolishes fort at ${space_name(s)}.`);
+			log(`Demolished fort at ${space_name(s)}.`);
 			award_vp(-1);
 			remove_friendly_fort(s);
 		}
@@ -5934,7 +5926,7 @@ states.demolish_stockade = {
 			gen_action_space(s);
 	},
 	space(s) {
-		log(`Demolishes stockade at ${space_name(s)}.`);
+		log(`Demolished stockade at ${space_name(s)}.`);
 		remove_friendly_stockade(s);
 		end_demolish();
 	}
@@ -6124,7 +6116,7 @@ function massacre_play(c) {
 	play_card(c);
 	let s = moving_piece_space();
 	for (let p = 1; p <= last_piece; ++p)
-		if (is_indian_unit(p) && is_piece_in_space(p, s))
+		if (is_indian(p) && is_piece_in_space(p, s))
 			eliminate_piece(p);
 	award_vp(1);
 	set_active_enemy();
@@ -6140,7 +6132,7 @@ function can_place_in_space(s) {
 
 function can_restore_unit(p) {
 	if (is_piece_on_map(p) && is_piece_unbesieged(p) && is_unit_reduced(p)) {
-		if (is_militia_unit(p))
+		if (is_militia(p))
 			return true; // always in militia box
 		if (is_drilled_troops(p))
 			return is_in_supply(piece_space(p));
@@ -6149,11 +6141,19 @@ function can_restore_unit(p) {
 	return false;
 }
 
-function count_french_raids_in_dept(dept) {
+function count_french_raids_in_southern_department() {
 	let n = 0;
 	for (let i = 0; i < game.french.raids.length; ++i) {
-		let s = game.french.raids[i];
-		if (departments[dept].includes(s))
+		if (is_southern_department(game.french.raids[i]))
+			++n;
+	}
+	return n;
+}
+
+function count_french_raids_in_northern_department() {
+	let n = 0;
+	for (let i = 0; i < game.french.raids.length; ++i) {
+		if (is_northern_department(game.french.raids[i]))
 			++n;
 	}
 	return n;
@@ -6161,15 +6161,15 @@ function count_french_raids_in_dept(dept) {
 
 events.provincial_regiments_dispersed_for_frontier_duty = {
 	can_play() {
-		let s = Math.min(count_french_raids_in_dept('southern'), count_provincial_units_from('southern'));
-		let n = Math.min(count_french_raids_in_dept('northern'), count_provincial_units_from('northern'));
+		let s = Math.min(count_french_raids_in_southern_department(), count_southern_provincials());
+		let n = Math.min(count_french_raids_in_northern_department(), count_northern_provincials());
 		return (s + n) > 0;
 	},
 	play() {
 		game.state = 'provincial_regiments_dispersed_for_frontier_duty';
 		game.frontier_duty = {
-			southern: Math.min(count_french_raids_in_dept('southern'), count_provincial_units_from('southern')),
-			northern: Math.min(count_french_raids_in_dept('northern'), count_provincial_units_from('northern')),
+			southern: Math.min(count_french_raids_in_southern_department(), count_southern_provincials()),
+			northern: Math.min(count_french_raids_in_northern_department(), count_northern_provincials()),
 		};
 	}
 }
@@ -6179,20 +6179,24 @@ states.provincial_regiments_dispersed_for_frontier_duty = {
 		view.prompt = `Eliminate ${game.frontier_duty.southern} southern and ${game.frontier_duty.northern} northern provincials.`;
 		let can_eliminate = false;
 		for (let p = first_british_unit; p <= last_british_unit; ++p) {
-			if ((game.frontier_duty.northern > 0 && is_provincial_unit_from(p, 'northern')) ||
-				(game.frontier_duty.southern > 0 && is_provincial_unit_from(p, 'southern'))) {
+			if ((game.frontier_duty.northern > 0 && is_northern_provincial(p)) ||
+				(game.frontier_duty.southern > 0 && is_southern_provincial(p))) {
 				can_eliminate = true;
 				gen_action_piece(p);
 			}
 		}
-		if (!can_eliminate)
+		if (can_eliminate) {
+			view.prompt = `Eliminate ${game.frontier_duty.southern} southern and ${game.frontier_duty.northern} northern provincials.`;
+		} else {
+			view.prompt = `Eliminate southern and northern provincials \u2014 done.`;
 			gen_action_next();
+		}
 	},
 	piece(p) {
 		push_undo();
-		if (is_provincial_unit_from(p, 'southern'))
+		if (is_southern_provincial(p))
 			game.frontier_duty.southern --;
-		if (is_provincial_unit_from(p, 'northern'))
+		if (is_northern_provincial(p))
 			game.frontier_duty.northern --;
 		eliminate_piece(p);
 	},
@@ -6266,24 +6270,11 @@ events.iroquois_alliance = {
 	},
 }
 
-function find_friendly_unused_indian(home) {
-	if (home === PAYS_D_EN_HAUT) {
-		for (let p = first_friendly_unit; p <= last_friendly_unit; ++p)
-			if (is_pays_d_en_haut_indian_unit(p) && is_piece_unused(p))
-				return p;
-	} else {
-		let tribe = indian_tribe[home];
-		for (let p = first_friendly_unit; p <= last_friendly_unit; ++p)
-			if (pieces[p].name === tribe && is_piece_unused(p))
-				return p;
-	}
+function find_friendly_unused_indian(s) {
+	for (let p of indians.pieces_from_space[s])
+		if (is_friendly_indian(p) && is_piece_unused(p))
+			return p;
 	return 0;
-}
-
-function is_indian_alliance(p, alliance) {
-	if (is_indian_unit(p))
-		return pieces[p].subtype === alliance;
-	return false;
 }
 
 states.indian_alliance = {
@@ -6291,10 +6282,10 @@ states.indian_alliance = {
 		let can_place = false;
 		for (let a of game.alliance) {
 			if (game.count >= 1) {
-				for (let s of indian_spaces[a]) {
-					if (!has_enemy_allied_settlement(s)) {
-						let p = find_friendly_unused_indian(s);
-						if (p && can_place_in_space(s)) {
+				for (let p of indians.pieces_from_color[a]) {
+					if (is_friendly_indian(p) && is_piece_unused(p)) {
+						let s = indians.space_from_piece[p];
+						if (!has_enemy_allied_settlement(s) && can_place_in_space(s)) {
 							can_place = true;
 							gen_action_space(s);
 						}
@@ -6302,12 +6293,10 @@ states.indian_alliance = {
 				}
 			}
 			if (game.count >= 0.5) {
-				for (let p = first_friendly_unit; p <= last_friendly_unit; ++p) {
-					if (is_indian_alliance(p, a)) {
-						if (can_restore_unit(p)) {
-							can_place = true;
-							gen_action_piece(p);
-						}
+				for (let p of indians.pieces_from_color[a]) {
+					if (is_friendly_indian(p) && can_restore_unit(p)) {
+						can_place = true;
+						gen_action_piece(p);
 					}
 				}
 			}
@@ -6341,27 +6330,20 @@ states.indian_alliance = {
 }
 
 // Used by Mohawks and Cherokees events.
-function place_british_indian_tribe(s, tribe) {
+function place_british_indian_tribe(s, first, last) {
 	push_undo();
-
-	// OPTIMIZE: use mohawks piece list
-	for (let p = first_british_unit; p <= last_british_unit; ++p) {
-		if (is_indian_tribe(p, tribe)) {
-			if (is_piece_unused(p))
-				place_piece(p, s);
-		}
+	for (let p = first; p <= last; ++p) {
+		if (is_piece_unused(p))
+			place_piece(p, s);
 	}
-
 	game.count = 0;
 }
 
-function restore_british_indian_tribe(tribe) {
+function restore_british_indian_tribe(first, last) {
 	// TODO: restore_mohawks/cherokee state for manual restoring?
-	for (let p = first_british_unit; p <= last_british_unit; ++p) {
-		if (is_indian_tribe(p, tribe)) {
-			if (can_restore_unit(p))
-				restore_unit(p);
-		}
+	for (let p = first; p <= last; ++p) {
+		if (can_restore_unit(p))
+			restore_unit(p);
 	}
 }
 
@@ -6376,7 +6358,7 @@ events.mohawks = {
 	play() {
 		game.state = 'mohawks';
 		game.count = 1;
-		restore_british_indian_tribe('Mohawk');
+		restore_british_indian_tribe(first_mohawk, last_mohawk);
 	},
 }
 
@@ -6398,7 +6380,7 @@ states.mohawks = {
 		}
 	},
 	space(s) {
-		place_british_indian_tribe(s, 'Mohawk');
+		place_british_indian_tribe(s, first_mohawk, last_mohawk);
 	},
 	next() {
 		end_action_phase();
@@ -6415,7 +6397,7 @@ events.cherokees = {
 		game.events.cherokees = 1;
 		game.state = 'cherokees';
 		game.count = 1;
-		restore_british_indian_tribe(s, 'Cherokee');
+		restore_british_indian_tribe(first_cherokee, last_cherokee);
 	},
 }
 
@@ -6423,8 +6405,7 @@ states.cherokees = {
 	prompt() {
 		let can_place = false;
 		if (game.count > 0) {
-			for (let i = 0; i < departments.southern.length; ++i) {
-				let s = departments.southern[i];
+			for (let s = first_southern_department; s <= last_southern_department; ++s) {
 				if (has_unbesieged_friendly_fortifications(s)) {
 					can_place = true;
 					gen_action_space(s);
@@ -6439,7 +6420,7 @@ states.cherokees = {
 		}
 	},
 	space(s) {
-		place_british_indian_tribe(s, 'Cherokee');
+		place_british_indian_tribe(s, first_cherokee, last_cherokee);
 	},
 	next() {
 		end_action_phase();
@@ -6467,16 +6448,16 @@ events.cherokee_uprising = {
 
 states.cherokee_uprising = {
 	prompt() {
-		view.prompt = `Eliminate ${game.uprising.regular} regular, ${game.uprising.southern} southern provincial, and all Cherokee.`;
+		view.prompt = `Eliminate ${game.uprising.regular} regulars, ${game.uprising.southern} southern provincials, and all Cherokee.`;
 		let can_eliminate = false;
 		for (let p = first_british_unit; p <= last_british_unit; ++p) {
 			if (is_piece_on_map(p) && is_piece_unbesieged(p)) {
 				let x = false;
-				if (game.uprising.regular > 0 && is_regular_unit(p))
+				if (game.uprising.regular > 0 && is_regular(p))
 					x = true;
-				if (game.uprising.southern > 0 && is_provincial_unit_from(p, 'southern'))
+				if (game.uprising.southern > 0 && is_southern_provincial(p))
 					x = true;
-				if (is_indian_tribe(p, 'Cherokee'))
+				if (is_cherokee(p))
 					x = true;
 				if (x) {
 					can_eliminate = true;
@@ -6489,9 +6470,9 @@ states.cherokee_uprising = {
 	},
 	piece(p) {
 		push_undo();
-		if (is_regular_unit(p))
+		if (is_regular(p))
 			game.uprising.regular --;
-		if (is_provincial_unit_from(p, 'southern'))
+		if (is_southern_provincial(p))
 			game.uprising.southern --;
 		eliminate_piece(p);
 	},
@@ -6512,8 +6493,8 @@ events.treaty_of_easton = {
 	play() {
 		// TODO: treaty_of_easton state for manual elimination?
 		for (let p = first_french_unit; p <= last_french_unit; ++p) {
-			if (is_indian_unit(p) && is_piece_on_map(p) && is_piece_unbesieged(p)) {
-				if (is_western_indian_unit(p)) {
+			if (is_indian(p) && is_piece_on_map(p) && is_piece_unbesieged(p)) {
+				if (is_orange_indian(p)) {
 					eliminate_piece(p);
 				}
 			}
@@ -6535,7 +6516,7 @@ states.indians_desert = {
 		let can_desert = false;
 		if (game.count > 0) {
 			for (let p = first_enemy_unit; p <= last_enemy_unit; ++p) {
-				if (is_indian_unit(p) && is_piece_on_map(p) && is_piece_unbesieged(p)) {
+				if (is_indian(p) && is_piece_on_map(p) && is_piece_unbesieged(p)) {
 					if (!game.indians_desert || is_piece_in_space(p, game.indians_desert)) {
 						can_desert = true;
 						gen_action_piece(p);
@@ -6691,12 +6672,12 @@ states.reduce_from_small_pox = {
 	piece(p) {
 		push_undo();
 		game.count --;
-		reduce_unit(p);
+		reduce_unit(p, false);
 	},
 	next() {
 		for_each_friendly_unit_in_space(game.small_pox, p => {
-			if (is_indian_unit(p))
-				eliminate_piece(p);
+			if (is_indian(p))
+				eliminate_piece(p, false);
 		});
 		delete game.small_pox;
 		set_active_enemy();
@@ -6788,30 +6769,50 @@ states.british_ministerial_crisis = {
 	}
 }
 
-function count_reduced_unbesieged_provincial_units_from(dept) {
+function count_southern_provincials() {
 	let n = 0;
-	for (let p = first_british_unit; p <= last_british_unit; ++p)
-		if (is_provincial_unit_from(p, dept) && is_piece_on_map(p))
-			if (is_piece_unbesieged(p) && is_unit_reduced(p))
-				++n;
+	for (let p = first_southern_provincial; p <= last_southern_provincial; ++p)
+		if (is_piece_on_map(p))
+			++n;
 	return n;
 }
 
-function count_unbesieged_provincial_units_from(dept) {
+function count_northern_provincials() {
 	let n = 0;
-	// OPTIMIZE: use provincial unit numbers
-	for (let p = first_british_unit; p <= last_british_unit; ++p)
-		if (is_provincial_unit_from(p, dept) && is_piece_on_map(p))
-			if (is_piece_unbesieged(p))
-				++n;
+	for (let p = first_northern_provincial; p <= last_northern_provincial; ++p)
+		if (is_piece_on_map(p))
+			++n;
 	return n;
 }
 
-function count_provincial_units_from(dept) {
+function count_unbesieged_southern_provincials() {
 	let n = 0;
-	// OPTIMIZE: use provincial unit numbers
-	for (let p = first_british_unit; p <= last_british_unit; ++p)
-		if (is_provincial_unit_from(p, dept) && is_piece_on_map(p))
+	for (let p = first_southern_provincial; p <= last_southern_provincial; ++p)
+		if (is_piece_on_map(p) && is_piece_unbesieged(p))
+			++n;
+	return n;
+}
+
+function count_unbesieged_northern_provincials() {
+	let n = 0;
+	for (let p = first_northern_provincial; p <= last_northern_provincial; ++p)
+		if (is_piece_on_map(p) && is_piece_unbesieged(p))
+			++n;
+	return n;
+}
+
+function count_reduced_unbesieged_southern_provincials() {
+	let n = 0;
+	for (let p = first_southern_provincial; p <= last_southern_provincial; ++p)
+		if (is_piece_on_map(p) && is_piece_unbesieged(p) && is_unit_reduced(p))
+			++n;
+	return n;
+}
+
+function count_reduced_unbesieged_northern_provincials() {
+	let n = 0;
+	for (let p = first_northern_provincial; p <= last_northern_provincial; ++p)
+		if (is_piece_on_map(p) && is_piece_unbesieged(p) && is_unit_reduced(p))
 			++n;
 	return n;
 }
@@ -6820,13 +6821,13 @@ events.stingy_provincial_assembly = {
 	can_play() {
 		if (game.pa === ENTHUSIASTIC)
 			return false;
-		let num_n = count_unbesieged_provincial_units_from('northern');
-		let num_s = count_unbesieged_provincial_units_from('southern');
+		let num_n = count_unbesieged_northern_provincials();
+		let num_s = count_unbesieged_southern_provincials();
 		return (num_n + num_s) > 0;
 	},
 	play() {
-		let num_n = count_unbesieged_provincial_units_from('northern');
-		let num_s = count_unbesieged_provincial_units_from('southern');
+		let num_n = count_unbesieged_northern_provincials();
+		let num_s = count_unbesieged_southern_provincials();
 		if (num_n > 0 && num_s === 0) {
 			goto_stingy_provincial_assembly('northern');
 		} else if (num_n === 0 && num_s > 0) {
@@ -6864,10 +6865,15 @@ states.stingy_provincial_assembly = {
 	prompt() {
 		if (game.count > 0) {
 			view.prompt = `Stingy Provincial Assembly \u2014 remove a ${game.department} provincial unit.`;
-			// OPTIMIZE: use provincial unit numbers
-			for (let p = first_british_unit; p <= last_british_unit; ++p)
-				if (is_provincial_unit_from(p, game.department) && is_piece_unbesieged(p))
-					gen_action_piece(p);
+			if (game.department === 'northern') {
+				for (let p = first_northern_provincial; p <= last_northern_provincial; ++p)
+					if (is_piece_unbesieged(p))
+						gen_action_piece(p);
+			} else {
+				for (let p = first_southern_provincial; p <= last_southern_provincial; ++p)
+					if (is_piece_unbesieged(p))
+						gen_action_piece(p);
+			}
 		} else {
 			view.prompt = `Stingy Provincial Assembly \u2014 done.`;
 			gen_action_next();
@@ -6911,22 +6917,15 @@ function pa_name() {
 	}
 }
 
-const provincial_limit_southern = [ 2, 4, 6 ];
-const provincial_limit_northern = [ 6, 10, 18 ];
-
-function provincial_limit(dept) {
-	if (dept === 'northern')
-		return provincial_limit_northern[game.pa];
-	else
-		return provincial_limit_southern[game.pa];
-}
+const southern_provincial_limit = [ 2, 4, 6 ];
+const northern_provincial_limit = [ 6, 10, 18 ];
 
 function goto_enforce_provincial_limits() {
 	if (game.pa < ENTHUSIASTIC) {
-		let num_s = count_provincial_units_from('southern');
-		let num_n = count_provincial_units_from('northern');
-		let max_n = provincial_limit('northern');
-		let max_s = provincial_limit('southern');
+		let num_s = count_southern_provincials();
+		let num_n = count_northern_provincials();
+		let max_n = northern_provincial_limit[game.pa];
+		let max_s = southern_provincial_limit[game.pa];
 		if (num_s > max_s || num_n > max_n) {
 			clear_undo();
 			set_active_enemy();
@@ -6939,19 +6938,23 @@ function goto_enforce_provincial_limits() {
 
 states.enforce_provincial_limits = {
 	prompt() {
-		let num_s = count_provincial_units_from('southern');
-		let num_n = count_provincial_units_from('northern');
-		let max_n = provincial_limit('northern');
-		let max_s = provincial_limit('southern');
+		let num_s = count_southern_provincials();
+		let num_n = count_northern_provincials();
+		let max_n = northern_provincial_limit[game.pa];
+		let max_s = southern_provincial_limit[game.pa];
 		console.log("British Colonial Politics", num_s, max_s, num_n, max_n);
 		let can_remove = false;
-		if (num_s > max_s || num_n > max_n) {
-			// OPTIMIZE: use provincial unit numbers
-			for (let p = first_british_unit; p <= last_british_unit; ++p) {
-				if (num_s > max_s && is_provincial_unit_from(p, 'southern') && is_piece_unbesieged(p)) {
+		if (num_s > max_s) {
+			for (let p = first_southern_provincial; p <= last_southern_provincial; ++p) {
+				if (is_piece_unbesieged(p)) {
 					gen_action_piece(p);
 					can_remove = true;
-				} else if (num_n > max_n && is_provincial_unit_from(p, 'northern') && is_piece_unbesieged(p)) {
+				}
+			}
+		}
+		if (num_n > max_n) {
+			for (let p = first_northern_provincial; p <= last_northern_provincial; ++p) {
+				if (is_piece_unbesieged(p)) {
 					gen_action_piece(p);
 					can_remove = true;
 				}
@@ -6974,23 +6977,33 @@ states.enforce_provincial_limits = {
 	},
 }
 
-function can_raise_provincial_regiments(dept) {
-	let num = count_provincial_units_from(dept);
-	let max = provincial_limit(dept);
+function can_raise_southern_provincial_regiments() {
+	let num = count_southern_provincials();
+	let max = southern_provincial_limit[game.pa];
 	return num < max;
 }
 
-function can_restore_provincial_regiments(dept) {
-	return count_reduced_unbesieged_provincial_units_from(dept) > 0;
+function can_raise_northern_provincial_regiments() {
+	let num = count_northern_provincials();
+	let max = northern_provincial_limit[game.pa];
+	return num < max;
+}
+
+function can_restore_southern_provincial_regiments() {
+	return count_reduced_unbesieged_southern_provincials() > 0;
+}
+
+function can_restore_northern_provincial_regiments() {
+	return count_reduced_unbesieged_northern_provincials() > 0;
 }
 
 events.raise_provincial_regiments = {
 	can_play() {
 		if (game.pa === RELUCTANT)
 			return false;
-		if (can_raise_provincial_regiments('northern') || can_restore_provincial_regiments('northern'))
+		if (can_raise_northern_provincial_regiments() || can_restore_northern_provincial_regiments())
 			return true;
-		if (can_raise_provincial_regiments('southern') || can_restore_provincial_regiments('southern'))
+		if (can_raise_southern_provincial_regiments() || can_restore_southern_provincial_regiments())
 			return true;
 		return false;
 	},
@@ -7002,23 +7015,23 @@ events.raise_provincial_regiments = {
 states.raise_provincial_regiments_where = {
 	prompt() {
 		view.prompt = "Raise Provincial regiments in which department?";
-		if (can_raise_provincial_regiments('northern') || can_restore_provincial_regiments('northern'))
+		if (can_raise_northern_provincial_regiments() || can_restore_northern_provincial_regiments())
 			gen_action('northern');
-		if (can_raise_provincial_regiments('southern') || can_restore_provincial_regiments('southern'))
+		if (can_raise_southern_provincial_regiments() || can_restore_southern_provincial_regiments())
 			gen_action('southern');
 	},
 	northern() {
 		push_undo();
-		let num = count_provincial_units_from('northern');
-		let max = provincial_limit('northern');
+		let num = count_northern_provincials();
+		let max = northern_provincial_limit[game.pa];
 		game.state = 'raise_provincial_regiments';
 		game.count = clamp(max - num, 0, 4);
 		game.department = 'northern';
 	},
 	southern() {
 		push_undo();
-		let num = count_provincial_units_from('southern');
-		let max = provincial_limit('southern');
+		let num = count_southern_provincials();
+		let max = southern_provincial_limit[game.pa];
 		game.state = 'raise_provincial_regiments';
 		game.count = clamp(max - num, 0, 2);
 		game.department = 'southern';
@@ -7026,29 +7039,34 @@ states.raise_provincial_regiments_where = {
 	},
 }
 
-function find_unused_provincial(dept) {
-	for (let p = first_friendly_unit; p <= last_friendly_unit; ++p)
-		if (is_provincial_unit_from(p, dept) && is_piece_unused(p))
-			return p;
-	return 0;
-}
-
 states.raise_provincial_regiments = {
 	prompt() {
 		let can_raise = false;
 		if (!game.did_raise) {
-			if (can_restore_provincial_regiments(game.department)) {
+			if (game.department === 'northern' && can_restore_northern_provincial_regiments()) {
+				can_raise = true;
+				gen_action('restore');
+			}
+			if (game.department === 'southern' && can_restore_southern_provincial_regiments()) {
 				can_raise = true;
 				gen_action('restore');
 			}
 		}
 		if (game.count > 0) {
-			let list = departments[game.department];
-			for (let i = 0; i < list.length; ++i) {
-				let s = list[i];
-				if (has_unbesieged_friendly_fortifications(s)) {
-					can_raise = true;
-					gen_action_space(s);
+			if (game.department === 'northern') {
+				for (let s = first_northern_department; s <= last_northern_department; ++s) {
+					if (has_unbesieged_friendly_fortifications(s)) {
+						can_raise = true;
+						gen_action_space(s);
+					}
+				}
+			}
+			if (game.department === 'southern') {
+				for (let s = first_southern_department; s <= last_southern_department; ++s) {
+					if (has_unbesieged_friendly_fortifications(s)) {
+						can_raise = true;
+						gen_action_space(s);
+					}
 				}
 			}
 		}
@@ -7065,8 +7083,12 @@ states.raise_provincial_regiments = {
 	restore() {
 		// TODO: restore_provincial_regiments state for manual restoring?
 		push_undo();
-		for (let p = first_friendly_unit; p <= last_friendly_unit; ++p) {
-			if (is_provincial_unit_from(p, game.department))
+		if (game.department === 'northern') {
+			for (let p = first_northern_provincial; p <= last_northern_provincial; ++p)
+				if (can_restore_unit(p))
+					restore_unit(p);
+		} else {
+			for (let p = first_southern_provincial; p <= last_southern_provincial; ++p)
 				if (can_restore_unit(p))
 					restore_unit(p);
 		}
@@ -7156,7 +7178,7 @@ states.bastions_repaired = {
 }
 
 function is_colonial_recruit(p) {
-	return is_coureurs_unit(p) || is_ranger_unit(p) || is_light_infantry_unit(p) || is_provincial_unit(p);
+	return is_coureurs(p) || is_ranger(p) || is_light_infantry(p) || is_provincial(p);
 }
 
 events.colonial_recruits = {
@@ -7207,7 +7229,7 @@ states.colonial_recruits = {
 
 function has_unbesieged_reduced_regular_or_light_infantry_units() {
 	for (let p = first_friendly_unit; p <= last_friendly_unit; ++p)
-		if (is_regular_unit(p) || is_light_infantry_unit(p))
+		if (is_regular(p) || is_light_infantry(p))
 			if (is_piece_unbesieged(p) && is_unit_reduced(p))
 				return true;
 	return false;
@@ -7255,7 +7277,7 @@ states.restore_regular_or_light_infantry_units = {
 		let can_restore = false;
 		if (game.count > 0) {
 			for (let p = first_friendly_unit; p <= last_friendly_unit; ++p) {
-				if (is_regular_unit(p) || is_light_infantry_unit(p)) {
+				if (is_regular(p) || is_light_infantry(p)) {
 					if (can_restore_unit(p)) {
 						can_restore = true;
 						gen_action_piece(p);
@@ -7278,13 +7300,6 @@ states.restore_regular_or_light_infantry_units = {
 	next() {
 		end_action_phase();
 	},
-}
-
-function find_unused_friendly_militia() {
-	for (let p = first_friendly_unit; p <= last_friendly_unit; ++p)
-		if (is_militia_unit(p) && is_piece_unused(p))
-			return p;
-	return 0;
 }
 
 events.call_out_militias = {
@@ -7313,10 +7328,19 @@ states.call_out_militias = {
 			}
 		}
 		if (game.count > 0) {
-			for (let p = first_friendly_unit; p <= last_friendly_unit; ++p) {
-				if (is_militia_unit(p) && is_unit_reduced(p) && is_militia_box(piece_space(p))) {
-					can_place = true;
-					gen_action_piece(p);
+			if (game.active === BRITAIN) {
+				for (let p = first_british_militia; p <= last_british_militia; ++p) {
+					if (is_piece_on_map(p) && is_unit_reduced(p)) {
+						can_place = true;
+						gen_action_piece(p);
+					}
+				}
+			} else {
+				for (let p = first_french_militia; p <= last_french_militia; ++p) {
+					if (is_piece_on_map(p) && is_unit_reduced(p)) {
+						can_place = true;
+						gen_action_piece(p);
+					}
 				}
 			}
 		}
@@ -7339,13 +7363,6 @@ states.call_out_militias = {
 	},
 }
 
-function find_unused_ranger_unit() {
-	for (let p = first_friendly_unit; p <= last_friendly_unit; ++p)
-		if (is_ranger_unit(p) && is_piece_unused(p))
-			return p;
-	return 0;
-}
-
 events.rangers = {
 	play() {
 		game.state = 'rangers';
@@ -7358,7 +7375,7 @@ states.rangers = {
 		view.prompt = `Place a Rangers unit at a fortification, or restore 2 to full strength.`;
 		let can_place = false;
 		if (game.count === 2) {
-			if (find_unused_ranger_unit()) {
+			if (find_unused_ranger()) {
 				for (let s = first_space; s <= last_space; ++s) {
 					if (has_unbesieged_friendly_fortifications(s)) {
 						can_place = true;
@@ -7370,7 +7387,7 @@ states.rangers = {
 		}
 		if (game.count > 0) {
 			for (let p = first_friendly_unit; p <= last_friendly_unit; ++p) {
-				if (is_ranger_unit(p)) {
+				if (is_ranger(p)) {
 					if (can_restore_unit(p)) {
 						can_place = true;
 						gen_action_piece(p);
@@ -7383,7 +7400,7 @@ states.rangers = {
 	},
 	space(s) {
 		push_undo();
-		let p = find_unused_ranger_unit();
+		let p = find_unused_ranger();
 		place_piece(p, s);
 		game.count -= 2;
 	},
@@ -7395,13 +7412,6 @@ states.rangers = {
 	next() {
 		end_action_phase();
 	},
-}
-
-function find_unused_french_regular_unit() {
-	for (let p = first_french_unit; p <= last_french_unit; ++p)
-		if (is_34_regular_unit(p) && is_piece_unused(p))
-			return p;
-	return 0;
 }
 
 events.french_regulars = {
@@ -7461,7 +7471,7 @@ states.french_regulars = {
 			let p = game.leader.shift();
 			place_piece(p, s);
 		} else {
-			let p = find_unused_french_regular_unit();
+			let p = find_unused_french_regular();
 			if (p) {
 				place_piece(p, s);
 				game.count --;
@@ -7475,13 +7485,6 @@ states.french_regulars = {
 		delete game.leader;
 		end_action_phase();
 	},
-}
-
-function find_unused_light_infantry_unit() {
-	for (let p = first_british_unit; p <= last_british_unit; ++p)
-		if (is_light_infantry_unit(p) && is_piece_unused(p))
-			return p;
-	return 0;
 }
 
 events.light_infantry = {
@@ -7520,7 +7523,7 @@ states.light_infantry = {
 			place_piece(game.leader, s);
 			game.leader = 0;
 		} else {
-			let p = find_unused_light_infantry_unit();
+			let p = find_unused_light_infantry();
 			if (p) {
 				place_piece(p, s);
 				game.count --;
@@ -7533,13 +7536,6 @@ states.light_infantry = {
 	next() {
 		end_british_reinforcement();
 	},
-}
-
-function find_unused_british_regular_unit() {
-	for (let p = first_british_unit; p <= last_british_unit; ++p)
-		if (is_34_regular_unit(p) && is_piece_unused(p))
-			return p;
-	return 0;
 }
 
 events.british_regulars = {
@@ -7585,7 +7581,7 @@ states.british_regulars = {
 			place_piece(game.leader, s);
 			game.leader = 0;
 		} else {
-			let p = find_unused_british_regular_unit();
+			let p = find_unused_british_regular();
 			if (p) {
 				place_piece(p, s);
 				game.count --;
@@ -7598,13 +7594,6 @@ states.british_regulars = {
 		game.events.british_regulars = 1;
 		end_british_reinforcement();
 	},
-}
-
-function find_unused_highland_unit() {
-	for (let p = first_british_unit; p <= last_british_unit; ++p)
-		if (is_highland_unit(p) && is_piece_unused(p))
-			return p;
-	return 0;
 }
 
 events.highlanders = {
@@ -7661,7 +7650,7 @@ states.highlanders = {
 			let p = game.leader.shift();
 			place_piece(p, s);
 		} else {
-			let p = find_unused_highland_unit();
+			let p = find_unused_highland();
 			if (p) {
 				place_piece(p, s);
 				game.count --;
@@ -7673,13 +7662,6 @@ states.highlanders = {
 	next() {
 		end_british_reinforcement();
 	},
-}
-
-function find_unused_royal_american_unit() {
-	for (let p = first_british_unit; p <= last_british_unit; ++p)
-		if (is_royal_american_unit(p) && is_piece_unused(p))
-			return p;
-	return 0;
 }
 
 events.royal_americans = {
@@ -7708,15 +7690,12 @@ states.royal_americans = {
 				view.prompt = `Place Royal American units at any fortress in the departments \u2014 done.`;
 		}
 		if (game.count > 0) {
-			// OPTIMIZE: use a list of fortresses in the departments
-			departments.northern.forEach(s => {
+			for (let s = first_northern_department; s <= last_northern_department; ++s)
 				if (has_unbesieged_friendly_fortress(s))
 					gen_action_space(s);
-			});
-			departments.southern.forEach(s => {
+			for (let s = first_southern_department; s <= last_southern_department; ++s)
 				if (has_unbesieged_friendly_fortress(s))
 					gen_action_space(s);
-			});
 		} else {
 			gen_action_next();
 		}
@@ -7727,7 +7706,7 @@ states.royal_americans = {
 			place_piece(game.leader, s);
 			game.leader = 0;
 		} else {
-			let p = find_unused_royal_american_unit();
+			let p = find_unused_royal_american();
 			if (p) {
 				place_piece(p, s);
 				game.count --;
@@ -7741,13 +7720,6 @@ states.royal_americans = {
 	},
 }
 
-function find_unused_coureurs_unit() {
-	for (let p = first_french_unit; p <= last_french_unit; ++p)
-		if (is_coureurs_unit(p) && is_piece_unused(p))
-			return p;
-	return 0;
-}
-
 events.acadians_expelled = {
 	can_play() {
 		if (game.options.acadians)
@@ -7757,13 +7729,13 @@ events.acadians_expelled = {
 	play() {
 		// TODO: acadians_expelled_halifax state for manual placing?
 		for (let i = 0; i < 2; ++i) {
-			let p = find_unused_british_regular_unit();
+			let p = find_unused_british_regular();
 			place_piece(p, HALIFAX);
 		}
 
 		// TODO: restore_acadians_expelled state for manual restoring?
 		for (let p = first_french_unit; p <= last_french_unit; ++p) {
-			if (is_militia_unit(p) || is_coureurs_unit(p))
+			if (is_militia(p) || is_coureurs(p))
 				if (can_restore_unit(p))
 					restore_unit(p);
 		}
@@ -7789,7 +7761,7 @@ states.acadians_expelled = {
 	},
 	space(s) {
 		push_undo();
-		let p = find_unused_coureurs_unit();
+		let p = find_unused_coureurs();
 		if (p)
 			place_piece(p, s);
 		game.count = 0;
@@ -7928,11 +7900,15 @@ function setup_markers(m, list) {
 }
 
 function setup_leader(where, who) {
-	game.location[find_leader(who)] = find_space(where);
+	who = find_unused_piece(who);
+	where = find_space(where);
+	game.location[who] = where;
 }
 
 function setup_unit(where, who) {
-	game.location[find_unused_unit(who)] = find_space(where);
+	who = find_unused_piece(who);
+	where = find_space(where);
+	game.location[who] = where;
 }
 
 function setup_1757(end_year) {
@@ -8091,11 +8067,11 @@ function setup_1757(end_year) {
 
 	setup_unit("Southern Colonial Militias", "Colonial Militia");
 
-	game.british.pool.push(find_leader("Amherst"));
-	game.british.pool.push(find_leader("Bradstreet"));
-	game.british.pool.push(find_leader("Forbes"));
-	game.british.pool.push(find_leader("Murray"));
-	game.british.pool.push(find_leader("Wolfe"));
+	game.british.pool.push(find_unused_piece("Amherst"));
+	game.british.pool.push(find_unused_piece("Bradstreet"));
+	game.british.pool.push(find_unused_piece("Forbes"));
+	game.british.pool.push(find_unused_piece("Murray"));
+	game.british.pool.push(find_unused_piece("Wolfe"));
 
 	setup_leader("eliminated", "Braddock");
 	setup_leader("eliminated", "Shirley");
@@ -8218,11 +8194,11 @@ function setup_1755() {
 	setup_unit("Will's Creek", "Virginia");
 	setup_unit("Will's Creek", "Maryland");
 
-	game.british.pool.push(find_leader("Abercromby"));
-	game.british.pool.push(find_leader("Bradstreet"));
-	game.british.pool.push(find_leader("Loudoun"));
-	game.british.pool.push(find_leader("Murray"));
-	game.british.pool.push(find_leader("Webb"));
+	game.british.pool.push(find_unused_piece("Abercromby"));
+	game.british.pool.push(find_unused_piece("Bradstreet"));
+	game.british.pool.push(find_unused_piece("Loudoun"));
+	game.british.pool.push(find_unused_piece("Murray"));
+	game.british.pool.push(find_unused_piece("Webb"));
 
 	game.events.once_french_regulars = 1;
 }
@@ -8456,17 +8432,21 @@ exports.view = function(state, current) {
 		// discard: game.discard,
 		// removed: game.removed,
 		french: {
+			hand: game.french.hand.length,
 			allied: game.french.allied,
 			stockades: game.french.stockades,
 			forts_uc: game.french.forts_uc,
 			forts: game.french.forts,
+			fortresses: game.french.fortresses,
 			raids: game.french.raids,
 		},
 		british: {
+			hand: game.british.hand.length,
 			allied: game.british.allied,
 			stockades: game.british.stockades,
 			forts_uc: game.british.forts_uc,
 			forts: game.british.forts,
+			fortresses: game.british.fortresses,
 			raids: game.british.raids,
 			pool: game.british.pool,
 		},
@@ -8478,14 +8458,10 @@ exports.view = function(state, current) {
 
 	if (game.activation)
 		view.activation = game.activation;
-	if (game.move)
-		view.move = game.move;
-	if (game.force)
-		view.force = game.force;
 	if (game.british.held)
-		view.british_held = 1;
+		view.british.held = 1;
 	if (game.french.held)
-		view.french_held = 1;
+		view.french.held = 1;
 
 	if (current === FRANCE)
 		view.hand = game.french.hand;
@@ -8500,8 +8476,11 @@ exports.view = function(state, current) {
 	}
 
 	if (current === 'Observer' || game.active !== current) {
-		if (states[game.state].inactive)
+		let inactive = states[game.state].inactive;
+		if (typeof inactive === 'function')
 			states[game.state].inactive();
+		else if (typeof inactive === 'string')
+			view.prompt = `Waiting for ${game.active} \u2014 ${inactive}...`;
 		else
 			view.prompt = `Waiting for ${game.active} \u2014 ${game.state.replace(/_/g, " ")}...`;
 	} else {
