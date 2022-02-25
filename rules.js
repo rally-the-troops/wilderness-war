@@ -1983,7 +1983,7 @@ function end_action_phase() {
 
 	// TODO: should not be needed! (but we may have forgotten some place where it should happen)
 	for (let p = first_friendly_leader; p <= last_friendly_leader; ++p) {
-		if (count_pieces_in_force(p) > 0)
+		if (count_pieces_in_force(p) > 1)
 			console.log("FORGOT TO UNSTACK", piece_name(p));
 	}
 
@@ -2523,7 +2523,7 @@ function goto_move_piece(who) {
 	game.move = {
 		where: from,
 		came_from: 0,
-		type: (from === HALIFAX || from === LOUISBOURG) ? 'naval' : 'boat',
+		type: (from === HALIFAX || from === LOUISBOURG) ? 'naval' : 'boat-or-land',
 		used: -1,
 		did_carry: 0,
 		infiltrated: 0,
@@ -2626,6 +2626,7 @@ function land_movement_cost() {
 
 function max_movement_cost() {
 	switch (game.move.type) {
+	case 'boat-or-land':
 	case 'boat': return game.events.foul_weather ? 2 : 9;
 	case 'land': return land_movement_cost();
 	case 'naval': return 1;
@@ -2663,10 +2664,6 @@ function has_friendly_fortifications_or_cultivated(s) {
 	return has_friendly_fortifications(s) || is_originally_friendly(s);
 }
 
-function stop_move() {
-	game.move.used = 9;
-}
-
 function gen_naval_move() {
 	let from = moving_piece_space();
 	if (!piece_can_naval_move_from(moving_piece(), from))
@@ -2697,9 +2694,9 @@ function is_carry_connection(from, to) {
 }
 
 function can_move_by_boat(from, to) {
-	if (game.move.used < land_movement_cost())
-		return true;
 	if (is_land_path(from, to)) {
+		if (game.move.type === 'boat-or-land' && game.move.used < land_movement_cost())
+			return true;
 		if (!game.move.did_carry)
 			return is_carry_connection(from, to);
 		return false;
@@ -2734,13 +2731,24 @@ function gen_regular_move() {
 			}
 		}
 
-		if (game.move.type === 'boat') {
+		if (game.move.type === 'boat' || game.move.type === 'boat-or-land') {
 			if (can_move_by_boat(from, to))
 				gen_action_space(to);
 		} else {
 			gen_action_space(to);
 		}
 	});
+}
+
+function stop_move() {
+	game.move.used = 9;
+}
+
+function stop_land_move() {
+	if (game.move.type === 'boat-or-land')
+		game.move.type = 'boat';
+	else
+		game.move.used = 9;
 }
 
 function apply_move(to) {
@@ -2752,21 +2760,21 @@ function apply_move(to) {
 	game.move.came_from = from;
 	game.raid.from[to] = from; // remember where raiders came from so they can retreat after battle
 
-	// Downgrade from Boat to Land movement if not going by river or carries.
-	if (game.move.type === 'boat') {
+	// Downgrade from Boat/Land to Land movement if not going by river or carries.
+	if (game.move.type === 'boat' || game.move.type === 'boat-or-land') {
 		if (is_land_path(from, to)) {
 			if (!game.move.did_carry) {
 				if (is_carry_connection(from, to))
 					game.move.did_carry = 1;
 				else
-					game.move.type = 'land'
+					game.move.type = 'land'; // NOTE: impossible if type=boat
 			} else {
-				game.move.type = 'land'
+				game.move.type = 'land'; // NOTE: impossible if type=boat
 			}
 		}
 	}
 
-	if (game.move.type === 'land') {
+	if (game.move.type === 'land' || game.move.type === 'boat-or-land') {
 		const from_ff = has_friendly_fortifications_or_cultivated(from);
 		const to_ff = has_friendly_fortifications_or_cultivated(to);
 		const has_dt = force_has_drilled_troops(who);
@@ -2774,18 +2782,18 @@ function apply_move(to) {
 
 		// Must stop on mountains.
 		if (is_mountain(to) && !to_ff)
-			stop_move();
+			stop_land_move();
 
 		// Must stop in the next space after passing through...
 		if (game.move.used > 1 && !from_ff) {
 			// Drilled Troops that pass through wilderness must stop in the next space.
 			if (has_dt && !has_ax && is_wilderness(from))
 				if (!game.events.george_croghan)
-					stop_move();
+					stop_land_move();
 
 			// Auxiliaries that pass through enemy cultivated must stop in the next space.
 			if (has_ax && !has_dt && is_originally_enemy(from))
-				stop_move();
+				stop_land_move();
 		}
 	}
 
@@ -2822,16 +2830,13 @@ states.move = {
 
 		if (from) {
 			view.prompt = `Move ${piece_name_and_place(who)}`;
-			if (game.move.type === 'boat') {
-				if (game.move.used < land_movement_cost())
-					view.prompt += " by boat or land";
-				else
-					view.prompt += " by boat";
-				if (game.move.did_carry)
-					view.prompt += " (carried)";
+			if (game.move.type === 'boat-or-land') {
+				view.prompt += " by boat or land";
 			} else {
 				view.prompt += ` by ${game.move.type}`;
 			}
+			if (game.move.did_carry)
+				view.prompt += " (carried)";
 			if (game.move.infiltrated)
 				view.prompt += " (infiltrating)";
 			view.prompt += ` \u2014 ${game.move.used}/${max_movement_cost()}.`;
