@@ -21,7 +21,6 @@
 
 // MAJOR
 // TODO: find closest path to non-infiltration space for allowing infiltration
-// TODO: manual selection of reduced/placed units in events
 
 // BEHAVIOR
 // click unit to undo
@@ -1480,7 +1479,6 @@ function find_friendly_commanding_leader_in_space(s) {
 	for (let p = first_friendly_leader; p <= last_friendly_leader; ++p)
 		if (is_piece_in_space(p, s))
 			if (!commander || leader_command(p) > leader_command(commander))
-				// TODO: prefer commander with higher tactics rating if same command rating
 				commander = p;
 	return commander;
 }
@@ -4331,46 +4329,52 @@ function goto_def_step_losses() {
 
 states.step_losses = {
 	prompt() {
-		view.prompt = `Apply step losses (${game.battle.step_loss} total, ${game.battle.dt_loss} from drilled troops).`;
-		let can_reduce = false;
+		let done = true;
 		if (game.battle.step_loss > 0) {
 			if (game.battle.dt_loss > 0) {
 				for (let i = 0; i < game.battle.units.length; ++i) {
 					let p = game.battle.units[i];
 					if (is_drilled_troops(p) && !is_unit_reduced(p)) {
-						can_reduce = true;
+						done = false;
 						gen_action_piece(p);
 					}
 				}
-				if (!can_reduce) {
+				if (done) {
 					for (let i = 0; i < game.battle.units.length; ++i) {
 						let p = game.battle.units[i];
 						if (is_drilled_troops(p)) {
-							can_reduce = true;
+							done = false;
 							gen_action_piece(p);
 						}
 					}
 				}
 			}
-			if (!can_reduce) {
+			if (done) {
 				for (let i = 0; i < game.battle.units.length; ++i) {
 					let p = game.battle.units[i];
 					if (!is_unit_reduced(p)) {
-						can_reduce = true;
+						done = false;
 						gen_action_piece(p);
 					}
 				}
 			}
-			if (!can_reduce) {
+			if (done) {
 				for (let i = 0; i < game.battle.units.length; ++i) {
 					let p = game.battle.units[i];
-					can_reduce = true;
+					done = false;
 					gen_action_piece(p);
 				}
 			}
 		}
-		if (!can_reduce)
+		if (done) {
+			view.prompt = `Apply step losses \u2014 done.`;
 			gen_action_next();
+		} else {
+			if (game.battle.dt_loss > 0)
+				view.prompt = `Apply step losses (${game.battle.step_loss} left, ${game.battle.dt_loss} from drilled troops).`;
+			else
+				view.prompt = `Apply step losses (${game.battle.step_loss} left).`;
+		}
 	},
 	piece(p) {
 		push_undo();
@@ -4672,8 +4676,6 @@ function determine_winner_assault() {
 		victor = game.battle.attacker;
 	else
 		victor = game.battle.defender;
-
-	// TODO: does defender win if attacker is eliminated
 
 	if (victor === game.battle.attacker) {
 		log("ATTACKER WON ASSAULT");
@@ -6178,6 +6180,7 @@ function can_place_in_space(s) {
 
 function can_restore_unit(p) {
 	if (is_piece_on_map(p) && is_piece_unbesieged(p) && is_unit_reduced(p)) {
+		console.log("can_restore?", p);
 		if (is_militia(p))
 			return true; // always in militia box
 		if (is_drilled_troops(p))
@@ -6376,20 +6379,67 @@ states.indian_alliance = {
 }
 
 // Used by Mohawks and Cherokees events.
-function place_british_indian_tribe(s, first, last) {
+function place_indian(s, first, last) {
 	push_undo();
 	for (let p = first; p <= last; ++p) {
-		if (is_piece_unused(p))
+		if (is_piece_unused(p)) {
 			place_piece(p, s);
+			set_unit_reduced(p, 1);
+		}
 	}
 	game.count = 0;
 }
 
-function restore_british_indian_tribe(first, last) {
-	// TODO: restore_mohawks/cherokee state for manual restoring?
-	for (let p = first; p <= last; ++p) {
+function can_place_indians(first, last) {
+	for (let p = first; p <= last; ++p)
+		if (is_piece_unused(p))
+			return true;
+	return false;
+}
+
+function can_restore_unit_range(first, last) {
+	for (let p = first; p <= last; ++p)
 		if (can_restore_unit(p))
-			restore_unit(p);
+			return true;
+	console.log("can't restore", first, last);
+	return false;
+}
+
+function can_place_or_restore_indians(first, last) {
+	return can_place_indians(first, last) || can_restore_unit_range(first, last);
+}
+
+function goto_restore_units(name, first, last) {
+console.log("CHEKC RESTORE", name, first, last);
+	if (can_restore_unit_range(first, last)) {
+		game.state = 'restore_units';
+		game.restore = { name, first, last };
+	} else {
+		end_action_phase();
+	}
+}
+
+states.restore_units = {
+	prompt() {
+		let done = true;
+		for (let p = game.restore.first; p <= game.restore.last; ++p) {
+			if (can_restore_unit(p)) {
+				gen_action_piece(p);
+				done = false;
+			}
+		}
+		if (done) {
+			view.prompt = `Restore all ${game.restore.name} \u2014 done.`;
+			gen_action_next();
+		} else {
+			view.prompt = `Restore all ${game.restore.name}.`;
+		}
+	},
+	piece(p) {
+		restore_unit(p);
+	},
+	next() {
+		end_action_phase();
 	}
 }
 
@@ -6399,37 +6449,40 @@ events.mohawks = {
 		if (within_two_of_canajoharie.includes(s))
 			if (is_piece_unbesieged(JOHNSON))
 				return true;
-		return false;
+		return can_place_or_restore_indians(first_mohawk, last_mohawk);
 	},
 	play() {
-		game.state = 'mohawks';
-		game.count = 1;
-		restore_british_indian_tribe(first_mohawk, last_mohawk);
+		if (can_place_indians(first_mohawk, last_mohawk)) {
+			game.state = 'mohawks';
+			game.count = 1;
+		} else {
+			goto_restore_units("Mohawks", first_mohawk, last_mohawk);
+		}
 	},
 }
 
 states.mohawks = {
 	prompt() {
-		let can_place = false;
+		let done = true;
 		if (game.count > 0) {
 			let s = piece_space(JOHNSON);
 			if (can_place_in_space(s)) {
-				can_place = true;
+				done = false;
 				gen_action_space(s);
 			}
 		}
-		if (can_place) {
-			view.prompt = "Place all Mohawk units not on the map with Johnson.";
-		} else {
+		if (done) {
 			view.prompt = "Place all Mohawk units not on the map with Johnson \u2014 done.";
 			gen_action_next();
+		} else {
+			view.prompt = "Place all Mohawk units not on the map with Johnson.";
 		}
 	},
 	space(s) {
-		place_british_indian_tribe(s, first_mohawk, last_mohawk);
+		place_indian(s, first_mohawk, last_mohawk);
 	},
 	next() {
-		end_action_phase();
+		goto_restore_units("Mohawks", first_mohawk, last_mohawk);
 	},
 }
 
@@ -6437,39 +6490,43 @@ events.cherokees = {
 	can_play() {
 		if (game.events.cherokee_uprising)
 			return false;
-		return true;
+		return can_place_or_restore_indians(first_cherokee, last_cherokee);
 	},
 	play() {
 		game.events.cherokees = 1;
-		game.state = 'cherokees';
-		game.count = 1;
-		restore_british_indian_tribe(first_cherokee, last_cherokee);
+		if (can_place_indians(first_cherokee, last_cherokee)) {
+			game.state = 'cherokees';
+			game.count = 1;
+		} else {
+			goto_restore_units("Cherokees", first_cherokee, last_cherokee);
+		}
+
 	},
 }
 
 states.cherokees = {
 	prompt() {
-		let can_place = false;
+		let done = true;
 		if (game.count > 0) {
 			for (let s = first_southern_department; s <= last_southern_department; ++s) {
 				if (has_unbesieged_friendly_fortifications(s)) {
-					can_place = true;
+					done = false;
 					gen_action_space(s);
 				}
 			}
 		}
-		if (can_place) {
-			view.prompt = "Place all Cherokee units not on the map at a British fortification in the southern dept.";
-		} else {
+		if (done) {
 			view.prompt = "Place all Cherokee units not on the map at a British fortification in the southern dept \u2014 done.";
 			gen_action_next();
+		} else {
+			view.prompt = "Place all Cherokee units not on the map at a British fortification in the southern dept.";
 		}
 	},
 	space(s) {
-		place_british_indian_tribe(s, first_cherokee, last_cherokee);
+		place_indian(s, first_cherokee, last_cherokee);
 	},
 	next() {
-		end_action_phase();
+		goto_restore_units("Cherokees", first_cherokee, last_cherokee);
 	},
 }
 
@@ -6494,8 +6551,7 @@ events.cherokee_uprising = {
 
 states.cherokee_uprising = {
 	prompt() {
-		view.prompt = `Eliminate ${game.uprising.regular} regulars, ${game.uprising.southern} southern provincials, and all Cherokee.`;
-		let can_eliminate = false;
+		let done = true;
 		for (let p = first_british_unit; p <= last_british_unit; ++p) {
 			if (is_piece_on_map(p) && is_piece_unbesieged(p)) {
 				let x = false;
@@ -6506,13 +6562,17 @@ states.cherokee_uprising = {
 				if (is_cherokee(p))
 					x = true;
 				if (x) {
-					can_eliminate = true;
+					done = false;
 					gen_action_piece(p);
 				}
 			}
 		}
-		if (!can_eliminate)
+		if (done) {
+			view.prompt = `Cherokee Uprising: done.`;
 			gen_action_next();
+		} else {
+			view.prompt = `Cherokee Uprising: Eliminate ${game.uprising.regular} regulars, ${game.uprising.southern} southern provincials, and all Cherokee.`;
+		}
 	},
 	piece(p) {
 		push_undo();
@@ -6537,16 +6597,35 @@ events.treaty_of_easton = {
 		return false;
 	},
 	play() {
-		// TODO: treaty_of_easton state for manual elimination?
-		for (let p = first_french_unit; p <= last_french_unit; ++p) {
-			if (is_indian(p) && is_piece_on_map(p) && is_piece_unbesieged(p)) {
-				if (is_orange_indian(p)) {
-					eliminate_piece(p);
-				}
+		clear_undo();
+		set_active_enemy();
+		game.state = 'treaty_of_easton';
+	},
+}
+
+states.treaty_of_easton = {
+	prompt() {
+		let done = true;
+		for (let p = first_orange_indian; p <= last_orange_indian; ++p) {
+			if (is_piece_on_map(p) && is_piece_unbesieged(p)) {
+				gen_action_piece(p);
+				done = false;
 			}
 		}
-		end_action_phase();
+		if (done) {
+			view.prompt = "Treaty of Easton: Eliminate all unbesieged orange indians \u2014 done.";
+			gen_action_next();
+		} else {
+			view.prompt = "Treaty of Easton: Eliminate all unbesieged orange indians.";
+		}
 	},
+	piece(p) {
+		eliminate_piece(p);
+	},
+	next() {
+		set_active_enemy();
+		end_action_phase();
+	}
 }
 
 events.indians_desert = {
@@ -7060,7 +7139,7 @@ events.raise_provincial_regiments = {
 
 states.raise_provincial_regiments_where = {
 	prompt() {
-		view.prompt = "Raise Provincial regiments in which department?";
+		view.prompt = "Raise or restore Provincial regiments in which department?";
 		if (can_raise_northern_provincial_regiments() || can_restore_northern_provincial_regiments())
 			gen_action('northern');
 		if (can_raise_southern_provincial_regiments() || can_restore_southern_provincial_regiments())
@@ -7073,6 +7152,7 @@ states.raise_provincial_regiments_where = {
 		game.state = 'raise_provincial_regiments';
 		game.count = clamp(max - num, 0, 4);
 		game.department = 'northern';
+		game.did_raise = 0;
 	},
 	southern() {
 		push_undo();
@@ -7087,14 +7167,14 @@ states.raise_provincial_regiments_where = {
 
 states.raise_provincial_regiments = {
 	prompt() {
-		let can_raise = false;
+		let done = true;
 		if (!game.did_raise) {
 			if (game.department === 'northern' && can_restore_northern_provincial_regiments()) {
-				can_raise = true;
+				done = false;
 				gen_action('restore');
 			}
 			if (game.department === 'southern' && can_restore_southern_provincial_regiments()) {
-				can_raise = true;
+				done = false;
 				gen_action('restore');
 			}
 		}
@@ -7102,7 +7182,7 @@ states.raise_provincial_regiments = {
 			if (game.department === 'northern') {
 				for (let s = first_northern_department; s <= last_northern_department; ++s) {
 					if (has_unbesieged_friendly_fortifications(s)) {
-						can_raise = true;
+						done = false;
 						gen_action_space(s);
 					}
 				}
@@ -7110,35 +7190,33 @@ states.raise_provincial_regiments = {
 			if (game.department === 'southern') {
 				for (let s = first_southern_department; s <= last_southern_department; ++s) {
 					if (has_unbesieged_friendly_fortifications(s)) {
-						can_raise = true;
+						done = false;
 						gen_action_space(s);
 					}
 				}
 			}
 		}
-		if (can_raise) {
+		if (done) {
+			view.prompt = `Raise Provincial regiments in ${game.department} department \u2014 done.`;
+			gen_action_next();
+		} else {
 			if (game.did_raise)
 				view.prompt = `Raise Provincial regiments in ${game.department} department.`;
 			else
 				view.prompt = `Raise Provincial regiments in ${game.department} department or restore all to full.`;
-		} else {
-			view.prompt = `Raise Provincial regiments in ${game.department} department \u2014 done.`;
-			gen_action_next();
 		}
 	},
 	restore() {
-		// TODO: restore_provincial_regiments state for manual restoring?
 		push_undo();
-		if (game.department === 'northern') {
-			for (let p = first_northern_provincial; p <= last_northern_provincial; ++p)
-				if (can_restore_unit(p))
-					restore_unit(p);
-		} else {
-			for (let p = first_southern_provincial; p <= last_southern_provincial; ++p)
-				if (can_restore_unit(p))
-					restore_unit(p);
-		}
 		game.count = 0;
+		delete game.did_raise;
+		if (game.department === 'northern') {
+			delete game.department;
+			goto_restore_units("Northern Provincials", first_northern_provincial, last_northern_provincial);
+		} else {
+			delete game.department;
+			goto_restore_units("Southern Provincials", first_southern_provincial, last_southern_provincial);
+		}
 	},
 	space(s) {
 		push_undo();
