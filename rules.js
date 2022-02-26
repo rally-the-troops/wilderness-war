@@ -19,6 +19,8 @@
 
 // TODO: summary of step losses in log (brief/verbose)
 
+// TODO: massacre state for manual elimination?
+
 // MAJOR
 // TODO: find closest path to non-infiltration space for allowing infiltration
 
@@ -3134,7 +3136,7 @@ function end_move_step(final) {
 					} else {
 						capture_enemy_stockade(where);
 						if (can_play_massacre())
-							return goto_massacre('massacre_after_move');
+							return goto_massacre('move');
 					}
 				}
 			}
@@ -3148,18 +3150,6 @@ function end_move_step(final) {
 		return goto_retreat_lone_leader(where, 'move');
 
 	resume_move();
-}
-
-states.massacre_after_move = {
-	prompt: massacre_prompt,
-	play_event(c) {
-		massacre_play(c);
-		resume_move();
-	},
-	next() {
-		set_active_enemy();
-		resume_move();
-	}
 }
 
 function end_move() {
@@ -4014,7 +4004,7 @@ states.attacker_events = {
 			view.prompt += " You don't have " + dont_have.join(" or ") + ".";
 		if (have.length === 0 && dont_have.length === 0)
 			view.prompt += " You have no more response events.";
-		gen_action_next();
+		gen_action_pass();
 	},
 	play_event(c) {
 		push_undo();
@@ -4033,7 +4023,7 @@ states.attacker_events = {
 			break;
 		}
 	},
-	next() {
+	pass() {
 		clear_undo();
 		goto_battle_defender_events();
 	},
@@ -4081,7 +4071,7 @@ states.defender_events = {
 			view.prompt += " You don't have " + dont_have.join(" or ") + ".";
 		if (have.length === 0 && dont_have.length === 0)
 			view.prompt += " You have no more response events.";
-		gen_action_next();
+		gen_action_pass();
 	},
 	play_event(c) {
 		push_undo();
@@ -4100,7 +4090,7 @@ states.defender_events = {
 			break;
 		}
 	},
-	next() {
+	pass() {
 		clear_undo();
 		goto_battle_roll();
 	},
@@ -4685,30 +4675,18 @@ function determine_winner_assault() {
 		if (has_enemy_fortress(where)) {
 			capture_enemy_fortress(where);
 			if (can_play_massacre())
-				return goto_massacre('massacre_after_assault');
+				return goto_massacre('assault');
 		}
 		if (has_enemy_fort(where)) {
 			capture_enemy_fort(where);
 			if (can_play_massacre())
-				return goto_massacre('massacre_after_assault');
+				return goto_massacre('assault');
 		}
 	} else {
 		log("DEFENDER WON ASSAULT");
 	}
 
 	end_move_step(true);
-}
-
-states.massacre_after_assault = {
-	prompt: massacre_prompt,
-	play_event(c) {
-		massacre_play(c);
-		end_move_step(true);
-	},
-	next() {
-		set_active_enemy();
-		end_move_step(true);
-	}
 }
 
 // RETREAT
@@ -5101,20 +5079,8 @@ function goto_surrender() {
 	else
 		capture_enemy_fortress(game.siege_where);
 	if (can_play_massacre())
-		return goto_massacre('massacre_after_surrender');
+		return goto_massacre('surrender');
 	goto_surrender_place();
-}
-
-states.massacre_after_surrender = {
-	prompt: massacre_prompt,
-	play_event(c) {
-		massacre_play(c);
-		goto_surrender_place();
-	},
-	next() {
-		set_active_enemy();
-		goto_surrender_place();
-	}
 }
 
 function goto_surrender_place() {
@@ -6143,31 +6109,52 @@ function can_play_massacre() {
 	return false;
 }
 
-function goto_massacre(st) {
+function goto_massacre(reason) {
 	clear_undo();
 	set_active_enemy();
-	game.state = st;
+	game.state = 'massacre';
+	game.massacre = reason;
 }
 
-function massacre_prompt() {
-	if (player.hand.includes(MASSACRE)) {
-		view.prompt = `You may play "Massacre!"`;
-		gen_action('play_event', MASSACRE);
-	} else {
-		view.prompt = `You don't have "Massacre!"`;
-	}
-	gen_action_next();
-}
-
-function massacre_play(c) {
-	// TODO: massacre state for manual elimination?
-	play_card(c);
-	let s = moving_piece_space();
-	for (let p = 1; p <= last_piece; ++p)
-		if (is_indian(p) && is_piece_in_space(p, s))
-			eliminate_piece(p);
-	award_vp(1);
+function end_massacre() {
+	let reason = game.massacre;
+	delete game.massacre;
 	set_active_enemy();
+	switch (reason) {
+	case 'move':
+		resume_move();
+		break;
+	case 'assault':
+		end_move_step(true);
+		break;
+	case 'surrender':
+		goto_surrender_place();
+		break;
+	}
+}
+
+states.massacre = {
+	prompt() {
+		if (player.hand.includes(MASSACRE)) {
+			view.prompt = `You may play "Massacre!"`;
+			gen_action('play_event', MASSACRE);
+		} else {
+			view.prompt = `You don't have "Massacre!"`;
+		}
+		gen_action_pass();
+	},
+	play_event(c) {
+		play_card(c);
+		let s = moving_piece_space();
+		for (let p = 1; p <= last_piece; ++p)
+			if (is_indian(p) && is_piece_in_space(p, s))
+				eliminate_piece(p);
+		award_vp(1);
+		end_massacre();
+	},
+	pass() {
+		end_massacre();
+	}
 }
 
 function can_place_in_space(s) {
