@@ -7851,44 +7851,78 @@ events.acadians_expelled = {
 		return game.active === BRITAIN;
 	},
 	play() {
-		// TODO: acadians_expelled_halifax state for manual placing?
+		game.state = 'acadians_expelled_place_regulars';
+	},
+}
+
+states.acadians_expelled_place_regulars = {
+	inactive: 'Acadians Expelled (place Regulars)',
+	prompt() {
+		view.prompt = "Acadians Expelled: Place two Regulars at Halifax.";
+		gen_action_space(HALIFAX);
+	},
+	space(s) {
 		for (let i = 0; i < 2; ++i) {
 			let p = find_unused_british_regular();
 			place_piece(p, HALIFAX);
 		}
-
-		// TODO: restore_acadians_expelled state for manual restoring?
-		for (let p = first_french_unit; p <= last_french_unit; ++p) {
-			if (is_militia(p) || is_coureurs(p))
-				if (can_restore_unit(p))
-					restore_unit(p);
-		}
-
+		clear_undo();
 		game.acadians = game.active;
 		set_active(FRANCE);
-		game.state = 'acadians_expelled';
-		game.count = 1;
+		game.state = 'acadians_expelled_place_coureurs';
 	},
 }
 
-states.acadians_expelled = {
+states.acadians_expelled_place_coureurs = {
+	inactive: 'Acadians Expelled (place Coureurs)',
 	prompt() {
-		view.prompt = "Place a Coureurs unit at Québec or Louisbourg.";
-		if (game.count > 0) {
-			if (!has_british_units(QUEBEC))
-				gen_action_space(QUEBEC);
-			if (!has_british_units(LOUISBOURG))
-				gen_action_space(LOUISBOURG);
-		} else {
-			gen_action_next();
-		}
+		view.prompt = "Acadians Expelled: Place a Coureurs unit at Québec or Louisbourg.";
+		if (!has_british_units(QUEBEC))
+			gen_action_space(QUEBEC);
+		if (!has_british_units(LOUISBOURG))
+			gen_action_space(LOUISBOURG);
+		if (has_british_units(QUEBEC) && has_british_units(LOUISBOURG))
+			gen_action_pass();
 	},
 	space(s) {
 		push_undo();
 		let p = find_unused_coureurs();
 		if (p)
 			place_piece(p, s);
-		game.count = 0;
+		game.state = 'acadians_expelled_restore_coureurs_and_militia';
+	},
+	pass() {
+		set_active(game.acadians);
+		delete game.acadians;
+		end_action_phase();
+	},
+}
+
+states.acadians_expelled_restore_coureurs_and_militia = {
+	inactive: 'Acadians Expelled (restore)',
+	prompt() {
+		let done = true;
+		for (let p = first_french_militia; p <= last_french_militia; ++p) {
+			if (can_restore_unit(p)) {
+				done = false;
+				gen_action_piece(p);
+			}
+		}
+		for (let p = first_coureurs; p <= last_coureurs; ++p) {
+			if (can_restore_unit(p)) {
+				done = false;
+				gen_action_piece(p);
+			}
+		}
+		if (done) {
+			view.prompt = "Acadians Expelled: Restore all Coureurs and Militia \u2014 done.";
+			gen_action_next();
+		} else {
+			view.prompt = "Acadians Expelled: Restore all Coureurs and Militia.";
+		}
+	},
+	piece(p) {
+		restore_unit(p);
 	},
 	next() {
 		set_active(game.acadians);
