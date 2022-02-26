@@ -19,14 +19,9 @@
 
 // TODO: summary of step losses in log (brief/verbose)
 
-// TODO: massacre state for manual elimination?
-
 // MAJOR
 // TODO: find closest path to non-infiltration space for allowing infiltration
 
-// BEHAVIOR
-// click unit to undo
-// toggle activated unit by clicking
 // RETREAT BEHAVIOR
 // a) auto-select retreat destination if only one available like for attack retreats?
 // b) auto-send retreating units to destination if only one available?
@@ -96,6 +91,8 @@ const first_cherokee = 14;
 const last_cherokee = 15;
 const first_mohawk = 21;
 const last_mohawk = 22;
+const first_orange_indian = 113;
+const last_orange_indian = 118;
 function is_leader(p) { return (p >= 1 && p <= 13) || (p >= 87 && p <= 96); }
 function is_unit(p) { return (p >= 14 && p <= 86) || (p >= 97 && p <= 151); }
 function is_auxiliary(p) { return (p >= 14 && p <= 25) || (p >= 97 && p <= 126); }
@@ -6112,7 +6109,7 @@ function can_play_massacre() {
 function goto_massacre(reason) {
 	clear_undo();
 	set_active_enemy();
-	game.state = 'massacre';
+	game.state = 'massacre_1';
 	game.massacre = reason;
 }
 
@@ -6133,7 +6130,8 @@ function end_massacre() {
 	}
 }
 
-states.massacre = {
+states.massacre_1 = {
+	inactive: "massacre",
 	prompt() {
 		if (player.hand.includes(MASSACRE)) {
 			view.prompt = `You may play "Massacre!"`;
@@ -6145,14 +6143,39 @@ states.massacre = {
 	},
 	play_event(c) {
 		play_card(c);
-		let s = moving_piece_space();
-		for (let p = 1; p <= last_piece; ++p)
-			if (is_indian(p) && is_piece_in_space(p, s))
-				eliminate_piece(p);
 		award_vp(1);
-		end_massacre();
+		game.state = 'massacre_2';
+		set_active_enemy();
+		unstack_force(moving_piece());
 	},
 	pass() {
+		end_massacre();
+	}
+}
+
+states.massacre_2 = {
+	inactive: "massacre",
+	prompt() {
+		let s = moving_piece_space();
+		let done = true;
+		for (let p = 1; p <= last_piece; ++p) {
+			if (is_indian(p) && is_piece_in_space(p, s)) {
+				gen_action_piece(p);
+				done = false;
+			}
+		}
+		if (done) {
+			view.prompt = `Massacre! Eliminate all indians in ${space_name(s)} \u2014 done.`;
+			gen_action_next();
+		} else {
+			view.prompt = `Massacre! Eliminate all indians in ${space_name(s)}.`;
+		}
+	},
+	piece(p) {
+		eliminate_piece(p, false);
+	},
+	next() {
+		set_active_enemy();
 		end_massacre();
 	}
 }
