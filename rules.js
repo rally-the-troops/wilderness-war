@@ -881,7 +881,11 @@ function piece_space(p) {
 
 // is piece commanded by a leader (or self)
 function is_piece_in_force(p, force) {
-	return (p === force) || (piece_node(p) === leader_box(force));
+	if (p === force)
+		return true;
+	if (is_leader(force))
+		return piece_node(p) === leader_box(force);
+	return false;
 }
 
 function count_non_british_iroquois_and_mohawk_units_in_force(leader) {
@@ -2137,8 +2141,9 @@ states.activate_individually = {
 		gen_action_next();
 		if (game.count >= 1) {
 			for (let p = first_friendly_leader; p <= last_friendly_leader; ++p) {
-				if (is_piece_on_map(p))
+				if (is_piece_on_map(p) && !game.activation.includes(p)) {
 					gen_action_piece(p);
+				}
 			}
 		}
 		if (game.count > 0) {
@@ -2693,10 +2698,19 @@ function is_carry_connection(from, to) {
 	return (from_ff && to_ff);
 }
 
+function can_move_by_boat_or_land(from, to) {
+	if (is_land_path(from, to)) {
+		if (game.move.used < land_movement_cost())
+			return true;
+		if (!game.move.did_carry)
+			return is_carry_connection(from, to);
+		return false;
+	}
+	return true;
+}
+
 function can_move_by_boat(from, to) {
 	if (is_land_path(from, to)) {
-		if (game.move.type === 'boat-or-land' && game.move.used < land_movement_cost())
-			return true;
 		if (!game.move.did_carry)
 			return is_carry_connection(from, to);
 		return false;
@@ -2731,11 +2745,18 @@ function gen_regular_move() {
 			}
 		}
 
-		if (game.move.type === 'boat' || game.move.type === 'boat-or-land') {
+		switch (game.move.type) {
+		case 'boat-or-land':
+			if (can_move_by_boat_or_land(from, to))
+				gen_action_space(to);
+			break;
+		case 'boat':
 			if (can_move_by_boat(from, to))
 				gen_action_space(to);
-		} else {
+			break;
+		case 'land':
 			gen_action_space(to);
+			break;
 		}
 	});
 }
@@ -2767,9 +2788,9 @@ function apply_move(to) {
 				if (is_carry_connection(from, to))
 					game.move.did_carry = 1;
 				else
-					game.move.type = 'land'; // NOTE: impossible if type=boat
+					game.move.type = 'land';
 			} else {
-				game.move.type = 'land'; // NOTE: impossible if type=boat
+				game.move.type = 'land';
 			}
 		}
 	}
@@ -2830,16 +2851,35 @@ states.move = {
 
 		if (from) {
 			view.prompt = `Move ${piece_name_and_place(who)}`;
-			if (game.move.type === 'boat-or-land') {
+			switch (game.move.type) {
+			case 'boat-or-land':
 				view.prompt += " by boat or land";
-			} else {
-				view.prompt += ` by ${game.move.type}`;
+				if (game.move.did_carry)
+					view.prompt += " (carried)";
+				break;
+			case 'boat':
+				view.prompt += " by boat";
+				if (game.move.did_carry)
+					view.prompt += " (carried)";
+				break;
+			case 'land':
+				view.prompt += " by land";
+				break;
+			case 'naval':
+				if (game.move.used > 0)
+					view.prompt += " by ship \u2014 done.";
+				else
+					view.prompt += " by ship.";
+				break;
 			}
-			if (game.move.did_carry)
-				view.prompt += " (carried)";
 			if (game.move.infiltrated)
 				view.prompt += " (infiltrating)";
-			view.prompt += ` \u2014 ${game.move.used}/${max_movement_cost()}.`;
+			if (game.move.type !== 'naval') {
+				if (game.move.used === 9)
+					view.prompt += ` \u2014 done.`;
+				else
+					view.prompt += ` \u2014 ${game.move.used}/${max_movement_cost()}.`;
+			}
 		} else {
 			view.prompt = `${piece_name(who)} eliminated.`;
 		}
