@@ -3273,6 +3273,7 @@ function goto_intercept() {
 	if (can_be_intercepted()) {
 		clear_undo();
 		set_active_enemy();
+		game.move.intercepting = 0;
 		game.state = 'intercept_who';
 	} else {
 		if (game.move.infiltrated)
@@ -3291,18 +3292,24 @@ function is_moving_piece_lone_ax_in_wilderness_or_mountain() {
 states.intercept_who = {
 	prompt() {
 		let where = moving_piece_space();
-		view.prompt = "Select a force or unit to intercept into " + space_name(where) + ".";
-		view.where = where;
-		gen_action_pass();
-		gen_intercept();
+		if (game.move.intercepting) {
+			view.prompt = `Intercept into ${space_name(where)} with ${piece_name(game.move.intercepting)}.`;
+			view.who = game.move.intercepting;
+			gen_action_next();
+		} else {
+			view.prompt = "Select a force or unit to intercept into " + space_name(where) + ".";
+			view.where = where;
+			gen_action_pass();
+			gen_intercept();
+		}
 	},
 	piece(p) {
+		push_undo();
 		console.log("INTERCEPT WITH", piece_name(p));
 		let to = moving_piece_space();
 		let from = piece_space(p);
 		// All units can intercept in same space (even lone ax in wilderness), but no need to define the force.
 		if (is_leader(p) && from !== to) {
-			push_undo();
 			game.move.intercepting = p;
 			game.force = {
 				commander: p,
@@ -3315,8 +3322,10 @@ states.intercept_who = {
 			}
 		} else {
 			game.move.intercepting = p;
-			attempt_intercept();
 		}
+	},
+	next() {
+		attempt_intercept();
 	},
 	pass() {
 		game.move.intercepting = 0;
@@ -3420,6 +3429,7 @@ function goto_avoid_battle() {
 			if (can_enemy_avoid_battle(from)) {
 				console.log("AVOID BATTLE " + space_name(from));
 				set_active_enemy();
+				game.move.avoiding = 0;
 				game.state = 'avoid_who';
 				return;
 			}
@@ -3435,17 +3445,23 @@ function did_piece_intercept(p) {
 states.avoid_who = {
 	prompt() {
 		let from = piece_space(moving_piece());
-		view.prompt = "Select a force or unit to avoid battle in " + space_name(from) + ".";
-		gen_action_pass();
-		for_each_friendly_piece_in_space(from, p => {
-			if (!did_piece_intercept(p) && !is_piece_inside(p))
-				gen_action_piece(p);
-		});
+		if (game.move.avoiding) {
+			view.prompt = `Avoid battle in ${space_name(from)} with ${piece_name(game.move.avoiding)}.`;
+			view.who = game.move.avoiding;
+			gen_action_next();
+		} else {
+			view.prompt = "Select a force or unit to avoid battle in " + space_name(from) + ".";
+			gen_action_pass();
+			for_each_friendly_piece_in_space(from, p => {
+				if (!did_piece_intercept(p) && !is_piece_inside(p))
+					gen_action_piece(p);
+			});
+		}
 	},
 	piece(p) {
+		push_undo();
 		console.log("AVOID BATTLE WITH", piece_name(p));
 		if (is_leader(p)) {
-			push_undo();
 			game.move.avoiding = p;
 			game.force = {
 				commander: p,
@@ -3454,8 +3470,10 @@ states.avoid_who = {
 			game.state = 'define_force';
 		} else {
 			game.move.avoiding = p;
-			attempt_avoid_battle();
 		}
+	},
+	next() {
+		attempt_avoid_battle();
 	},
 	pass() {
 		game.move.avoiding = 0;
@@ -6714,24 +6732,35 @@ events.governor_vaudreuil_interferes = {
 	},
 	play() {
 		game.state = 'governor_vaudreuil_interferes';
+		game.count = 1;
 		game.swap = 0;
 	},
 }
 
 states.governor_vaudreuil_interferes = {
+	inactive: "governor Vaudreuil interferes",
 	prompt() {
-		view.prompt = "Choose any 2 unbesieged French leaders and reverse their locations.";
-		if (game.swap)
-			view.who = game.swap;
-		for (let p = first_enemy_leader; p <= last_enemy_leader; ++p) {
-			if (is_piece_unbesieged(p))
-				if (!game.events.no_fr_naval || piece_space(p) !== LOUISBOURG)
-					if (p !== game.swap)
-						gen_action_piece(p);
+		if (game.count > 0) {
+			if (game.swap) {
+				view.prompt = `Reverse location of ${piece_name(game.swap)} and another French leader.`;
+				view.who = game.swap;
+			} else {
+				view.prompt = "Reverse location of two French leaders.";
+			}
+			for (let p = first_enemy_leader; p <= last_enemy_leader; ++p) {
+				if (is_piece_unbesieged(p))
+					if (!game.events.no_fr_naval || piece_space(p) !== LOUISBOURG)
+						if (p !== game.swap)
+							gen_action_piece(p);
+			}
+		} else {
+			view.prompt = "Governor Vaudreuil Interferes \u2014 done.";
+			gen_action_next();
 		}
 	},
 	piece(p) {
 		if (game.swap) {
+			push_undo();
 			let a = game.swap;
 			delete game.swap;
 			let a_loc = piece_space(a);
@@ -6740,12 +6769,15 @@ states.governor_vaudreuil_interferes = {
 			move_piece_to(p, a_loc);
 			log(`${piece_name(a)} moved to ${space_name(p_loc)}.`);
 			log(`${piece_name(p)} moved to ${space_name(a_loc)}.`);
-			end_action_phase();
+			game.count = 0;
 		} else {
 			push_undo();
 			game.swap = p;
 		}
 	},
+	next() {
+		end_action_phase();
+	}
 }
 
 events.small_pox = {
