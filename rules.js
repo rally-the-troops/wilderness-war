@@ -9,9 +9,9 @@
 
 // CLEANUPS
 // TODO: make 'inside' negative location instead of separate array
-// TODO: move core of is_friendly/enemy to is_british/french and branch in is_friendly/enemy
 // TODO: use is_enemy_occupied(s) instead of has_unbesieged_enemy_units || has_unbesieged_enemy_fortifications
 // TODO: use leader box location for 'pool'
+// TODO: move core of is_friendly/enemy to is_british/french and branch in is_friendly/enemy
 // UI: show discard/removed card list in UI
 // UI: show pool leaders in their own box
 // UI: show dead leaders as grayed out in own box
@@ -2909,8 +2909,12 @@ states.move = {
 			}
 		}
 
-		if (!(game.move.infiltrated && has_unbesieged_enemy_fort_or_fortress(from)))
+		if (game.move.infiltrated) {
+			if (!has_unbesieged_enemy_fort_or_fortress(from))
+				gen_action('stop');
+		} else {
 			gen_action_next()
+		}
 
 		gen_action_demolish();
 
@@ -2975,18 +2979,16 @@ states.move = {
 	assault() {
 		goto_assault(moving_piece_space());
 	},
+	stop() {
+		game.move.infiltrated = 0;
+		goto_declare_inside();
+	},
+	next() {
+		end_move();
+	},
 	demolish_fort: goto_demolish_fort,
 	demolish_stockade: goto_demolish_stockade,
 	demolish_fieldworks: goto_demolish_fieldworks,
-	next() {
-		// Stop infiltrating (not in fort/fortress space)
-		if (game.move.infiltrated) {
-			game.move.infiltrated = 0;
-			goto_declare_inside();
-		} else {
-			end_move();
-		}
-	},
 }
 
 states.foul_weather = {
@@ -7866,7 +7868,7 @@ events.acadians_expelled = {
 }
 
 states.acadians_expelled_place_regulars = {
-	inactive: 'Acadians Expelled (place Regulars)',
+	inactive: 'Acadians expelled (place regulars)',
 	prompt() {
 		view.prompt = "Acadians Expelled: Place two Regulars at Halifax.";
 		gen_action_space(HALIFAX);
@@ -7884,7 +7886,7 @@ states.acadians_expelled_place_regulars = {
 }
 
 states.acadians_expelled_place_coureurs = {
-	inactive: 'Acadians Expelled (place Coureurs)',
+	inactive: 'Acadians expelled (place coureurs)',
 	prompt() {
 		view.prompt = "Acadians Expelled: Place a Coureurs unit at Québec or Louisbourg.";
 		if (!has_british_units(QUEBEC))
@@ -7909,7 +7911,7 @@ states.acadians_expelled_place_coureurs = {
 }
 
 states.acadians_expelled_restore_coureurs_and_militia = {
-	inactive: 'Acadians Expelled (restore)',
+	inactive: 'Acadians expelled (restore coureurs and militia)',
 	prompt() {
 		let done = true;
 		for (let p = first_french_militia; p <= last_french_militia; ++p) {
@@ -8459,11 +8461,13 @@ exports.setup = function (seed, scenario, options) {
 	if (game.options.pitt_dip_rev && game.year < 1757) {
 		// TODO
 		log(`${card_name(67)} and ${card_name(69)} are linked.`);
+		log("NOT IMPLEMENTED");
 	}
 
 	if (game.options.raid_militia) {
 		// TODO
 		log(`Enemy raid in a department cause a militia step loss.`);
+		log("NOT IMPLEMENTED");
 	}
 
 	if (game.options.regulars_vp && game.year < 1757) {
@@ -8473,6 +8477,7 @@ exports.setup = function (seed, scenario, options) {
 	if (game.options.surrender) {
 		// TODO
 		log(`${card_name(SURRENDER)} playable by either side.`);
+		log("NOT IMPLEMENTED");
 	}
 
 	if (game.options.acadians) {
@@ -8482,6 +8487,7 @@ exports.setup = function (seed, scenario, options) {
 	if (game.options.regulars_from_discard) {
 		// TODO
 		log(`After 1756 Britain may exchange a random card for a discarded ${card_name(57)} or ${card_name(60)}.`);
+		log("NOT IMPLEMENTED");
 	}
 
 	start_year();
