@@ -3873,7 +3873,7 @@ function has_light_infantry_in_defense() {
 }
 
 function can_play_ambush_in_attack() {
-	if (!game.battle.assault && !game.events.ambush !== game.battle.attacker) {
+	if (!game.battle.assault && game.events.ambush !== game.battle.attacker) {
 		let s = game.battle.where;
 		if (is_card_available_for_attacker(AMBUSH_1) || is_card_available_for_attacker(AMBUSH_2)) {
 			let n = count_auxiliary_units_in_attack();
@@ -3888,7 +3888,7 @@ function can_play_ambush_in_attack() {
 }
 
 function can_play_ambush_in_defense() {
-	if (!game.battle.assault && !game.events.ambush !== game.battle.defender) {
+	if (!game.battle.assault && game.events.ambush !== game.battle.defender) {
 		let s = game.battle.where;
 		if (is_card_available_for_defender(AMBUSH_1) || is_card_available_for_defender(AMBUSH_2)) {
 			let n = count_auxiliary_units_in_defense();
@@ -3993,7 +3993,7 @@ states.attacker_events = {
 			else
 				dont_have.push('"Fieldworks"');
 		}
-		view.prompt = "Attacker at ${game.battle.where}.";
+		view.prompt = `Attacker at ${space_name(game.battle.where)}.`;
 		view.where = game.battle.where;
 		if (have.length > 0)
 			view.prompt += " You may play " + have.join(" or ") + ".";
