@@ -2143,7 +2143,7 @@ states.activate_individually = {
 		}
 		if (game.count > 0) {
 			for (let p = first_friendly_unit; p <= last_friendly_unit; ++p) {
-				if (is_piece_on_map(p)) {
+				if (is_piece_on_map(p) && !game.activation.includes(p)) {
 					if (game.count >= 0.5) {
 						if (is_indian(p))
 							gen_action_piece(p);
@@ -2364,8 +2364,9 @@ states.define_force = {
 		if (can_pick_up)
 			gen_action('pick_up_all');
 
-		// TODO: confirm selection if empty (separate 'confirm' action)
-		gen_action_next();
+		// Must be a force to proceed (leader + at least one unit)
+		if (count_units_in_force(commander) > 0)
+			gen_action_next();
 	},
 
 	pick_up_all() {
@@ -4438,7 +4439,7 @@ states.leader_check = {
 		if (die === 1) {
 			if (game.battle)
 				remove_from_array(game.battle.atk_pcs, p);
-			eliminate_piece(p);
+			eliminate_piece(p, false);
 		}
 		remove_from_array(game.battle.leader_check, p);
 		if (game.battle.leader_check.length === 0)
@@ -4473,7 +4474,7 @@ states.raid_leader_check = {
 	piece(p) {
 		let die = roll_die("for " + piece_name(p));
 		if (die === 1)
-			eliminate_piece(p);
+			eliminate_piece(p, false);
 		remove_from_array(game.raid.leader_check, p);
 		if (game.raid.leader_check.length === 0) {
 			delete game.raid.leader_check;
@@ -4613,7 +4614,7 @@ function determine_winner_battle() {
 function eliminate_enemy_pieces_inside(where) {
 	for (let p = first_enemy_piece; p <= last_enemy_piece; ++p)
 		if (is_piece_in_space(p, where) && is_piece_inside(p))
-			eliminate_piece(p);
+			eliminate_piece(p, false);
 }
 
 function determine_winner_assault() {
@@ -4713,7 +4714,7 @@ states.retreat_attacker = {
 				if (can_attacker_retreat_from_to(p, from, to))
 					move_piece_to(p, to);
 				else
-					eliminate_piece(p);
+					eliminate_piece(p, false);
 			}
 		});
 		end_retreat_attacker(to);
@@ -4815,7 +4816,7 @@ states.retreat_defender = {
 		let from = game.battle.where;
 		for_each_friendly_piece_in_space(from, p => {
 			if (!is_piece_inside(p))
-				eliminate_piece(p);
+				eliminate_piece(p, false);
 		});
 		end_retreat();
 	},
