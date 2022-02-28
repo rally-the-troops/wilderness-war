@@ -2559,6 +2559,8 @@ function start_move() {
 states.siege_or_move = {
 	prompt() {
 		let where = moving_piece_space();
+		view.who = moving_piece();
+		view.where = where;
 		if (is_assault_possible(where)) {
 			if (player.hand.includes(SURRENDER)) {
 				view.prompt = `You may assault ${space_name(where)}, play "Surrender!", or move.`;
@@ -2995,6 +2997,7 @@ states.foul_weather = {
 	prompt() {
 		let p = moving_piece();
 		view.who = p;
+		view.where = moving_piece_space();
 		if (player.hand.includes(FOUL_WEATHER)) {
 			view.prompt = `${piece_name_and_place(p)} is about to move. You may play "Foul Weather".`;
 			gen_action('play_event', FOUL_WEATHER);
@@ -3292,13 +3295,13 @@ function is_moving_piece_lone_ax_in_wilderness_or_mountain() {
 states.intercept_who = {
 	prompt() {
 		let where = moving_piece_space();
+		view.where = where;
 		if (game.move.intercepting) {
 			view.prompt = `Intercept into ${space_name(where)} with ${piece_name(game.move.intercepting)}.`;
 			view.who = game.move.intercepting;
 			gen_action_next();
 		} else {
 			view.prompt = "Select a force or unit to intercept into " + space_name(where) + ".";
-			view.where = where;
 			gen_action_pass();
 			gen_intercept();
 		}
@@ -3398,6 +3401,7 @@ states.declare_inside = {
 	prompt() {
 		let where = moving_piece_space();
 		view.prompt = "Declare which units and leaders withdraw into the fortification.";
+		view.where = where;
 		gen_action_next();
 		let n = count_friendly_units_inside(where);
 		for_each_friendly_piece_in_space(where, p => {
@@ -3444,7 +3448,8 @@ function did_piece_intercept(p) {
 
 states.avoid_who = {
 	prompt() {
-		let from = piece_space(moving_piece());
+		let from = moving_piece_space();
+		view.where = from;
 		if (game.move.avoiding) {
 			view.prompt = `Avoid battle in ${space_name(from)} with ${piece_name(game.move.avoiding)}.`;
 			view.who = game.move.avoiding;
@@ -3525,8 +3530,10 @@ function can_enemy_avoid_battle(from) {
 
 states.avoid_to = {
 	prompt() {
-		let from = piece_space(moving_piece());
+		let from = moving_piece_space();
 		view.prompt = "Select where to avoid battle to.";
+		view.who = avoiding_piece();
+		view.where = from;
 		for_each_exit(from, to => {
 			if ((moving_piece_came_from() !== to)
 				&& !has_unbesieged_enemy_units(to)
