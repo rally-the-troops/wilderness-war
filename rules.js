@@ -1018,7 +1018,7 @@ function remove_fieldworks(s) {
 }
 
 function place_friendly_raided_marker(s) {
-	log(`Placed raided marker at $(space_name(s)}.`);
+	log(`Placed raided marker at ${space_name(s)}.`);
 	player.raids.push(s);
 }
 
@@ -2135,7 +2135,7 @@ events.campaign = {
 
 states.activate_individually = {
 	prompt() {
-		view.prompt = `Activate units and/or leaders individually: ${format_remain(game.count)}.`;
+		view.prompt = `Activate units and/or leaders individually${format_remain(game.count)}.`;
 		gen_action_next();
 		if (game.count >= 1) {
 			for (let p = first_friendly_leader; p <= last_friendly_leader; ++p) {
@@ -2222,7 +2222,7 @@ states.select_campaign_2 = {
 	prompt() {
 		view.prompt = "Campaign: Select the second leader.";
 		for (let p = first_friendly_leader; p <= last_friendly_leader; ++p) {
-			if (is_piece_on_map(p))
+			if (is_piece_on_map(p) && !is_piece_in_force(p, game.activation[0]))
 				if (!game.activation.includes(p))
 					gen_action_piece(p);
 		}
@@ -3413,9 +3413,9 @@ states.declare_inside = {
 		});
 	},
 	piece(p) {
+		push_undo();
 		log(`${piece_name(p)} withdrew inside.`);
 		console.log("INSIDE WITH", piece_name(p));
-		push_undo();
 		set_piece_inside(p);
 	},
 	next() {
@@ -3550,7 +3550,7 @@ states.avoid_to = {
 				});
 			}
 		}
-		log(`Avoided battle with ${describe_force(moving_piece())}.`);
+		log(`Avoided battle with ${describe_force(avoiding_piece())}.`);
 	},
 	space(to) {
 		end_avoid_battle_success(to);
@@ -3687,7 +3687,7 @@ function goto_battle(where, is_assault) {
 	clear_undo();
 
 	log("");
-	log("BATTLE IN " + space_name(where));
+	log(".battle " + space_name(where));
 
 	game.battle = {
 		where: where,
@@ -4583,13 +4583,6 @@ function determine_winner_battle() {
 	// 7.8: Determine winner
 	let atk_eliminated = count_attacking_units() === 0;
 	let def_eliminated = count_unbesieged_enemy_units_in_space(where) === 0;
-
-	log("RESULT", "atk_eliminated", atk_eliminated);
-	log("RESULT", "atk_result", game.battle.atk_result);
-	log("RESULT", "atk_caused", game.battle.atk_caused);
-	log("RESULT", "def_eliminated", def_eliminated);
-	log("RESULT", "def_result", game.battle.def_result);
-	log("RESULT", "def_caused", game.battle.def_caused);
 
 	let victor;
 	if (atk_eliminated && def_eliminated) {
@@ -5988,8 +5981,8 @@ states.demolish_fieldworks = {
 
 function format_remain(n) {
 	if (n === 0)
-		return "done";
-	return n + " left";
+		return " \u2014 done";
+	return ": " + n + " left";
 }
 
 function goto_construct_stockades(card) {
@@ -6002,7 +5995,7 @@ function goto_construct_stockades(card) {
 
 states.construct_stockades = {
 	prompt() {
-		view.prompt = `Construct Stockades: ${format_remain(game.count)}.`;
+		view.prompt = `Construct Stockades${format_remain(game.count)}.`;
 		gen_action_next();
 		if (game.count > 0) {
 			for (let s = first_space; s <= last_space; ++s) {
@@ -6044,7 +6037,7 @@ function goto_construct_forts(card) {
 
 states.construct_forts = {
 	prompt() {
-		view.prompt = `Construct Forts: ${format_remain(game.count)}.`;
+		view.prompt = `Construct Forts${format_remain(game.count)}.`;
 		gen_action_next();
 		if (game.count > 0) {
 			for (let s = first_space; s <= last_space; ++s) {
@@ -6420,7 +6413,6 @@ function place_indian(s, first, last) {
 	for (let p = first; p <= last; ++p) {
 		if (is_piece_unused(p)) {
 			place_piece(p, s);
-			set_unit_reduced(p, 1);
 		}
 	}
 	game.count = 0;
@@ -6823,8 +6815,8 @@ states.small_pox = {
 
 states.small_pox_eliminate_steps = {
 	prompt() {
+		let done = true;
 		if (game.count > 0) {
-			let done = true;
 			for_each_friendly_unit_in_space(game.small_pox, p => {
 				if (!is_unit_reduced(p)) {
 					done = false;
@@ -6844,7 +6836,7 @@ states.small_pox_eliminate_steps = {
 			view.prompt = `Small Pox at ${space_name(game.small_pox)} \u2014 done.`;
 			gen_action_next();
 		} else {
-			view.prompt = `Small Pox at ${space_name(game.small_pox)}: Eliminate ${game.count} steps.`;
+			view.prompt = `Small Pox at ${space_name(game.small_pox)}: Eliminate steps \u2014 ${game.count} left.`;
 		}
 	},
 	piece(p) {
