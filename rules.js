@@ -18,6 +18,7 @@
 // UI: siege marker on top of besieged stack in fortresses
 
 // TODO: summary of step losses in log (brief/verbose)
+// TODO: s/define/declare/ ?
 
 // MAJOR
 // TODO: find closest path to non-infiltration space for allowing infiltration
@@ -2064,7 +2065,7 @@ function remove_card(card) {
 
 states.action_phase = {
 	prompt() {
-		view.prompt = "Action Phase \u2014 play a card.";
+		view.prompt = "Action Phase: Play a card.";
 		for (let i = 0; i < player.hand.length; ++i)
 			gen_card_menu(player.hand[i]);
 		if (player.hand.length === 1 && !player.held)
@@ -2134,7 +2135,7 @@ events.campaign = {
 
 states.activate_individually = {
 	prompt() {
-		view.prompt = `Activate units and/or leaders individually \u2014 ${format_remain(game.count)}.`;
+		view.prompt = `Activate units and/or leaders individually: ${format_remain(game.count)}.`;
 		gen_action_next();
 		if (game.count >= 1) {
 			for (let p = first_friendly_leader; p <= last_friendly_leader; ++p) {
@@ -2199,7 +2200,7 @@ states.activate_force = {
 states.select_campaign_1 = {
 	inactive: "campaign",
 	prompt() {
-		view.prompt = "Campaign \u2014 select the first leader.";
+		view.prompt = "Campaign: Select the first leader.";
 		for (let p = first_friendly_leader; p <= last_friendly_leader; ++p) {
 			if (is_piece_on_map(p))
 				if (!game.activation.includes(p))
@@ -2219,7 +2220,7 @@ states.select_campaign_1 = {
 states.select_campaign_2 = {
 	inactive: "campaign",
 	prompt() {
-		view.prompt = "Campaign \u2014 select the second leader.";
+		view.prompt = "Campaign: Select the second leader.";
 		for (let p = first_friendly_leader; p <= last_friendly_leader; ++p) {
 			if (is_piece_on_map(p))
 				if (!game.activation.includes(p))
@@ -2258,7 +2259,7 @@ function goto_pick_next_move() {
 
 states.pick_move = {
 	prompt() {
-		view.prompt = "Select an activated force, leader, or unit to move."
+		view.prompt = "Pick the next activated force, leader, or unit to move."
 		game.activation.forEach(gen_action_piece);
 	},
 	piece(p) {
@@ -2563,7 +2564,7 @@ states.siege_or_move = {
 		view.where = where;
 		if (is_assault_possible(where)) {
 			if (player.hand.includes(SURRENDER)) {
-				view.prompt = `You may assault ${space_name(where)}, play "Surrender!", or move.`;
+				view.prompt = `You may assault at ${space_name(where)}, play "Surrender!", or move.`;
 				gen_action('play_event', SURRENDER);
 			} else {
 				view.prompt = `You may assault at ${space_name(where)} or move.`;
@@ -3064,7 +3065,7 @@ states.amphibious_landing = {
 	prompt() {
 		let who = moving_piece();
 		let from = moving_piece_space();
-		view.prompt = "Place amphibious landing marker.";
+		view.prompt = `Amphibious Landing: Select a destination for ${piece_name_and_place(who)}.`;
 		view.who = who;
 		if (from === HALIFAX) {
 			gen_action_space(LOUISBOURG);
@@ -3301,7 +3302,7 @@ states.intercept_who = {
 			view.who = game.move.intercepting;
 			gen_action_next();
 		} else {
-			view.prompt = "Select a force or unit to intercept into " + space_name(where) + ".";
+			view.prompt = "You may select a force or unit to intercept into " + space_name(where) + ".";
 			gen_action_pass();
 			gen_intercept();
 		}
@@ -3400,7 +3401,7 @@ function goto_declare_inside() {
 states.declare_inside = {
 	prompt() {
 		let where = moving_piece_space();
-		view.prompt = "Declare which units and leaders withdraw into the fortification.";
+		view.prompt = "You may withdraw leaders and units into the fortification.";
 		view.where = where;
 		gen_action_next();
 		let n = count_friendly_units_inside(where);
@@ -3451,11 +3452,11 @@ states.avoid_who = {
 		let from = moving_piece_space();
 		view.where = from;
 		if (game.move.avoiding) {
-			view.prompt = `Avoid battle in ${space_name(from)} with ${piece_name(game.move.avoiding)}.`;
+			view.prompt = `Avoid battle from ${space_name(from)} with ${piece_name(game.move.avoiding)}.`;
 			view.who = game.move.avoiding;
 			gen_action_next();
 		} else {
-			view.prompt = "Select a force or unit to avoid battle in " + space_name(from) + ".";
+			view.prompt = "You may select a force or unit to avoid battle from " + space_name(from) + ".";
 			gen_action_pass();
 			for_each_friendly_piece_in_space(from, p => {
 				if (!did_piece_intercept(p) && !is_piece_inside(p))
@@ -3531,7 +3532,7 @@ function can_enemy_avoid_battle(from) {
 states.avoid_to = {
 	prompt() {
 		let from = moving_piece_space();
-		view.prompt = "Select where to avoid battle to.";
+		view.prompt = `Avoid battle from ${space_name(from)} \u2014 select where to.`;
 		view.who = avoiding_piece();
 		view.where = from;
 		for_each_exit(from, to => {
@@ -3803,7 +3804,7 @@ function goto_battle_militia() {
 
 states.militia_in_battle = {
 	prompt() {
-		view.prompt = "Determine which Militia units will participate.";
+		view.prompt = `You may deploy militia at ${space_name(game.battle.where)}.`;
 		let box = department_militia(game.battle.where);
 		view.where = game.battle.where;
 		if (game.active === FRANCE) {
@@ -3839,7 +3840,7 @@ function goto_battle_sortie() {
 
 states.sortie = {
 	prompt() {
-		view.prompt = "Determine which besieged units will participate in the battle.";
+		view.prompt = `You may sortie with besieged units at ${space_name(game.battle.where)}.`;
 		view.where = game.battle.where;
 		for (let p = first_friendly_unit; p <= last_friendly_unit; ++p)
 			if (is_piece_in_space(p, game.battle.where) && is_piece_inside(p))
@@ -4875,7 +4876,7 @@ states.retreat_defender_to = {
 	prompt() {
 		let from = game.battle.where;
 		let who = game.battle.who;
-		view.prompt = "Retreat losing leaders and units \u2014 select destination.";
+		view.prompt = "Retreat losing leaders and units \u2014 select where to.";
 		view.who = who;
 		if (game.active === BRITAIN && has_amphib(from)) {
 			for_each_british_controlled_port(to => gen_action_space(to));
@@ -5017,10 +5018,10 @@ function goto_siege(space) {
 states.siege_coehorns_attacker = {
 	prompt() {
 		if (player.hand.includes(COEHORNS)) {
-			view.prompt = `Siege in ${space_name(game.siege_where)}. You may play "Coehorns & Howitzers".`;
+			view.prompt = `Siege at ${space_name(game.siege_where)}. You may play "Coehorns & Howitzers".`;
 			gen_action('play_event', COEHORNS);
 		} else {
-			view.prompt = `Siege in ${space_name(game.siege_where)}. You don't have "Coehorns & Howitzers".`;
+			view.prompt = `Siege at ${space_name(game.siege_where)}. You don't have "Coehorns & Howitzers".`;
 		}
 		gen_action_pass();
 	},
@@ -5045,10 +5046,10 @@ function end_siege_coehorns_attacker() {
 states.siege_coehorns_defender = {
 	prompt() {
 		if (player.hand.includes(COEHORNS)) {
-			view.prompt = `Siege in ${space_name(game.siege_where)}. You may play "Coehorns & Howitzers".`;
+			view.prompt = `Siege at ${space_name(game.siege_where)}. You may play "Coehorns & Howitzers".`;
 			gen_action('play_event', COEHORNS);
 		} else {
-			view.prompt = `Siege in ${space_name(game.siege_where)}. You don't have "Coehorns & Howitzers".`;
+			view.prompt = `Siege at ${space_name(game.siege_where)}. You don't have "Coehorns & Howitzers".`;
 		}
 		gen_action_pass();
 	},
@@ -5077,10 +5078,10 @@ function end_siege_coehorns_defender() {
 states.siege_surrender = {
 	prompt() {
 		if (player.hand.includes(SURRENDER)) {
-			view.prompt = `Siege in ${space_name(game.siege_where)}. You may play "Surrender!"`;
+			view.prompt = `Siege at ${space_name(game.siege_where)}. You may play "Surrender!"`;
 			gen_action('play_event', SURRENDER);
 		} else {
-			view.prompt = `Siege in ${space_name(game.siege_where)}. You don't have "Surrender!"`;
+			view.prompt = `Siege at ${space_name(game.siege_where)}. You don't have "Surrender!"`;
 		}
 		gen_action_pass();
 	},
@@ -5118,7 +5119,7 @@ function goto_surrender_place() {
 
 states.surrender = {
 	prompt() {
-		view.prompt = "Surrender - place defenders at the closest unbesieged fortification.";
+		view.prompt = "Surrender! Place defenders at the closest unbesieged fortification.";
 		view.where = game.siege_where;
 		for (let i=0; i < game.surrender.length; ++i)
 			gen_action_space(game.surrender[i]);
@@ -5180,7 +5181,7 @@ function goto_assault_possible(where) {
 
 states.assault_possible = {
 	prompt() {
-		view.prompt = "Assault is possible.";
+		view.prompt = `You may assault at ${game.assault_possible}.`;
 		gen_action_space(game.assault_possible);
 		gen_action('assault');
 		gen_action('pass');
@@ -5224,7 +5225,7 @@ function goto_pick_raid() {
 
 states.pick_raid = {
 	prompt() {
-		view.prompt = "Pick next raid space.";
+		view.prompt = "Pick the next raid space."; // TODO
 		for (let i=0; i < game.raid.list.length; ++i)
 			gen_action_space(game.raid.list[i]);
 	},
@@ -5256,7 +5257,7 @@ function goto_raid_militia() {
 
 states.militia_against_raid = {
 	prompt() {
-		view.prompt = `You may deploy one Militia unit against the raid in ${space_name(game.raid.where)}.`;
+		view.prompt = `You may deploy one militia against the raid at ${space_name(game.raid.where)}.`;
 		view.where = game.raid.where;
 		if (game.count > 0) {
 			let box = department_militia(game.raid.where);
@@ -5305,10 +5306,10 @@ function goto_raid_events() {
 states.raid_blockhouses = {
 	prompt() {
 		if (player.hand.includes(BLOCKHOUSES)) {
-			view.prompt = `Raid in ${space_name(game.raid.where)}. You may play "Blockhouses".`;
+			view.prompt = `Raid at ${space_name(game.raid.where)}. You may play "Blockhouses".`;
 			gen_action('play_event', BLOCKHOUSES);
 		} else {
-			view.prompt = `Raid in ${space_name(game.raid.where)}. You don't have "Blockhouses".`;
+			view.prompt = `Raid at ${space_name(game.raid.where)}. You don't have "Blockhouses".`;
 		}
 		gen_action_pass();
 	},
@@ -5772,7 +5773,7 @@ states.winter_attrition = {
 			view.prompt = "Winter Attrition \u2014 done.";
 			gen_action_next();
 		} else {
-			view.prompt = "Winter Attrition.";
+			view.prompt = "Winter Attrition: Reduce drilled troops not in winter quarters.";
 		}
 	},
 	piece(p) {
@@ -6001,7 +6002,7 @@ function goto_construct_stockades(card) {
 
 states.construct_stockades = {
 	prompt() {
-		view.prompt = `Construct stockades \u2014 ${format_remain(game.count)}.`;
+		view.prompt = `Construct Stockades: ${format_remain(game.count)}.`;
 		gen_action_next();
 		if (game.count > 0) {
 			for (let s = first_space; s <= last_space; ++s) {
@@ -6043,7 +6044,7 @@ function goto_construct_forts(card) {
 
 states.construct_forts = {
 	prompt() {
-		view.prompt = `Construct forts \u2014 ${format_remain(game.count)}.`;
+		view.prompt = `Construct Forts: ${format_remain(game.count)}.`;
 		gen_action_next();
 		if (game.count > 0) {
 			for (let s = first_space; s <= last_space; ++s) {
@@ -6109,7 +6110,7 @@ states.max_two_7_command_leaders_in_play = {
 			if (!game.seven.includes(BRADDOCK)) gen_action_piece(BRADDOCK);
 			if (!game.seven.includes(LOUDOUN)) gen_action_piece(LOUDOUN);
 		} else {
-			view.prompt = `Remove one 7 command leader from play \u2014 done.`;
+			view.prompt = `Remove a 7 command leader from play \u2014 done.`;
 			gen_action_next();
 		}
 	},
@@ -6217,7 +6218,6 @@ function can_place_in_space(s) {
 
 function can_restore_unit(p) {
 	if (is_piece_on_map(p) && is_piece_unbesieged(p) && is_unit_reduced(p)) {
-		console.log("can_restore?", p);
 		if (is_militia(p))
 			return true; // always in militia box
 		if (is_drilled_troops(p))
@@ -6262,19 +6262,18 @@ events.provincial_regiments_dispersed_for_frontier_duty = {
 
 states.provincial_regiments_dispersed_for_frontier_duty = {
 	prompt() {
-		view.prompt = `Eliminate ${game.frontier_duty.southern} southern and ${game.frontier_duty.northern} northern provincials.`;
-		let can_eliminate = false;
+		let done = true;
 		for (let p = first_british_unit; p <= last_british_unit; ++p) {
 			if ((game.frontier_duty.northern > 0 && is_northern_provincial(p)) ||
 				(game.frontier_duty.southern > 0 && is_southern_provincial(p))) {
-				can_eliminate = true;
+				done = false;
 				gen_action_piece(p);
 			}
 		}
-		if (can_eliminate) {
-			view.prompt = `Eliminate ${game.frontier_duty.southern} southern and ${game.frontier_duty.northern} northern provincials.`;
+		if (done) {
+			view.prompt = `Provincial Regiments Dispersed \u2014 done.`;
 		} else {
-			view.prompt = `Eliminate southern and northern provincials \u2014 done.`;
+			view.prompt = `Provincial Regiments Dispersed: Eliminate ${game.frontier_duty.southern} southern and ${game.frontier_duty.northern} northern provincials.`;
 			gen_action_next();
 		}
 	},
@@ -6365,14 +6364,14 @@ function find_friendly_unused_indian(s) {
 
 states.indian_alliance = {
 	prompt() {
-		let can_place = false;
+		let done = true;
 		for (let a of game.alliance) {
 			if (game.count >= 1) {
 				for (let p of indians.pieces_from_color[a]) {
 					if (is_friendly_indian(p) && is_piece_unused(p)) {
 						let s = indians.space_from_piece[p];
 						if (!has_enemy_allied_settlement(s) && can_place_in_space(s)) {
-							can_place = true;
+							done = false;
 							gen_action_space(s);
 						}
 					}
@@ -6381,17 +6380,17 @@ states.indian_alliance = {
 			if (game.count >= 0.5) {
 				for (let p of indians.pieces_from_color[a]) {
 					if (is_friendly_indian(p) && can_restore_unit(p)) {
-						can_place = true;
+						done = false;
 						gen_action_piece(p);
 					}
 				}
 			}
 		}
-		if (can_place) {
-			view.prompt = `Place indians at their settlements or restore to full (${game.count} left).`;
-		} else {
-			view.prompt = `Place indians at their settlements or restore to full \u2014 done.`;
+		if (done) {
+			view.prompt = `Indian Alliance \u2014 done.`;
 			gen_action_next();
+		} else {
+			view.prompt = `Indian Alliance: Place or restore ${game.alliance.join(" or ")} indians (${game.count} left).`;
 		}
 	},
 	space(s) {
@@ -6447,7 +6446,6 @@ function can_place_or_restore_indians(first, last) {
 }
 
 function goto_restore_units(name, first, last) {
-console.log("CHEKC RESTORE", name, first, last);
 	if (can_restore_unit_range(first, last)) {
 		game.state = 'restore_units';
 		game.restore = { name, first, last };
@@ -6509,10 +6507,10 @@ states.mohawks = {
 			}
 		}
 		if (done) {
-			view.prompt = "Place all Mohawk units not on the map with Johnson \u2014 done.";
+			view.prompt = "Place all Mohawks not on the map with Johnson \u2014 done.";
 			gen_action_next();
 		} else {
-			view.prompt = "Place all Mohawk units not on the map with Johnson.";
+			view.prompt = "Place all Mohawks not on the map with Johnson.";
 		}
 	},
 	space(s) {
@@ -6553,10 +6551,10 @@ states.cherokees = {
 			}
 		}
 		if (done) {
-			view.prompt = "Place all Cherokee units not on the map at a British fortification in the southern dept \u2014 done.";
+			view.prompt = "Place all Cherokees not on the map at a British fortification in the southern dept \u2014 done.";
 			gen_action_next();
 		} else {
-			view.prompt = "Place all Cherokee units not on the map at a British fortification in the southern dept.";
+			view.prompt = "Place all Cherokees not on the map at a British fortification in the southern dept.";
 		}
 	},
 	space(s) {
@@ -6605,7 +6603,7 @@ states.cherokee_uprising = {
 			}
 		}
 		if (done) {
-			view.prompt = `Cherokee Uprising: done.`;
+			view.prompt = `Cherokee Uprising \u2014 done.`;
 			gen_action_next();
 		} else {
 			view.prompt = `Cherokee Uprising: Eliminate ${game.uprising.regular} regulars, ${game.uprising.southern} southern provincials, and all Cherokee.`;
@@ -6687,9 +6685,9 @@ states.indians_desert = {
 			}
 		}
 		if (can_desert) {
-			view.prompt = `Eliminate up to two unbesieged Indian units from any one space (${game.count} left).`;
+			view.prompt = `Indians Desert: Eliminate two indians from one space (${game.count} left).`;
 		} else {
-			view.prompt = "Eliminate up to two unbesieged Indian units from any one space \u2014 done.";
+			view.prompt = "Indians Desert: Eliminate two indians from one space \u2014 done.";
 			gen_action_next();
 		}
 	},
@@ -6749,10 +6747,10 @@ states.governor_vaudreuil_interferes = {
 	prompt() {
 		if (game.count > 0) {
 			if (game.swap) {
-				view.prompt = `Reverse location of ${piece_name(game.swap)} and another French leader.`;
+				view.prompt = `Governor Vaudreuil Interferes: Reverse location of ${piece_name(game.swap)} and another French leader.`;
 				view.who = game.swap;
 			} else {
-				view.prompt = "Reverse location of two French leaders.";
+				view.prompt = "Governor Vaudreuil Interferes: Reverse location of two French leaders.";
 			}
 			for (let p = first_enemy_leader; p <= last_enemy_leader; ++p) {
 				if (is_piece_unbesieged(p))
@@ -6801,7 +6799,7 @@ events.small_pox = {
 
 states.small_pox = {
 	prompt() {
-		view.prompt = "Choose a space with more than 4 units.";
+		view.prompt = "Small Pox: Choose a space with more than 4 units.";
 		for (let s = first_space; s <= last_space; ++s)
 			if (count_enemy_units_in_space(s) > 4)
 				gen_action_space(s);
@@ -6817,32 +6815,36 @@ states.small_pox = {
 		}
 		log(`Must eliminate ${game.count} steps.`);
 		clear_undo();
-		game.state = 'reduce_from_small_pox';
+		game.state = 'small_pox_eliminate_steps';
 		game.small_pox = s;
 		set_active_enemy();
 	},
 }
 
-states.reduce_from_small_pox = {
+states.small_pox_eliminate_steps = {
 	prompt() {
 		if (game.count > 0) {
-			view.prompt = `Small Pox in ${space_name(game.small_pox)} \u2014 eliminate ${game.count} steps.`;
-			let can_reduce = false;
+			let done = true;
 			for_each_friendly_unit_in_space(game.small_pox, p => {
 				if (!is_unit_reduced(p)) {
-					can_reduce = true;
+					done = false;
 					gen_action_piece(p);
 				}
 			});
-			if (!can_reduce) {
+			if (done) {
 				for_each_friendly_unit_in_space(game.small_pox, p => {
-					if (is_unit_reduced(p))
+					if (is_unit_reduced(p)) {
+						done = false;
 						gen_action_piece(p);
+					}
 				});
 			}
-		} else {
-			view.prompt = `Small Pox in ${space_name(game.small_pox)} \u2014 done.`;
+		}
+		if (done) {
+			view.prompt = `Small Pox at ${space_name(game.small_pox)} \u2014 done.`;
 			gen_action_next();
+		} else {
+			view.prompt = `Small Pox at ${space_name(game.small_pox)}: Eliminate ${game.count} steps.`;
 		}
 	},
 	piece(p) {
@@ -6851,14 +6853,34 @@ states.reduce_from_small_pox = {
 		reduce_unit(p, false);
 	},
 	next() {
+		if (has_friendly_indians(game.small_pox)) {
+			clear_undo();
+			game.state = 'small_pox_remove_indians';
+		} else {
+			end_small_pox();
+		}
+	},
+}
+
+states.small_pox_remove_indians = {
+	prompt() {
+		view.prompt = `Small Pox at ${space_name(game.small_pox)}: Remove all indians.`;
 		for_each_friendly_unit_in_space(game.small_pox, p => {
 			if (is_indian(p))
-				eliminate_piece(p, false);
+				gen_action_piece(p);
 		});
-		delete game.small_pox;
-		set_active_enemy();
-		end_action_phase();
 	},
+	piece(p) {
+		eliminate_piece(p, false);
+		if (!has_friendly_indians(game.small_pox))
+			end_small_pox();
+	},
+}
+
+function end_small_pox() {
+	delete game.small_pox;
+	set_active_enemy();
+	end_action_phase();
 }
 
 events.courier_intercepted = {
@@ -6923,7 +6945,7 @@ events.british_ministerial_crisis = {
 states.british_ministerial_crisis = {
 	prompt() {
 		if (game.count > 0) {
-			view.prompt = "British Ministerial Crisis \u2014 discard one of the listed cards.";
+			view.prompt = "British Ministerial Crisis: Discard a British Regulars, Highlanders, Light Infantry, Transports, or Victories card.";
 			for (let i = 0; i < player.hand.length; ++i) {
 				let c = player.hand[i];
 				if (british_ministerial_crisis_cards.includes(c))
@@ -7017,7 +7039,7 @@ events.stingy_provincial_assembly = {
 
 states.stingy_provincial_assembly_department = {
 	prompt() {
-		view.prompt = "Stingy Provincial Assembly \u2014 choose a department.";
+		view.prompt = "Stingy Provincial Assembly: Choose a department.";
 		gen_action('northern');
 		gen_action('southern');
 	},
@@ -7040,7 +7062,7 @@ function goto_stingy_provincial_assembly(dept) {
 states.stingy_provincial_assembly = {
 	prompt() {
 		if (game.count > 0) {
-			view.prompt = `Stingy Provincial Assembly \u2014 remove a ${game.department} provincial unit.`;
+			view.prompt = `Stingy Provincial Assembly: Remove a ${game.department} provincial unit.`;
 			if (game.department === 'northern') {
 				for (let p = first_northern_provincial; p <= last_northern_provincial; ++p)
 					if (is_piece_unbesieged(p))
@@ -7076,7 +7098,7 @@ events.british_colonial_politics = {
 		if (game.active === FRANCE) {
 			game.pa -= 1;
 			log(`Provincial Assemblies reduced to ${pa_name()}.`);
-			goto_enforce_provincial_limits();
+			goto_british_colonial_politics();
 		} else {
 			game.pa += 1;
 			log(`Provincial Assemblies increased to ${pa_name()}.`);
@@ -7096,7 +7118,7 @@ function pa_name() {
 const southern_provincial_limit = [ 2, 4, 6 ];
 const northern_provincial_limit = [ 6, 10, 18 ];
 
-function goto_enforce_provincial_limits() {
+function goto_british_colonial_politics() {
 	if (game.pa < ENTHUSIASTIC) {
 		let num_s = count_southern_provincials();
 		let num_n = count_northern_provincials();
@@ -7105,26 +7127,25 @@ function goto_enforce_provincial_limits() {
 		if (num_s > max_s || num_n > max_n) {
 			clear_undo();
 			set_active_enemy();
-			game.state = 'enforce_provincial_limits';
+			game.state = 'british_colonial_politics';
 			return;
 		}
 	}
 	end_action_phase();
 }
 
-states.enforce_provincial_limits = {
+states.british_colonial_politics = {
 	prompt() {
 		let num_s = count_southern_provincials();
 		let num_n = count_northern_provincials();
 		let max_n = northern_provincial_limit[game.pa];
 		let max_s = southern_provincial_limit[game.pa];
-		console.log("British Colonial Politics", num_s, max_s, num_n, max_n);
-		let can_remove = false;
+		let done = true;
 		if (num_s > max_s) {
 			for (let p = first_southern_provincial; p <= last_southern_provincial; ++p) {
 				if (is_piece_unbesieged(p)) {
 					gen_action_piece(p);
-					can_remove = true;
+					done = false;
 				}
 			}
 		}
@@ -7132,15 +7153,15 @@ states.enforce_provincial_limits = {
 			for (let p = first_northern_provincial; p <= last_northern_provincial; ++p) {
 				if (is_piece_unbesieged(p)) {
 					gen_action_piece(p);
-					can_remove = true;
+					done = false;
 				}
 			}
 		}
-		if (!can_remove) {
-			view.prompt = `Remove provincial units over limit \u2014 done.`;
+		if (done) {
+			view.prompt = `British Colonial Politics \u2014 done.`;
 			gen_action_next();
 		} else {
-			view.prompt = `Remove provincial units over limit: ${num_s}/${max_s} southern, ${num_n}/${max_n} northern.`;
+			view.prompt = `British Colonial Politics: Remove provincials over limit \u2014 ${num_s}/${max_s} southern, ${num_n}/${max_n} northern.`;
 		}
 	},
 	piece(p) {
@@ -7156,12 +7177,14 @@ states.enforce_provincial_limits = {
 function can_raise_southern_provincial_regiments() {
 	let num = count_southern_provincials();
 	let max = southern_provincial_limit[game.pa];
+	console.log("can_raise_sou", num, max);
 	return num < max;
 }
 
 function can_raise_northern_provincial_regiments() {
 	let num = count_northern_provincials();
 	let max = northern_provincial_limit[game.pa];
+	console.log("can_raise_nor", num, max);
 	return num < max;
 }
 
@@ -7190,7 +7213,7 @@ events.raise_provincial_regiments = {
 
 states.raise_provincial_regiments_where = {
 	prompt() {
-		view.prompt = "Raise or restore Provincial regiments in which department?";
+		view.prompt = "Raise Provincial Regiments in which department?";
 		if (can_raise_northern_provincial_regiments() || can_restore_northern_provincial_regiments())
 			gen_action('northern');
 		if (can_raise_southern_provincial_regiments() || can_restore_southern_provincial_regiments())
@@ -7204,6 +7227,8 @@ states.raise_provincial_regiments_where = {
 		game.count = clamp(max - num, 0, 4);
 		game.department = 'northern';
 		game.did_raise = 0;
+		if (game.count === 0)
+			goto_restore_provincial_regiments();
 	},
 	southern() {
 		push_undo();
@@ -7213,6 +7238,8 @@ states.raise_provincial_regiments_where = {
 		game.count = clamp(max - num, 0, 2);
 		game.department = 'southern';
 		game.did_raise = 0;
+		if (game.count === 0)
+			goto_restore_provincial_regiments();
 	},
 }
 
@@ -7248,26 +7275,18 @@ states.raise_provincial_regiments = {
 			}
 		}
 		if (done) {
-			view.prompt = `Raise Provincial regiments in ${game.department} department \u2014 done.`;
+			view.prompt = `Raise Provincial Regiments \u2014 done.`;
 			gen_action_next();
 		} else {
 			if (game.did_raise)
-				view.prompt = `Raise Provincial regiments in ${game.department} department.`;
+				view.prompt = `Raise Provincial Regiments in ${game.department} department (${game.count} left).`;
 			else
-				view.prompt = `Raise Provincial regiments in ${game.department} department or restore all to full.`;
+				view.prompt = `Raise Provincial Regiments in ${game.department} department (${game.count} left) or restore all to full.`;
 		}
 	},
 	restore() {
 		push_undo();
-		game.count = 0;
-		delete game.did_raise;
-		if (game.department === 'northern') {
-			delete game.department;
-			goto_restore_units("Northern Provincials", first_northern_provincial, last_northern_provincial);
-		} else {
-			delete game.department;
-			goto_restore_units("Southern Provincials", first_southern_provincial, last_southern_provincial);
-		}
+		goto_restore_provincial_regiments();
 	},
 	space(s) {
 		push_undo();
@@ -7280,6 +7299,18 @@ states.raise_provincial_regiments = {
 		delete game.did_raise;
 		delete game.department;
 		end_action_phase();
+	}
+}
+
+function goto_restore_provincial_regiments() {
+	game.count = 0;
+	delete game.did_raise;
+	if (game.department === 'northern') {
+		delete game.department;
+		goto_restore_units("Northern Provincials", first_northern_provincial, last_northern_provincial);
+	} else {
+		delete game.department;
+		goto_restore_units("Southern Provincials", first_southern_provincial, last_southern_provincial);
 	}
 }
 
@@ -7316,7 +7347,6 @@ events.bastions_repaired = {
 	can_play() {
 		let result = false;
 		for_each_siege((space, level) => {
-			console.log("for_each_siege", space, level);
 			if (level > 0 && is_friendly_siege(space))
 				result = true;
 		});
@@ -7331,13 +7361,13 @@ events.bastions_repaired = {
 states.bastions_repaired = {
 	prompt() {
 		if (game.count > 0) {
-			view.prompt = "Replace a siege 1 or siege 2 marker on the map with siege 0.";
+			view.prompt = "Bastions Repaired: Replace a siege 1 or siege 2 marker on the map with siege 0.";
 			for_each_siege((space, level) => {
 				if (level > 0 && is_friendly_siege(space))
 					gen_action_space(space);
 			});
 		} else {
-			view.prompt = "Replace a siege 1 or siege 2 marker on the map with siege 0 - done.";
+			view.prompt = "Bastions Repaired \u2014 done.";
 			gen_action_next();
 		}
 	},
@@ -7374,22 +7404,22 @@ events.colonial_recruits = {
 
 states.colonial_recruits = {
 	prompt() {
-		let can_restore = false;
+		let done = true;
 		if (game.count > 0) {
 			for (let p = first_friendly_unit; p <= last_friendly_unit; ++p) {
 				if (is_colonial_recruit(p)) {
 					if (can_restore_unit(p)) {
-						can_restore = true;
+						done = false;
 						gen_action_piece(p);
 					}
 				}
 			}
 		}
-		if (can_restore) {
-			view.prompt = `Restore ${game.count} reduced colonial recruits.`;
-		} else {
-			view.prompt = `Restore colonial recruits \u2014 done.`;
+		if (done) {
+			view.prompt = `Colonial Recruits \u2014 done.`;
 			gen_action_next();
+		} else {
+			view.prompt = `Colonial Recruits: Restore ${game.count} reduced colonial recruits.`;
 		}
 	},
 	piece(p) {
@@ -7449,22 +7479,22 @@ events.victories_in_germany_release_troops_and_finances_for_new_world = {
 
 states.restore_regular_or_light_infantry_units = {
 	prompt() {
-		let can_restore = false;
+		let done = true;
 		if (game.count > 0) {
 			for (let p = first_friendly_unit; p <= last_friendly_unit; ++p) {
 				if (is_regular(p) || is_light_infantry(p)) {
 					if (can_restore_unit(p)) {
-						can_restore = true;
+						done = false;
 						gen_action_piece(p);
 					}
 				}
 			}
 		}
-		if (can_restore) {
-			view.prompt = `Restore ${game.count} reduced regular or light infantry.`;
-		} else {
+		if (done) {
 			view.prompt = `Restore reduced regular or light infantry \u2014 done.`;
 			gen_action_next();
+		} else {
+			view.prompt = `Restore ${game.count} reduced regular or light infantry.`;
 		}
 	},
 	piece(p) {
@@ -7486,18 +7516,17 @@ events.call_out_militias = {
 
 states.call_out_militias = {
 	prompt() {
-		view.prompt = `Place a Militia unit into a militia box, or restore 2 to full strength.`;
-		let can_place = false;
+		let done = true;
 		if (game.count === 2) {
 			if (game.active === BRITAIN) {
 				if (find_unused_friendly_militia()) {
-					can_place = true;
+					done = false;
 					gen_action_space(SOUTHERN_COLONIAL_MILITIAS);
 					gen_action_space(NORTHERN_COLONIAL_MILITIAS);
 				}
 			} else {
 				if (find_unused_friendly_militia()) {
-					can_place = true;
+					done = false;
 					gen_action_space(ST_LAWRENCE_CANADIAN_MILITIAS);
 				}
 			}
@@ -7506,21 +7535,28 @@ states.call_out_militias = {
 			if (game.active === BRITAIN) {
 				for (let p = first_british_militia; p <= last_british_militia; ++p) {
 					if (is_piece_on_map(p) && is_unit_reduced(p)) {
-						can_place = true;
+						done = false;
 						gen_action_piece(p);
 					}
 				}
 			} else {
 				for (let p = first_french_militia; p <= last_french_militia; ++p) {
 					if (is_piece_on_map(p) && is_unit_reduced(p)) {
-						can_place = true;
+						done = false;
 						gen_action_piece(p);
 					}
 				}
 			}
 		}
-		if (game.count === 0 || !can_place)
+		if (done) {
+			view.prompt = `Call Out Militias \u2014 done.`;
 			gen_action_next();
+		} else {
+			if (game.count < 2)
+				view.prompt = `Call Out Militias: Restore another militia to full strength.`;
+			else
+				view.prompt = `Call Out Militias: Place one militia into a militia box, or restore 2 to full strength.`;
+		}
 	},
 	space(s) {
 		push_undo();
@@ -7547,13 +7583,12 @@ events.rangers = {
 
 states.rangers = {
 	prompt() {
-		view.prompt = `Place a Rangers unit at a fortification, or restore 2 to full strength.`;
-		let can_place = false;
+		let done = true;
 		if (game.count === 2) {
 			if (find_unused_ranger()) {
 				for (let s = first_space; s <= last_space; ++s) {
 					if (has_unbesieged_friendly_fortifications(s)) {
-						can_place = true;
+						done = false;
 						gen_action_space(s);
 					}
 						
@@ -7564,14 +7599,21 @@ states.rangers = {
 			for (let p = first_friendly_unit; p <= last_friendly_unit; ++p) {
 				if (is_ranger(p)) {
 					if (can_restore_unit(p)) {
-						can_place = true;
+						done = false;
 						gen_action_piece(p);
 					}
 				}
 			}
 		}
-		if (game.count === 0 || !can_place)
+		if (done) {
+			view.prompt = `Rangers \u2014 done.`;
 			gen_action_next();
+		} else {
+			if (game.count < 2)
+				view.prompt = `Rangers: Restore another ranger to full strength.`;
+			else
+				view.prompt = `Rangers: Place a ranger at a fortification, or restore 2 to full strength.`;
+		}
 	},
 	space(s) {
 		push_undo();
@@ -7623,13 +7665,13 @@ states.french_regulars = {
 	prompt() {
 		if (game.leader.length > 0) {
 			let p = game.leader[0];
-			view.prompt = `Place ${piece_name(p)} at either Québec or Louisbourg.`;
+			view.prompt = `French Regulars: Place ${piece_name(p)} at either Québec or Louisbourg.`;
 			view.who = p;
 		} else {
 			if (game.count > 0)
-				view.prompt = `Place ${game.count} Regulars at either Québec or Louisbourg.`;
+				view.prompt = `French Regulars: Place ${game.count} regulars at either Québec or Louisbourg.`;
 			else
-				view.prompt = `Place Regulars at either Québec or Louisbourg \u2014 done.`;
+				view.prompt = `French Regulars \u2014 done.`;
 		}
 		if (game.count > 0) {
 			if (!has_british_units(QUEBEC))
@@ -7674,13 +7716,13 @@ events.light_infantry = {
 states.light_infantry = {
 	prompt() {
 		if (game.leader) {
-			view.prompt = `Place ${piece_name(game.leader)} at any fortress.`;
+			view.prompt = `Light Infantry: Place ${piece_name(game.leader)} at any fortress.`;
 			view.who = game.leader;
 		} else {
 			if (game.count > 0)
-				view.prompt = `Place ${game.count} Light Infantry at any fortresses.`;
+				view.prompt = `Light Infantry: Place ${game.count} light infantry at any fortresses.`;
 			else
-				view.prompt = `Place Light Infantry at any fortresses \u2014 done.`;
+				view.prompt = `Light Infantry \u2014 done.`;
 		}
 		if (game.count > 0) {
 			for (let s = first_space; s <= last_space; ++s) {
@@ -7733,13 +7775,13 @@ events.british_regulars = {
 states.british_regulars = {
 	prompt() {
 		if (game.leader) {
-			view.prompt = `Place ${piece_name(game.leader)} at any port.`;
+			view.prompt = `British Regulars: Place ${piece_name(game.leader)} at any port.`;
 			view.who = game.leader;
 		} else {
 			if (game.count > 0)
-				view.prompt = `Place ${game.count} Regulars at any ports.`;
+				view.prompt = `British Regulars: Place ${game.count} regulars at any ports.`;
 			else
-				view.prompt = `Place Regulars at any ports \u2014 done.`;
+				view.prompt = `British Regulars \u2014 done.`;
 		}
 		if (game.count > 0) {
 			for_each_british_controlled_port_and_amphib(s => {
@@ -7802,13 +7844,13 @@ states.highlanders = {
 	prompt() {
 		if (game.leader.length > 0) {
 			let p = game.leader[0];
-			view.prompt = `Place ${piece_name(p)} at any port.`;
+			view.prompt = `Highlanders: Place ${piece_name(p)} at any port.`;
 			view.who = p;
 		} else {
 			if (game.count > 0)
-				view.prompt = `Place ${game.count} Highlanders at any ports.`;
+				view.prompt = `Highlanders: Place ${game.count} highlanders at any ports.`;
 			else
-				view.prompt = `Place Highlanders at any ports \u2014 done.`;
+				view.prompt = `Highlanders \u2014 done.`;
 		}
 		if (game.count > 0) {
 			for_each_british_controlled_port_and_amphib(s => {
@@ -7856,13 +7898,13 @@ states.royal_americans = {
 	prompt() {
 		if (game.leader) {
 			let p = game.leader;
-			view.prompt = `Place ${piece_name(p)} at any fortress in the departments.`;
+			view.prompt = `Royal Americans: Place ${piece_name(p)} at any fortress in the departments.`;
 			view.who = p;
 		} else {
 			if (game.count > 0)
-				view.prompt = `Place ${game.count} Royal American units at any fortress in the departments.`;
+				view.prompt = `Royal Americans: Place ${game.count} royal americans at any fortress in the departments.`;
 			else
-				view.prompt = `Place Royal American units at any fortress in the departments \u2014 done.`;
+				view.prompt = `Royal Americans \u2014 done.`;
 		}
 		if (game.count > 0) {
 			for (let s = first_northern_department; s <= last_northern_department; ++s)
@@ -8001,14 +8043,14 @@ events.william_pitt = {
 states.william_pitt = {
 	prompt() {
 		if (game.count > 0) {
-			view.prompt = "Draw Highlanders, British Regulars, Light Infantry or Troop Transports from Discard.";
+			view.prompt = "William Pitt: Draw Highlanders, British Regulars, Light Infantry or Troop Transports from Discard.";
 			view.hand = game.discard;
 			for (let c of game.discard) {
 				if (william_pitt_cards.includes(cards[c].event))
 					gen_action('card', c);
 			}
 		} else {
-			view.prompt = "Draw Highlanders, British Regulars, Light Infantry or Troop Transports from Discard - done.";
+			view.prompt = "William Pitt \u2014 done.";
 		}
 		gen_action_next();
 	},
@@ -8043,14 +8085,14 @@ events.diplomatic_revolution = {
 states.diplomatic_revolution = {
 	prompt() {
 		if (game.count > 0) {
-			view.prompt = "Draw French Regulars or Troop Transports from Discard.";
+			view.prompt = "Diplomatic Revolution: Draw French Regulars or Troop Transports from Discard.";
 			view.hand = view.discard;
 			for (let c of view.discard) {
 				if (diplomatic_revolution_cards.includes(cards[c].event))
 					gen_action('card', c);
 			}
 		} else {
-			view.prompt = "Draw French Regulars or Troop Transports from Discard - done.";
+			view.prompt = "Diplomatic Revolution \u2014 done.";
 		}
 		gen_action_next();
 	},
@@ -8077,7 +8119,7 @@ events.intrigues_against_shirley = {
 
 states.intrigues_against_shirley = {
 	prompt() {
-		view.prompt = "Eliminate Shirley.";
+		view.prompt = "Intrigues Against Shirley: Eliminate Shirley.";
 		gen_action_piece(SHIRLEY);
 	},
 	piece() {
