@@ -4579,7 +4579,6 @@ function determine_winner_battle() {
 
 	log("");
 
-
 	// 7.8: Determine winner
 	let atk_eliminated = count_attacking_units() === 0;
 	let def_eliminated = count_unbesieged_enemy_units_in_space(where) === 0;
@@ -4604,6 +4603,12 @@ function determine_winner_battle() {
 			victor = game.battle.defender;
 	}
 
+	log("");
+	if (victor === game.battle.attacker)
+		log("ATTACKER WON");
+	else
+		log("DEFENDER WON");
+
 	if (victor === game.battle.attacker && game.battle.atk_worth_vp) {
 		if (victor === FRANCE)
 			award_french_vp(1);
@@ -4625,10 +4630,8 @@ function determine_winner_battle() {
 	// Raid battle vs militia
 	if (game.raid && game.raid.where > 0) {
 		if (victor === game.battle.attacker) {
-			log("ATTACKER WON RAID BATTLE VS MILITIA");
 			goto_raid_events();
 		} else {
-			log("DEFENDER WON RAID BATTLE VS MILITIA");
 			if (game.battle.atk_pcs.length > 0)
 				retreat_attacker(game.raid.where, game.raid.from[game.raid.where] | 0);
 			else
@@ -4638,10 +4641,6 @@ function determine_winner_battle() {
 	}
 
 	// Normal battle
-	if (victor === game.battle.attacker)
-		log("ATTACKER WON");
-	else
-		log("DEFENDER WON");
 
 	// 6.712 - Infiltrator must always retreat from fort/fortress even if they win
 	if (game.move.infiltrated && has_unbesieged_enemy_fort_or_fortress(game.battle.where))
@@ -4659,6 +4658,14 @@ function determine_winner_battle() {
 			}
 		}
 	} else {
+		/* If attacker must retreat, unbesieged defenders who withdrew inside can come out. */
+		if (!is_space_besieged(where)) {
+			console.log("not besieged, attacker lost, coming out!");
+			for (let p = first_piece; p <= last_piece; ++p)
+				if (is_piece_in_space(p, where) && is_piece_inside(p))
+					set_piece_outside(p);
+		}
+
 		if (game.battle.atk_pcs.length > 0) {
 			unstack_force(moving_piece());
 			retreat_attacker(game.battle.where, moving_piece_came_from());
