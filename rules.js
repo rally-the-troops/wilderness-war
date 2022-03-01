@@ -8,7 +8,6 @@
 // TODO: remove old 7 command leader(s) immediately as they're drawn, before placing reinforcements
 
 // CLEANUPS
-// TODO: make 'inside' negative location instead of separate array
 // TODO: use is_enemy_occupied(s) instead of has_unbesieged_enemy_units || has_unbesieged_enemy_fortifications
 // TODO: use leader box location for 'pool'
 // TODO: move core of is_friendly/enemy to is_british/french and branch in is_friendly/enemy
@@ -243,6 +242,10 @@ let first_friendly_unit;
 let last_friendly_leader;
 let last_friendly_piece;
 let last_friendly_unit;
+
+function abs(x) {
+	return x < 0 ? -x : x;
+}
 
 function random(n) {
 	return ((game.seed = game.seed * 69621 % 0x7fffffff) / 0x7fffffff) * n | 0;
@@ -868,13 +871,13 @@ function leader_tactics(p) {
 // DYNAMIC PROPERTIES
 
 function piece_node(p) {
-	return game.location[p];
+	return abs(game.location[p]);
 }
 
 function piece_space(p) {
-	let where = game.location[p];
+	let where = abs(game.location[p]);
 	if (is_leader_box(where))
-		return game.location[leader_from_box[where-first_leader_box]];
+		return abs(game.location[leader_from_box[where-first_leader_box]]);
 	return where;
 }
 
@@ -957,20 +960,21 @@ function set_unit_reduced(p, v) {
 }
 
 function is_piece_inside(p) {
-	return game.inside.includes(p);
+	return game.location[p] < 0;
 }
 
 function is_piece_unbesieged(p) {
-	return !game.inside.includes(p);
+	return game.location[p] > 0;
 }
 
 function set_piece_inside(p) {
-	if (!game.inside.includes(p))
-		game.inside.push(p);
+	if (game.location[p] > 0)
+		game.location[p] = -game.location[p];
 }
 
 function set_piece_outside(p) {
-	remove_from_array(game.inside, p);
+	if (game.location[p] < 0)
+		game.location[p] = -game.location[p];
 }
 
 function is_piece_on_map(p) {
@@ -8479,7 +8483,6 @@ exports.setup = function (seed, scenario, options) {
 		// Leaders and units
 		location: pieces.map(() => 0),
 		reduced: [],
-		inside: [],
 
 		// Markers
 		sieges: {},
@@ -8677,7 +8680,6 @@ exports.view = function(state, current) {
 		events: game.events,
 		location: game.location,
 		reduced: game.reduced,
-		inside: game.inside,
 		sieges: game.sieges,
 		amphib: game.amphib,
 		fieldworks: game.fieldworks,
