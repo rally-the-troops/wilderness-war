@@ -202,7 +202,7 @@ const ST_LAWRENCE_CANADIAN_MILITIAS = 144;
 // Patch up leader/box associations.
 const box_from_leader = [];
 const leader_from_box = [];
-for (let p = 0; p <= last_french_leader; ++p)
+for (let p = 0; p <= last_piece; ++p)
 	box_from_leader[p] = 0;
 for (let s = first_leader_box; s <= last_leader_box; ++s) {
 	let p = pieces.findIndex(piece => piece.name === spaces[s].name);
