@@ -14,7 +14,6 @@
 // UI: show discard/removed card list in UI
 // UI: show pool leaders in their own box
 // UI: show dead leaders as grayed out in own box
-// UI: siege marker on top of besieged stack in fortresses
 
 // TODO: summary of step losses in log (brief/verbose)
 // TODO: s/define/declare/ ?
@@ -2267,7 +2266,6 @@ states.pick_move = {
 		game.activation.forEach(gen_action_piece);
 	},
 	piece(p) {
-		push_undo();
 		remove_from_array(game.activation, p);
 		goto_move_piece(p);
 	},
