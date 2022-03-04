@@ -8584,17 +8584,17 @@ function clear_undo() {
 
 function push_undo() {
 	game.undo.push(JSON.stringify(game, (k,v) => {
-		if (k === 'undo') return undefined;
+		if (k === 'undo') return 0;
 		if (k === 'log') return v.length;
 		return v;
 	}));
 }
 
 function pop_undo() {
-	let undo = game.undo;
+	let save_undo = game.undo;
 	let save_log = game.log;
-	Object.assign(game, JSON.parse(undo.pop()));
-	game.undo = undo;
+	game = JSON.parse(save_undo.pop());
+	game.undo = save_undo;
 	save_log.length = game.log;
 	game.log = save_log;
 }
@@ -8652,7 +8652,7 @@ exports.resign = function (state, current) {
 	load_game_state(state);
 	if (game.state !== 'game_over')
 		goto_game_over(enemy(), current + " resigned.");
-	return state;
+	return game;
 }
 
 exports.action = function (state, current, action, arg) {
@@ -8668,7 +8668,7 @@ exports.action = function (state, current, action, arg) {
 		else
 			throw new Error("Invalid action: " + action);
 	}
-	return state;
+	return game;
 }
 
 exports.view = function(state, current) {
