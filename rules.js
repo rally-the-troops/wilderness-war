@@ -8536,7 +8536,7 @@ exports.setup = function (seed, scenario, options) {
 	if (game.options.no_foul_weather) {
 		log(`${card_name(FOUL_WEATHER)} removed.`);
 		remove_from_array(game.deck, FOUL_WEATHER);
-		game.discard.push(FOUL_WEATHER);
+		game.removed.push(FOUL_WEATHER);
 	}
 
 	if (game.options.pitt_dip_rev && game.year < 1757) {
