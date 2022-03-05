@@ -2625,8 +2625,8 @@ function land_movement_cost() {
 	return game.events.foul_weather ? 2 : movement_allowance(moving_piece());
 }
 
-function max_movement_cost() {
-	switch (game.move.type) {
+function max_movement_cost(type) {
+	switch (type) {
 	case 'boat-or-land':
 	case 'boat': return game.events.foul_weather ? 2 : 9;
 	case 'land': return land_movement_cost();
@@ -2694,31 +2694,103 @@ function is_carry_connection(from, to) {
 	return (from_ff && to_ff);
 }
 
-function can_move_by_boat_or_land(from, to) {
+function can_move_by_boat_or_land(used, did_carry, from, to) {
 	if (is_land_path(from, to)) {
-		if (game.move.used < land_movement_cost())
+		if (used < land_movement_cost())
 			return true;
-		if (!game.move.did_carry)
+		if (!did_carry)
 			return is_carry_connection(from, to);
 		return false;
 	}
 	return true;
 }
 
-function can_move_by_boat(from, to) {
+function can_move_by_boat(used, did_carry, from, to) {
 	if (is_land_path(from, to)) {
-		if (!game.move.did_carry)
+		if (!did_carry)
 			return is_carry_connection(from, to);
 		return false;
 	}
 	return true;
 }
 
-function can_infiltrate(start) {
-	// TODO: search paths to see if we have enough movement points left to reach non-infiltration space
-	console.log("CAN_INFILTRATE", space_name(start), game.move.used, max_movement_cost());
-	let distance_to_non_infiltration_space = 1;
-	return (game.move.used + distance_to_non_infiltration_space) < max_movement_cost();
+function can_move(type, used, carry, from, to) {
+	console.log("CAN_INFILTRATE_MOVE", type, used, carry, space_name(from), ">", space_name(to));
+	switch (type) {
+	case 'boat-or-land':
+		return can_move_by_boat_or_land(used, carry, from, to);
+	case 'boat':
+		return can_move_by_boat(used, carry, from, to);
+	case 'land':
+		return true;
+	}
+	return false;
+}
+
+function is_infiltration_move(to) {
+	if (has_unbesieged_enemy_fortifications(to))
+		return true;
+	if (has_unbesieged_enemy_units(to))
+		return true;
+	return false;
+}
+
+function can_infiltrate_search(type, used, carry, from, to) {
+	if (can_move(type, used, carry, from, to)) {
+		if (!is_infiltration_move(to)) {
+			console.log("  EXIT", space_name(to));
+			return true;
+		}
+
+		// Spend MP
+		used ++;
+
+		// Downgrade from Boat/Land to Land movement if not going by river or carries.
+		if (type === 'boat' || type === 'boat-or-land') {
+			if (is_land_path(from, to)) {
+				if (!carry) {
+					if (is_carry_connection(from, to))
+						carry = 1;
+					else
+						type = 'land';
+				} else {
+					type = 'land';
+				}
+			}
+		}
+
+		// See if we must stop.
+		if (type === 'land') {
+			const from_ff = has_friendly_fortifications_or_cultivated(from);
+			const to_ff = has_friendly_fortifications_or_cultivated(to);
+			// Must stop on mountains.
+			if (!from_ff && is_mountain(from)) {
+				console.log("  STOP mountain");
+				return false;
+			}
+			// Must stop in the next space after passing through enemy cultivated
+			if (used > 1 && !from_ff && is_originally_enemy(from)) {
+				console.log("  STOP enemy cultivated");
+				return false;
+			}
+		}
+
+		// Continue looking.
+		if (used < max_movement_cost(type)) {
+			for (let next of spaces[to].exits) {
+				if (can_infiltrate_search(type, used, carry, to, next))
+					return true;
+			}
+		}
+	}
+	return false;
+}
+
+function can_infiltrate(from, to) {
+	console.log("====");
+	let result = can_infiltrate_search(game.move.type, game.move.used, game.move.did_carry, from, to);
+	console.log("  =", result);
+	return result;
 }
 
 function gen_regular_move() {
@@ -2736,18 +2808,18 @@ function gen_regular_move() {
 			// Must have Drilled Troops to enter an enemy fort or fortress space.
 			// except: Infiltration by lone auxiliary
 			if (has_unbesieged_enemy_fort_or_fortress(to)) {
-				if (!(has_dt || (is_lone_ax && can_infiltrate(to))))
+				if (!(has_dt || (is_lone_ax && can_infiltrate(from, to))))
 					return; // continue
 			}
 		}
 
 		switch (game.move.type) {
 		case 'boat-or-land':
-			if (can_move_by_boat_or_land(from, to))
+			if (can_move_by_boat_or_land(game.move.used, game.move.did_carry, from, to))
 				gen_action_space(to);
 			break;
 		case 'boat':
-			if (can_move_by_boat(from, to))
+			if (can_move_by_boat(game.move.used, game.move.did_carry, from, to))
 				gen_action_space(to);
 			break;
 		case 'land':
@@ -2817,17 +2889,22 @@ function apply_move(to) {
 	game.move.infiltrated = 0;
 
 	if (has_enemy_stockade(to)) {
-		if (is_lone_auxiliary(who) && can_infiltrate(to))
+		if (is_lone_auxiliary(who) && can_infiltrate(from, to))
 			game.move.infiltrated = 1;
 		else
 			stop_move();
 	}
 
 	if (has_unbesieged_enemy_fort_or_fortress(to)) {
-		if (is_lone_auxiliary(who) && can_infiltrate(to))
+		if (is_lone_auxiliary(who) && can_infiltrate(from, to))
 			game.move.infiltrated = 1;
 		else
 			stop_move();
+	}
+
+	if (has_unbesieged_enemy_units(to)) {
+		if (is_lone_auxiliary(who) && can_infiltrate(from, to))
+			game.move.infiltrated = 1;
 	}
 
 	if (game.move.infiltrated)
@@ -2873,7 +2950,7 @@ states.move = {
 				if (game.move.used === 9)
 					view.prompt += ` \u2014 done.`;
 				else
-					view.prompt += ` \u2014 ${game.move.used}/${max_movement_cost()}.`;
+					view.prompt += ` \u2014 ${game.move.used}/${max_movement_cost(game.move.type)}.`;
 			}
 		} else {
 			view.prompt = `${piece_name(who)} eliminated.`;
@@ -2916,7 +2993,7 @@ states.move = {
 
 		gen_action_demolish();
 
-		if (game.move.used < max_movement_cost()) {
+		if (game.move.used < max_movement_cost(game.move.type)) {
 			if (game.move.type === 'naval')
 				gen_naval_move();
 			else
