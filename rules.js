@@ -1832,25 +1832,6 @@ function search_supply_spaces() {
 	}
 }
 
-function goto_debug_supply(role) {
-	if (game.state === 'debug_supply') {
-		pop_undo();
-	} else {
-		push_undo();
-		set_active(role);
-		game.state = 'debug_supply';
-	}
-}
-
-states.debug_supply = {
-	prompt() {
-		search_supply_spaces();
-		view.prompt = "Showing supply lines.";
-		supply_cache.forEach(gen_action_space);
-	},
-	space: pop_undo
-}
-
 function is_in_supply(from) {
 	if (game.active === BRITAIN && has_amphib(from))
 		return true;
@@ -1864,6 +1845,17 @@ function is_in_supply(from) {
 			x = true;
 	})
 	return x;
+}
+
+function query_supply() {
+	let reply = {};
+	set_active(BRITAIN);
+	search_supply_spaces();
+	reply.british = supply_cache;
+	set_active(FRANCE);
+	search_supply_spaces();
+	reply.french = supply_cache;
+	return reply;
 }
 
 // CLOSEST PATH SEARCH
@@ -8671,6 +8663,22 @@ exports.action = function (state, current, action, arg) {
 	return game;
 }
 
+exports.query = function (state, current, q, params) {
+	if (q === 'supply') {
+		load_game_state(state, current);
+		return query_supply();
+	}
+	if (q === 'discard') {
+		load_game_state(state, current);
+		return game.discard;
+	}
+	if (q === 'removed') {
+		load_game_state(state, current);
+		return game.removed;
+	}
+	return null;
+}
+
 exports.view = function(state, current) {
 	load_game_state(state);
 	view = {
@@ -8683,8 +8691,6 @@ exports.view = function(state, current) {
 		fieldworks: game.fieldworks,
 		last_card: game.last_card,
 		// deck: game.deck.length,
-		// discard: game.discard,
-		// removed: game.removed,
 		french: {
 			hand: game.french.hand.length,
 			allied: game.french.allied,
