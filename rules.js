@@ -11,9 +11,9 @@
 // TODO: use is_enemy_occupied(s) instead of has_unbesieged_enemy_units || has_unbesieged_enemy_fortifications
 // TODO: use leader box location for 'pool'
 // TODO: move core of is_friendly/enemy to is_british/french and branch in is_friendly/enemy
-// UI: show discard/removed card list in UI
 // UI: show pool leaders in their own box
 // UI: show dead leaders as grayed out in own box
+// TODO: is_piece_in_space && inside/unbesieged into one function
 
 // TODO: summary of step losses in log (brief/verbose)
 // TODO: s/define/declare/ ?
@@ -703,6 +703,13 @@ function for_each_exit(s, fn) {
 function for_each_friendly_piece_in_node(node, fn) {
 	for (let p = first_friendly_piece; p <= last_friendly_piece; ++p) {
 		if (is_piece_in_node(p, node))
+			fn(p);
+	}
+}
+
+function for_each_unbesieged_friendly_piece_in_space(s, fn) {
+	for (let p = first_friendly_piece; p <= last_friendly_piece; ++p) {
+		if (is_piece_in_space(p, s) && is_piece_unbesieged(p))
 			fn(p);
 	}
 }
@@ -4828,6 +4835,60 @@ function can_defender_retreat_from(p, from) {
 	return can_retreat;
 }
 
+function can_all_defenders_retreat_from_to(from, to) {
+	let result = true;
+	for_each_unbesieged_friendly_piece_in_space(from, p => {
+		if (!can_defender_retreat_from_to(p, from, to))
+			result = false;
+	});
+	return result;
+}
+
+function can_all_defenders_retreat_inside(from) {
+	let result = true;
+	for_each_unbesieged_friendly_piece_in_space(from, p => {
+		if (!can_defender_retreat_inside(p, from))
+			result = false;
+	});
+	return result;
+}
+
+function can_all_defenders_retreat_from(from) {
+	let result = true;
+	for_each_unbesieged_friendly_piece_in_space(from, p => {
+		if (!can_defender_retreat_from(p, from))
+			result = false;
+	});
+	return result;
+}
+
+function can_any_defenders_retreat_from_to(from, to) {
+	let result = false;
+	for_each_unbesieged_friendly_piece_in_space(from, p => {
+		if (can_defender_retreat_from_to(p, from, to))
+			result = true;
+	});
+	return result;
+}
+
+function can_any_defenders_retreat_inside(from) {
+	let result = false;
+	for_each_unbesieged_friendly_piece_in_space(from, p => {
+		if (can_defender_retreat_inside(p, from))
+			result = true;
+	});
+	return result;
+}
+
+function can_any_defenders_retreat_from(from) {
+	let result = false;
+	for_each_unbesieged_friendly_piece_in_space(from, p => {
+		if (can_defender_retreat_from(p, from))
+			result = true;
+	});
+	return result;
+}
+
 states.retreat_defender = {
 	prompt() {
 		let from = game.battle.where;
@@ -4848,12 +4909,18 @@ states.retreat_defender = {
 			gen_action_next();
 		} else {
 			view.prompt += " select piece to retreat.";
+			if (can_all_defenders_retreat_from(from))
+				gen_action('pick_up_all');
 		}
 	},
 	piece(piece) {
 		push_undo();
 		game.battle.who = piece;
 		game.state = 'retreat_defender_to';
+	},
+	pick_up_all() {
+		push_undo();
+		game.state = 'retreat_all_defenders_to';
 	},
 	next() {
 		clear_undo();
@@ -4895,6 +4962,51 @@ states.retreat_defender_to = {
 		}
 		game.state = 'retreat_defender';
 	},
+}
+
+states.retreat_all_defenders_to = {
+	prompt() {
+		let from = game.battle.where;
+		view.prompt = "Retreat all losing leaders and units \u2014 select where to.";
+		if (game.active === BRITAIN && has_amphib(from)) {
+			for_each_british_controlled_port(to => gen_action_space(to));
+		}
+		if (can_any_defenders_retreat_inside(from))
+			gen_action_space(from);
+		for_each_exit(from, to => {
+			if (can_any_defenders_retreat_from_to(from, to)) {
+				gen_action_space(to);
+			}
+		});
+	},
+	space(to) {
+		push_undo();
+		let from = game.battle.where;
+		let done = true;
+		for_each_unbesieged_friendly_piece_in_space(from, p => {
+			if (from === to) {
+				if (can_defender_retreat_inside(p, from)) {
+					log(`${piece_name(p)} retreats inside fortification.`);
+					set_piece_inside(p);
+				} else {
+					done = false;
+				}
+			} else {
+				if (can_defender_retreat_from_to(p, from, to)) {
+					log(`${piece_name(p)} retreats to ${space_name(to)}.`);
+					move_piece_to(p, to);
+				} else {
+					done = false;
+				}
+			}
+		});
+		if (done)
+			game.state = 'retreat_defender';
+	},
+	next() {
+		push_undo();
+		game.state = 'retreat_defender';
+	}
 }
 
 function end_retreat() {
