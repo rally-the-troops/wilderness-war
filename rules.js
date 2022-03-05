@@ -3380,6 +3380,7 @@ function end_intercept_success() {
 function goto_declare_inside() {
 	let where = moving_piece_space();
 	if (has_unbesieged_enemy_units_that_did_not_intercept(where)) {
+		clear_undo();
 		if (is_fortress(where) || has_enemy_fort(where)) {
 			set_active_enemy();
 			game.state = 'declare_inside';
@@ -3422,6 +3423,7 @@ function goto_avoid_battle() {
 	if (has_unbesieged_enemy_units(from)) {
 		if (!game.move.did_attempt_intercept) {
 			if (can_enemy_avoid_battle(from)) {
+				clear_undo();
 				set_active_enemy();
 				game.move.avoiding = 0;
 				game.state = 'avoid_who';
