@@ -1743,7 +1743,7 @@ function is_fort_or_fortress_vacant_of_besieging_units(s) {
 }
 
 function lift_sieges_and_amphib() {
-	console.log("LIFT SIEGES AND AMPHIB AND RECAPTURE FORTRESSES");
+	console.log("LIFT");
 
 	for_each_siege(s => {
 		if (is_fort_or_fortress_vacant_of_besieging_units(s)) {
@@ -1877,11 +1877,9 @@ function find_closest_friendly_unbesieged_fortification(start) {
 
 	while (queue.length > 0) {
 		let [ here, dist ] = queue.shift();
-		console.log("CLOSEST", space_name(here), dist);
 		if (dist > stop)
 			break;
 		if (has_unbesieged_friendly_fortifications(here)) {
-			console.log("  FOUND FRIENDLY FORT");
 			stop = dist;
 			result.push(here);
 		}
@@ -1894,7 +1892,6 @@ function find_closest_friendly_unbesieged_fortification(start) {
 		}
 	}
 
-	console.log("CLOSEST =>", result);
 	return result;
 }
 
@@ -1981,7 +1978,6 @@ function start_action_phase() {
 
 function end_action_phase() {
 	lift_sieges_and_amphib();
-	console.log("END ACTION PHASE");
 	clear_undo();
 	game.count = 0;
 
@@ -2594,7 +2590,6 @@ states.siege_or_move = {
 }
 
 function goto_break_siege() {
-	console.log("BREAK SIEGE");
 	let here = moving_piece_space();
 	game.move.came_from = here;
 	goto_avoid_battle();
@@ -2822,7 +2817,6 @@ function apply_move(to) {
 	game.move.infiltrated = 0;
 
 	if (has_enemy_stockade(to)) {
-		console.log("INF STK", is_lone_auxiliary(who), can_infiltrate(to));
 		if (is_lone_auxiliary(who) && can_infiltrate(to))
 			game.move.infiltrated = 1;
 		else
@@ -3100,7 +3094,6 @@ function change_siege_marker(where, amount) {
 
 function goto_battle_check() {
 	let where = moving_piece_space();
-	console.log("BATTLE CHECK", space_name(where));
 	if (has_unbesieged_enemy_units(where)) {
 		goto_battle(where, false);
 	} else {
@@ -3310,7 +3303,6 @@ states.intercept_who = {
 	},
 	piece(p) {
 		push_undo();
-		console.log("INTERCEPT WITH", piece_name(p));
 		let to = moving_piece_space();
 		let from = piece_space(p);
 		// All units can intercept in same space (even lone ax in wilderness), but no need to define the force.
@@ -3376,7 +3368,6 @@ function end_intercept_fail() {
 function end_intercept_success() {
 	let who = intercepting_piece();
 	let to = moving_piece_space();
-	console.log("INTERCEPT SUCCESS " + piece_name(who) + " TO " + space_name(to));
 	move_piece_to(who, to);
 	unstack_force(who);
 	set_active_enemy();
@@ -3390,7 +3381,6 @@ function goto_declare_inside() {
 	let where = moving_piece_space();
 	if (has_unbesieged_enemy_units_that_did_not_intercept(where)) {
 		if (is_fortress(where) || has_enemy_fort(where)) {
-			console.log("DECLARE INSIDE/OUTSIDE");
 			set_active_enemy();
 			game.state = 'declare_inside';
 			return;
@@ -3416,7 +3406,6 @@ states.declare_inside = {
 	piece(p) {
 		push_undo();
 		log(`${piece_name(p)} withdrew inside.`);
-		console.log("INSIDE WITH", piece_name(p));
 		set_piece_inside(p);
 	},
 	next() {
@@ -3433,7 +3422,6 @@ function goto_avoid_battle() {
 	if (has_unbesieged_enemy_units(from)) {
 		if (!game.move.did_attempt_intercept) {
 			if (can_enemy_avoid_battle(from)) {
-				console.log("AVOID BATTLE " + space_name(from));
 				set_active_enemy();
 				game.move.avoiding = 0;
 				game.state = 'avoid_who';
@@ -3467,7 +3455,6 @@ states.avoid_who = {
 	},
 	piece(p) {
 		push_undo();
-		console.log("AVOID BATTLE WITH", piece_name(p));
 		if (is_leader(p)) {
 			game.move.avoiding = p;
 			game.force = {
@@ -3560,7 +3547,6 @@ states.avoid_to = {
 
 function end_avoid_battle_success(to) {
 	let who = avoiding_piece();
-	console.log("AVOID BATTLE SUCCESS " + piece_name(who) + " TO " + space_name(to));
 	move_piece_to(who, to);
 	end_avoid_battle();
 }
@@ -3569,7 +3555,6 @@ function end_avoid_battle() {
 	let who = avoiding_piece();
 	if (who)
 		unstack_force(who);
-	console.log("END AVOID BATTLE");
 	set_active_enemy();
 	game.state = 'move';
 	goto_battle_check();
@@ -3774,7 +3759,6 @@ function goto_battle(where, is_assault) {
 function goto_battle_militia() {
 	let box = department_militia(game.battle.where);
 	if (box && count_militia_in_department(box) > 0) {
-		console.log("MILITIA", space_name(game.battle.where), space_name(box));
 		let first = 0, last = 0;
 		switch (box) {
 		case ST_LAWRENCE_CANADIAN_MILITIAS:
@@ -4552,7 +4536,6 @@ states.raid_leader_check = {
 
 function return_militia(where) {
 	let box = department_militia(where);
-	console.log("RETURN MILITIA", space_name(where), space_name(box));
 	if (box) {
 		let n = 0;
 		for (let p = 1; p <= last_piece; ++p) {
@@ -4661,7 +4644,6 @@ function determine_winner_battle() {
 	} else {
 		/* If attacker must retreat, unbesieged defenders who withdrew inside can come out. */
 		if (!is_space_besieged(where)) {
-			console.log("not besieged, attacker lost, coming out!");
 			for (let p = first_piece; p <= last_piece; ++p)
 				if (is_piece_in_space(p, where) && is_piece_inside(p))
 					set_piece_outside(p);
@@ -4718,7 +4700,6 @@ function determine_winner_assault() {
 // RETREAT
 
 function can_attacker_retreat_from_to(p, from, to) {
-	console.log("RETREAT QUERY (ATTACK)", piece_name(p), space_name(from), space_name(to));
 	if (to === 0)
 		return false;
 	if (has_unbesieged_enemy_units(to))
@@ -4755,8 +4736,6 @@ states.retreat_attacker = {
 		let from = game.retreat.from;
 		let to = game.retreat.to;
 		delete game.retreat;
-
-		console.log("RETREAT ATTACKER", space_name(from), "to", space_name(to));
 
 		// NOTE: Besieged pieces that sortie out are 'inside' so not affected by the code below.
 		log(`Attacker retreated to ${space_name(to)}.`);
@@ -4897,12 +4876,9 @@ states.retreat_defender = {
 		let can_retreat = false;
 		for_each_friendly_piece_in_node(from, p => {
 			if (can_defender_retreat_from(p, from)) {
-				console.log(piece_name(p) + " CAN RETREAT");
 				can_retreat = true;
 				gen_action_piece(p);
 			}
-			else
-				console.log(piece_name(p) + " CANNOT RETREAT");
 		});
 		if (!can_retreat) {
 			view.prompt += " done.";
@@ -5347,9 +5323,7 @@ states.pick_raid = {
 function goto_raid_militia() {
 	let where = game.raid.where;
 	if (has_enemy_stockade(where) && enemy_department_has_at_least_n_militia(where, 1)) {
-		console.log("MILITIA AGAINST RAID", space_name(where), space_name(game.raid.battle));
 		if (where === game.raid.battle) {
-			console.log("BATTLED AGAINST STOCKADE, NO MILITIA ALLOWED", space_name(game.raid.battle));
 			goto_raid_events();
 		} else {
 			set_active_enemy();
@@ -5684,7 +5658,6 @@ states.go_home_to = {
 		move_piece_to(who, to);
 		if (is_indian(who)) {
 			let home = indians.space_from_piece[who];
-			console.log("go_home", space_name(from), space_name(to), space_name(home));
 			game.count = 0;
 			if (to !== home) {
 				if (game.go_home.follow[from]) {
@@ -5926,10 +5899,8 @@ function are_all_enemy_controlled_fortresses_for_vp(list) {
 	for (let i = 0; i < list.length; ++i) {
 		let s = list[i];
 		if (!is_enemy_controlled_fortress_for_vp(s)) {
-			console.log(`VP CONTROL ${space_name(s)} = French`);
 			result = false;
-		} else
-			console.log(`VP CONTROL ${space_name(s)} = British`);
+		}
 	}
 	return result;
 }
@@ -6542,7 +6513,6 @@ function can_restore_unit_range(first, last) {
 	for (let p = first; p <= last; ++p)
 		if (can_restore_unit(p))
 			return true;
-	console.log("can't restore", first, last);
 	return false;
 }
 
@@ -7282,14 +7252,12 @@ states.british_colonial_politics = {
 function can_raise_southern_provincial_regiments() {
 	let num = count_southern_provincials();
 	let max = southern_provincial_limit[game.pa];
-	console.log("can_raise_sou", num, max);
 	return num < max;
 }
 
 function can_raise_northern_provincial_regiments() {
 	let num = count_northern_provincials();
 	let max = northern_provincial_limit[game.pa];
-	console.log("can_raise_nor", num, max);
 	return num < max;
 }
 
