@@ -2638,9 +2638,13 @@ function resume_move() {
 	// Interrupt for Foul Weather response at first opportunity to move.
 	if (game.move.used < 0) {
 		if (is_enemy_card_available(FOUL_WEATHER)) {
-			set_active_enemy();
-			game.state = 'foul_weather';
-			return;
+			if (game.options.retroactive) {
+				game.retro_foul_weather = JSON.stringify(game);
+			} else {
+				set_active_enemy();
+				game.state = 'foul_weather';
+				return;
+			}
 		}
 		game.move.used = 0;
 	}
@@ -3036,7 +3040,7 @@ states.move = {
 				clear_undo();
 				set_active_enemy();
 				game.state = 'lake_schooner';
-				return;
+				return goto_retroactive_foul_weather();
 			}
 		}
 
@@ -3066,6 +3070,23 @@ states.move = {
 	demolish_fieldworks: goto_demolish_fieldworks,
 }
 
+function goto_retroactive_foul_weather() {
+	if (game.options.retroactive && game.retro_foul_weather) {
+		console.log("RETRO REWIND");
+
+		let state_start = game.retro_foul_weather;
+		delete game.retro_foul_weather;
+		let state_next = JSON.stringify(game);
+
+		game = JSON.parse(state_start);
+		set_active_enemy();
+		game.state = 'foul_weather';
+		game.retro_foul_weather = state_next;
+	} else {
+		clear_undo();
+	}
+}
+
 states.foul_weather = {
 	prompt() {
 		let p = moving_piece();
@@ -3080,6 +3101,10 @@ states.foul_weather = {
 		gen_action_pass();
 	},
 	play_event(c) {
+		if (game.options.retroactive) {
+			console.log("RETRO STAY");
+			delete game.retro_foul_weather;
+		}
 		play_card(c);
 		game.events.foul_weather = 1;
 		game.move.used = 0;
@@ -3087,9 +3112,14 @@ states.foul_weather = {
 		resume_move();
 	},
 	pass() {
-		game.move.used = 0;
-		set_active_enemy();
-		resume_move();
+		if (game.options.retroactive) {
+			console.log("RETRO PASS");
+			game = JSON.parse(game.retro_foul_weather);
+		} else {
+			game.move.used = 0;
+			set_active_enemy();
+			resume_move();
+		}
 	}
 }
 
@@ -3239,6 +3269,9 @@ function end_move() {
 		add_raid(game.raid.aux[i]);
 
 	goto_pick_raid();
+
+	// Pause for foul weather before any raids are resolved...
+	goto_retroactive_foul_weather();
 }
 
 // INTERCEPT
@@ -3346,16 +3379,17 @@ function goto_intercept() {
 		remove_enemy_forts_uc_in_path(here);
 
 	if (can_be_intercepted()) {
+		game.move.intercepting = 0;
 		clear_undo();
 		set_active_enemy();
-		game.move.intercepting = 0;
 		game.state = 'intercept_who';
-	} else {
-		if (game.move.infiltrated)
-			end_move_step();
-		else
-			goto_declare_inside();
+		return goto_retroactive_foul_weather();
 	}
+
+	if (game.move.infiltrated)
+		end_move_step();
+	else
+		goto_declare_inside();
 }
 
 function is_moving_piece_lone_ax_in_wilderness_or_mountain() {
@@ -3500,11 +3534,11 @@ function goto_avoid_battle() {
 	if (has_unbesieged_enemy_units(from)) {
 		if (!game.move.did_attempt_intercept) {
 			if (can_enemy_avoid_battle(from)) {
+				game.move.avoiding = 0;
 				clear_undo();
 				set_active_enemy();
-				game.move.avoiding = 0;
 				game.state = 'avoid_who';
-				return;
+				return goto_retroactive_foul_weather();
 			}
 		}
 	}
@@ -3833,6 +3867,9 @@ function goto_battle(where, is_assault) {
 		goto_battle_militia();
 	else
 		goto_battle_sortie();
+
+	// Pause for foul weather before any battles are resolved...
+	goto_retroactive_foul_weather();
 }
 
 function goto_battle_militia() {
@@ -5374,6 +5411,7 @@ function goto_assault(where) {
 // RAID
 
 function goto_pick_raid() {
+	// TODO: retroactive
 	if (game.raid.list.length > 0) {
 		clear_undo();
 		game.state = 'pick_raid';
@@ -6042,6 +6080,9 @@ function goto_game_over(result, victory) {
 
 states.game_over = {
 	inactive() {
+		view.prompt = game.victory;
+	},
+	prompt() {
 		view.prompt = game.victory;
 	}
 }
@@ -8314,15 +8355,12 @@ function setup_unit(where, who) {
 	game.location[who] = where;
 }
 
-function setup_1757(end_year) {
+function setup_1757(end_year, start_vp) {
 	game.year = 1757;
 	game.end_year = end_year;
 	game.season = EARLY;
-	game.vp = 4;
+	game.vp = start_vp;
 	game.pa = SUPPORTIVE;
-
-	// TODO: optional rule start at 2VP for balance
-	// see https://boardgamegeek.com/thread/1366550/article/19163465#19163465
 
 	for (let i = 1; i <= 62; ++i)
 		game.deck.push(i);
@@ -8678,10 +8716,16 @@ exports.setup = function (seed, scenario, options) {
 
 	switch (scenario) {
 	default:
-	case "Annus Mirabilis": setup_1757(1759); break;
+	// Start at 2VP for balance.
+	// See https://boardgamegeek.com/thread/1366550/article/19163465#19163465
+	case "Annus Mirabilis": setup_1757(1759, 2); break;
 	case "Early War Campaign": setup_1755(1759); break;
-	case "Late War Campaign": setup_1757(1762); break;
+	case "Late War Campaign": setup_1757(1762, 4); break;
 	case "The Full Campaign": setup_1755(1762); break;
+	}
+
+	if (game.options.retroactive) {
+		log(`Retroactive ${card_name(FOUL_WEATHER)}.`);
 	}
 
 	if (game.options.no_foul_weather) {
@@ -8746,6 +8790,14 @@ function pop_undo() {
 	let save_log = game.log;
 	game = JSON.parse(save_undo.pop());
 	game.undo = save_undo;
+	save_log.length = game.log;
+	game.log = save_log;
+}
+
+function pop_to_undo(save_undo) {
+	let save_log = game.log;
+	game = JSON.parse(save_undo);
+	game.undo = [];
 	save_log.length = game.log;
 	game.log = save_log;
 }
@@ -8840,6 +8892,11 @@ exports.query = function (state, current, q, params) {
 
 exports.view = function(state, current) {
 	load_game_state(state);
+
+	if (game.retro_foul_weather && game.state !== 'foul_weather' && current !== game.active) {
+		game = JSON.parse(game.retro_foul_weather);
+	}
+
 	view = {
 		vp: game.vp, pa: game.pa, year: game.year, season: game.season,
 		events: game.events,
