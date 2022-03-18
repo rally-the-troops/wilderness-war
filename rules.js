@@ -1,8 +1,5 @@
 "use strict";
 
-// SERVER
-// add 'query' message to show supply lines, discarded cards, removed cards, etc
-
 // WONTFIX
 // TODO: select leader for defense instead of automatically picking the best
 // TODO: remove old 7 command leader(s) immediately as they're drawn, before placing reinforcements
@@ -11,12 +8,10 @@
 // TODO: use is_enemy_occupied(s) instead of has_unbesieged_enemy_units || has_unbesieged_enemy_fortifications
 // TODO: use leader box location for 'pool'
 // TODO: move core of is_friendly/enemy to is_british/french and branch in is_friendly/enemy
-// UI: show pool leaders in their own box
-// UI: show dead leaders as grayed out in own box
 // TODO: is_piece_in_space && inside/unbesieged into one function
 
 // TODO: summary of step losses in log (brief/verbose)
-// TODO: s/define/declare/ ?
+// TODO: define/declare/designate force?
 
 // MAJOR
 // TODO: find closest path to non-infiltration space for allowing infiltration
@@ -614,6 +609,10 @@ function deal_cards() {
 	let bn = 8;
 	if (game.events.pitt)
 		bn = 9;
+
+	if (game.discard.includes(SURRENDER)) {
+		reshuffle_deck();
+	}
 
 	fn = fn - game.french.hand.length;
 	bn = bn - game.british.hand.length;
@@ -2039,8 +2038,6 @@ function play_card(card) {
 	log(`${game.active} played ${card_name(card)}.`);
 	remove_from_array(player.hand, card);
 	game.last_card = card;
-	if (card === SURRENDER)
-		game.events.surrender = 1;
 	if (cards[card].special === 'remove')
 		game.removed.push(card);
 	else
@@ -2051,8 +2048,6 @@ function discard_card(card, reason) {
 	log(`Discarded ${card_name(card)}${reason}.`);
 	remove_from_array(player.hand, card);
 	game.last_card = card;
-	if (card === SURRENDER)
-		game.events.surrender = 1;
 	game.discard.push(card);
 }
 
@@ -7107,8 +7102,6 @@ events.françois_bigot = {
 		enemy_player.hand.splice(i, 1);
 		game.discard.push(c);
 		log(`France discards ${card_name(c)}.`);
-		if (c === SURRENDER)
-			game.events.surrender = 1;
 		end_action_phase();
 	},
 }
