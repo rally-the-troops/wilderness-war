@@ -43,6 +43,8 @@ const LAKE_SCHOONER = 15;
 const GEORGE_CROGHAN = 16;
 const LOUISBOURG_SQUADRONS = 21;
 const ACADIANS_EXPELLED = 66;
+const WILLIAM_PITT = 67;
+const DIPLOMATIC_REVOLUTION = 69;
 
 // PIECE RANGES
 const first_piece = 1;
@@ -612,6 +614,19 @@ function deal_cards() {
 
 	if (game.discard.includes(SURRENDER)) {
 		reshuffle_deck();
+	}
+
+	if (game.options.pitt_dip_rev) {
+		if (game.events.pitt && !game.events.diplo && game.discard.includes(DIPLOMATIC_REVOLUTION)) {
+			log(`France receives Diplomatic Revolution from discard.`);
+			remove_from_array(game.discard, DIPLOMATIC_REVOLUTION);
+			game.french.hand.push(DIPLOMATIC_REVOLUTION);
+		}
+		if (!game.events.pitt && game.events.diplo && game.discard.includes(WILLIAM_PITT)) {
+			log(`Britain receives William Pitt from discard.`);
+			remove_from_array(game.discard, WILLIAM_PITT);
+			game.british.hand.push(WILLIAM_PITT);
+		}
 	}
 
 	fn = fn - game.french.hand.length;
@@ -1924,14 +1939,32 @@ function start_season() {
 		break;
 	}
 
+	deal_cards();
+
+	if (game.options.regulars_from_discard && game.year >= 1757) {
+		let found = false;
+		for (let c of game.discard) {
+			if (cards[c].event === 'british_regulars' || cards[c].event === 'highlanders') {
+				found = true;
+				break;
+			}
+		}
+		if (found) {
+			set_active(BRITAIN);
+			game.state = 'discard_to_draw_regulars';
+			return;
+		}
+	}
+
+	start_action_phase();
+}
+
+function start_action_phase() {
 	if (game.events.quiberon)
 		set_active(BRITAIN);
 	else
 		set_active(FRANCE);
-
-	deal_cards();
-
-	start_action_phase();
+	resume_action_phase();
 }
 
 function end_season() {
@@ -1968,7 +2001,7 @@ function end_late_season() {
 	goto_indians_and_leaders_go_home();
 }
 
-function start_action_phase() {
+function resume_action_phase() {
 	game.state = 'action_phase';
 	log("");
 	log(`.h2 ${game.active}`);
@@ -1989,13 +2022,13 @@ function end_action_phase() {
 	if (!enemy_player.passed && enemy_player.hand.length > 0) {
 		console.log("END ACTION PHASE - NEXT PLAYER");
 		set_active_enemy();
-		start_action_phase();
+		resume_action_phase();
 		return;
 	}
 
 	if (!player.passed && player.hand.length > 0) {
 		console.log("END ACTION PHASE - SAME PLAYER");
-		start_action_phase();
+		resume_action_phase();
 		return;
 	}
 
@@ -8229,7 +8262,7 @@ events.william_pitt = {
 states.william_pitt = {
 	prompt() {
 		if (game.count > 0) {
-			view.prompt = "William Pitt: Draw Highlanders, British Regulars, Light Infantry or Troop Transports from Discard.";
+			view.prompt = "William Pitt: Draw Highlanders, British Regulars, Light Infantry or Troop Transports from discard.";
 			view.hand = game.discard;
 			for (let c of game.discard) {
 				if (william_pitt_cards.includes(cards[c].event))
@@ -8271,9 +8304,9 @@ events.diplomatic_revolution = {
 states.diplomatic_revolution = {
 	prompt() {
 		if (game.count > 0) {
-			view.prompt = "Diplomatic Revolution: Draw French Regulars or Troop Transports from Discard.";
-			view.hand = view.discard;
-			for (let c of view.discard) {
+			view.prompt = "Diplomatic Revolution: Draw French Regulars or Troop Transports from discard.";
+			view.hand = game.discard;
+			for (let c of game.discard) {
 				if (diplomatic_revolution_cards.includes(cards[c].event))
 					gen_action('card', c);
 			}
@@ -8292,6 +8325,45 @@ states.diplomatic_revolution = {
 	next() {
 		end_action_phase();
 	}
+}
+
+states.discard_to_draw_regulars = {
+	prompt() {
+		view.prompt = `Exchange random card with British Regulars or Highlanders from discard?`;
+		gen_action('exchange');
+		gen_action('pass');
+	},
+	exchange() {
+		push_undo();
+		game.state = 'draw_regulars';
+	},
+	pass() {
+		start_action_phase();
+	},
+}
+
+states.draw_regulars = {
+	prompt() {
+		view.prompt = `Draw one British Regulars or Highlanders from the discard.`;
+		view.hand = game.discard;
+		for (let c of game.discard) {
+			if (cards[c].event === 'british_regulars' || cards[c].event === 'highlanders')
+				gen_action('card', c);
+		}
+	},
+	card(c) {
+		clear_undo();
+
+		let x = player.hand[random(player.hand.length)];
+		remove_from_array(player.hand, x);
+		game.discard.push(x);
+		remove_from_array(game.discard, c);
+		player.hand.push(c);
+
+		log(`Exchanged ${card_name(x)} for ${card_name(c)} in discard.`);
+
+		start_action_phase();
+	},
 }
 
 events.intrigues_against_shirley = {
@@ -8718,7 +8790,7 @@ exports.setup = function (seed, scenario, options) {
 	}
 
 	if (game.options.retroactive) {
-		log(`Retroactive ${card_name(FOUL_WEATHER)}.`);
+		log(`Retroactive "Foul Weather".`);
 	}
 
 	if (game.options.no_foul_weather) {
@@ -8727,10 +8799,8 @@ exports.setup = function (seed, scenario, options) {
 		game.removed.push(FOUL_WEATHER);
 	}
 
-	if (game.options.pitt_dip_rev && game.year < 1757) {
-		// TODO
-		log(`${card_name(67)} and ${card_name(69)} are linked.`);
-		log("NOT IMPLEMENTED");
+	if (game.options.pitt_dip_rev) {
+		log(`William Pitt and Diplomatic Revolution are linked.`);
 	}
 
 	if (game.options.raid_militia) {
@@ -8739,24 +8809,22 @@ exports.setup = function (seed, scenario, options) {
 		log("NOT IMPLEMENTED");
 	}
 
-	if (game.options.regulars_vp && game.year < 1757) {
-		log(`${card_name(55)} and ${card_name(57)} cost 1 VP in 1755 and 1756.`);
+	if (game.options.regulars_vp) {
+		log(`Regulars cost 1 VP before 1757.`);
 	}
 
 	if (game.options.surrender) {
 		// TODO
-		log(`${card_name(SURRENDER)} playable by either side.`);
+		log(`Surrender! playable by either side.`);
 		log("NOT IMPLEMENTED");
 	}
 
 	if (game.options.acadians) {
-		log(`${card_name(ACADIANS_EXPELLED)} playable by either side.`);
+		log(`Acadians Expelled playable by either side.`);
 	}
 
 	if (game.options.regulars_from_discard) {
-		// TODO
-		log(`After 1756 Britain may exchange a random card for a discarded ${card_name(57)} or ${card_name(60)}.`);
-		log("NOT IMPLEMENTED");
+		log(`After 1756 Britain may exchange a random card for a discarded Regulars or Highlanders.`);
 	}
 
 	start_year();
