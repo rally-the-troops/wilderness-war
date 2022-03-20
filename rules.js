@@ -3058,7 +3058,10 @@ states.move = {
 			if (!has_unbesieged_enemy_fort_or_fortress(from))
 				gen_action('stop');
 		} else {
-			gen_action_next()
+			if (game.move.used > 0)
+				gen_action_next()
+			else
+				gen_action_pass()
 		}
 
 		gen_action_demolish();
@@ -3133,9 +3136,25 @@ states.move = {
 	next() {
 		end_move();
 	},
+	pass() {
+		push_undo();
+		game.state = 'confirm_end_move';
+	},
 	demolish_fort: goto_demolish_fort,
 	demolish_stockade: goto_demolish_stockade,
 	demolish_fieldworks: goto_demolish_fieldworks,
+}
+
+states.confirm_end_move = {
+	inactive: "move",
+	prompt() {
+		view.prompt = `You have not moved yet \u2014 are you sure you want to pass?`;
+		view.who = moving_piece();
+		gen_action_pass();
+	},
+	pass() {
+		end_move();
+	}
 }
 
 function goto_retroactive_foul_weather() {
