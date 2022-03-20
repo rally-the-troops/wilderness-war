@@ -2692,7 +2692,7 @@ function max_movement_cost(type) {
 	case 'boat-or-land':
 	case 'boat': return game.events.foul_weather ? 2 : 9;
 	case 'land': return max_land_movement_cost();
-	case 'naval': return 1;
+	case 'naval': return 9;
 	}
 }
 
@@ -2909,7 +2909,10 @@ function apply_move(to) {
 	let who = moving_piece();
 	let from = moving_piece_space();
 
-	game.move.used ++;
+	if (game.move.type === 'naval')
+		game.move.used = 9;
+	else
+		game.move.used ++;
 	game.move.where = to;
 	game.move.came_from = from;
 	game.raid.from[to] = from; // remember where raiders came from so they can retreat after battle
@@ -3067,14 +3070,16 @@ states.move = {
 				gen_regular_move();
 		}
 
-		if (is_leader(who)) {
-			for_each_leader_in_force(who, p => {
-				if (p !== who && can_drop_off_leader(who, p))
+		if (game.move.used < 9) {
+			if (is_leader(who)) {
+				for_each_leader_in_force(who, p => {
+					if (p !== who && can_drop_off_leader(who, p))
+						gen_action_piece(p);
+				});
+				for_each_unit_in_force(who, p => {
 					gen_action_piece(p);
-			});
-			for_each_unit_in_force(who, p => {
-				gen_action_piece(p);
-			});
+				});
+			}
 		}
 	},
 	play_event(card) {
