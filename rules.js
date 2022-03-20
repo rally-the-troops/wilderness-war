@@ -7798,6 +7798,18 @@ states.restore_regular_or_light_infantry_units = {
 }
 
 events.call_out_militias = {
+	can_play() {
+		if (game.active === FRANCE) {
+			for (let p = first_french_militia; p <= last_french_militia; ++p)
+				if (is_piece_unused(p) || is_unit_reduced(p))
+					return true;
+		} else {
+			for (let p = first_british_militia; p <= last_british_militia; ++p)
+				if (is_piece_unused(p) || is_unit_reduced(p))
+					return true;
+		}
+		return false;
+	},
 	play() {
 		game.state = 'call_out_militias';
 		game.count = 2;
