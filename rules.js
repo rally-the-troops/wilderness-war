@@ -7962,12 +7962,18 @@ states.light_infantry = {
 	},
 }
 
+function can_place_in_british_ports() {
+	for (let i = 0; i < ports.length; ++i)
+		if (is_british_controlled_space(ports[i]))
+			return true;
+	return game.amphib.length > 0;
+}
+
 events.british_regulars = {
 	can_play() {
-		// TODO: check available ports
 		if (game.events.british_regulars)
 			return false;
-		return true;
+		return can_place_in_british_ports();
 	},
 	play() {
 		clear_undo(); // drawing leader from pool
@@ -8022,10 +8028,9 @@ states.british_regulars = {
 
 events.highlanders = {
 	can_play() {
-		// TODO: check available ports
 		if (game.events.pitt || game.year > 1758)
 			return true;
-		return false;
+		return can_place_in_british_ports();
 	},
 	play(card) {
 		clear_undo(); // drawing leader from pool
@@ -8090,8 +8095,13 @@ states.highlanders = {
 
 events.royal_americans = {
 	can_play() {
-		// TODO: check available fortresses in northern or southern depts
-		return true;
+		for (let s = first_northern_department; s <= last_northern_department; ++s)
+			if (has_unbesieged_friendly_fortress(s))
+				return true;
+		for (let s = first_southern_department; s <= last_southern_department; ++s)
+			if (has_unbesieged_friendly_fortress(s))
+				return true;
+		return false;
 	},
 	play() {
 		clear_undo(); // drawing leader from pool
