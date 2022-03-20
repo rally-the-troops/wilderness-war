@@ -713,7 +713,7 @@ function for_each_friendly_piece_in_node(node, fn) {
 
 function for_each_unbesieged_friendly_piece_in_space(s, fn) {
 	for (let p = first_friendly_piece; p <= last_friendly_piece; ++p) {
-		if (is_piece_in_space(p, s) && is_piece_unbesieged(p))
+		if (is_piece_unbesieged_in_space(p, s))
 			fn(p);
 	}
 }
@@ -755,7 +755,7 @@ function for_each_friendly_unit_in_space(s, fn) {
 
 function for_each_unbesieged_enemy_in_space(s, fn) {
 	for (let p = first_enemy_unit; p <= last_enemy_unit; ++p) {
-		if (is_piece_unbesieged(p) && is_piece_in_space(p, s))
+		if (is_piece_unbesieged_in_space(p, s))
 			fn(p);
 	}
 }
@@ -1003,6 +1003,14 @@ function is_piece_in_space(p, s) {
 	return piece_space(p) === s;
 }
 
+function is_piece_unbesieged_in_space(p, s) {
+	return game.location[p] === s;
+}
+
+function is_piece_besieged_in_space(p, s) {
+	return game.location[p] === -s;
+}
+
 function has_amphib(s) {
 	return game.amphib.includes(s);
 }
@@ -1203,28 +1211,28 @@ function count_enemy_units_in_space(s) {
 
 function has_unbesieged_friendly_leader(s) {
 	for (let p = first_friendly_leader; p <= last_friendly_leader; ++p)
-		if (is_piece_in_space(p, s) && !is_piece_inside(p))
+		if (is_piece_unbesieged_in_space(p, s))
 			return true;
 	return false;
 }
 
 function has_unbesieged_enemy_leader(s) {
 	for (let p = first_enemy_leader; p <= last_enemy_leader; ++p)
-		if (is_piece_in_space(p, s) && !is_piece_inside(p))
+		if (is_piece_unbesieged_in_space(p, s))
 			return true;
 	return false;
 }
 
 function has_unbesieged_enemy_units(s) {
 	for (let p = first_enemy_unit; p <= last_enemy_unit; ++p)
-		if (is_piece_in_space(p, s) && !is_piece_inside(p))
+		if (is_piece_unbesieged_in_space(p, s))
 			return true;
 	return false;
 }
 
 function has_unbesieged_enemy_units_that_did_not_intercept(s) {
 	for (let p = first_enemy_unit; p <= last_enemy_unit; ++p)
-		if (is_piece_in_space(p, s) && !is_piece_inside(p) && !did_piece_intercept(p))
+		if (is_piece_unbesieged_in_space(p, s) && !did_piece_intercept(p))
 			return true;
 	return false;
 }
@@ -1307,7 +1315,7 @@ function has_friendly_indians(s) {
 
 function has_unbesieged_enemy_auxiliary(s) {
 	for (let p = first_enemy_unit; p <= last_enemy_unit; ++p)
-		if (is_auxiliary(p) && is_piece_in_space(p, s) && !is_piece_inside(p))
+		if (is_auxiliary(p) && is_piece_unbesieged_in_space(p, s))
 			return true;
 	return false;
 }
@@ -1327,7 +1335,7 @@ function has_unbesieged_enemy_fort_or_fortress(s) {
 function has_non_moving_unbesieged_friendly_units(s) {
 	let force = moving_piece();
 	for (let p = first_friendly_unit; p <= last_friendly_unit; ++p) {
-		if (is_piece_in_space(p, s) && is_piece_unbesieged(p)) {
+		if (is_piece_unbesieged_in_space(p, s)) {
 			if (!is_piece_in_force(p, force))
 				return true;
 		}
@@ -1337,14 +1345,14 @@ function has_non_moving_unbesieged_friendly_units(s) {
 
 function has_unbesieged_friendly_units(s) {
 	for (let p = first_friendly_unit; p <= last_friendly_unit; ++p)
-		if (is_piece_in_space(p, s) && is_piece_unbesieged(p))
+		if (is_piece_unbesieged_in_space(p, s))
 			return true;
 	return false;
 }
 
 function has_besieged_friendly_units(s) {
 	for (let p = first_friendly_unit; p <= last_friendly_unit; ++p)
-		if (is_piece_in_space(p, s) && is_piece_inside(p))
+		if (is_piece_besieged_in_space(p, s))
 			return true;
 	return false;
 }
@@ -1837,7 +1845,7 @@ function search_supply_spaces() {
 	} else {
 		let list = originally_british_fortresses_and_all_ports.filter(is_friendly_controlled_space);
 		for (let s of game.amphib)
-			if (!list.includes(s) && !is_space_besieged(s))
+			if (!list.includes(s) && is_space_unbesieged(s))
 				list.push(s);
 		supply_cache = search_supply_spaces_imp(list);
 	}
@@ -3168,7 +3176,7 @@ states.lake_schooner = {
 		// 6.63 eliminate if forced back into enemy-occupied space
 		if (has_unbesieged_enemy_units(from) || has_unbesieged_enemy_fortifications(from)) {
 			for_each_friendly_piece_in_space(from, p => {
-				if (!is_piece_inside(p))
+				if (is_piece_unbesieged(p))
 					eliminate_piece(p);
 			});
 		}
@@ -3374,9 +3382,8 @@ function gen_intercept() {
 					});
 				} else if (has_br_indians) {
 					// TODO: allow intercept with Johnson as sub-commander
-					if (is_piece_in_space(JOHNSON, from)) {
-						if (is_piece_unbesieged(JOHNSON))
-							gen_action_piece(JOHNSON);
+					if (is_piece_unbesieged_in_space(JOHNSON, from)) {
+						gen_action_piece(JOHNSON);
 					}
 				}
 			} else {
@@ -3527,7 +3534,7 @@ states.designate_inside = {
 		gen_action_next();
 		let n = count_friendly_units_inside(where);
 		for_each_friendly_piece_in_space(where, p => {
-			if (!is_piece_inside(p) && !did_piece_intercept(p)) {
+			if (is_piece_unbesieged(p) && !did_piece_intercept(p)) {
 				if (is_leader(p) || is_fortress(where) || n < 4)
 					gen_action_piece(p);
 			}
@@ -3579,7 +3586,7 @@ states.avoid_who = {
 			view.prompt = "You may select a force or unit to avoid battle from " + space_name(from) + ".";
 			gen_action_pass();
 			for_each_friendly_piece_in_space(from, p => {
-				if (!did_piece_intercept(p) && !is_piece_inside(p))
+				if (!did_piece_intercept(p) && is_piece_unbesieged(p))
 					gen_action_piece(p);
 			});
 		}
@@ -3720,11 +3727,11 @@ function for_each_defending_piece(fn) {
 	} else {
 		if (game.battle.defender === BRITAIN) {
 			for (let p = first_british_piece; p <= last_british_piece; ++p)
-				if (is_piece_unbesieged(p) && is_piece_in_space(p, where))
+				if (is_piece_unbesieged_in_space(p, where))
 					fn(p);
 		} else {
 			for (let p = first_french_piece; p <= last_french_piece; ++p)
-				if (is_piece_unbesieged(p) && is_piece_in_space(p, where))
+				if (is_piece_unbesieged_in_space(p, where))
 					fn(p);
 		}
 	}
@@ -3962,7 +3969,7 @@ states.sortie = {
 		view.prompt = `You may sortie with besieged units at ${space_name(game.battle.where)}.`;
 		view.where = game.battle.where;
 		for (let p = first_friendly_unit; p <= last_friendly_unit; ++p)
-			if (is_piece_in_space(p, game.battle.where) && is_piece_inside(p))
+			if (is_piece_besieged_in_space(p, game.battle.where))
 				if (!game.battle.atk_pcs.includes(p))
 					gen_action_piece(p);
 		gen_action_next();
@@ -4777,9 +4784,9 @@ function determine_winner_battle() {
 		}
 	} else {
 		/* If attacker must retreat, unbesieged defenders who withdrew inside can come out. */
-		if (!is_space_besieged(where)) {
+		if (is_space_unbesieged(where)) {
 			for (let p = first_piece; p <= last_piece; ++p)
-				if (is_piece_in_space(p, where) && is_piece_inside(p))
+				if (is_piece_besieged_in_space(p, where))
 					set_piece_outside(p);
 		}
 
@@ -4794,7 +4801,7 @@ function determine_winner_battle() {
 
 function eliminate_enemy_pieces_inside(where) {
 	for (let p = first_enemy_piece; p <= last_enemy_piece; ++p)
-		if (is_piece_in_space(p, where) && is_piece_inside(p))
+		if (is_piece_besieged_in_space(p, where))
 			eliminate_piece(p, false);
 }
 
@@ -4874,7 +4881,7 @@ states.retreat_attacker = {
 		// NOTE: Besieged pieces that sortie out are 'inside' so not affected by the code below.
 		log(`Attacker retreated to ${space_name(to)}.`);
 		for_each_friendly_piece_in_space(from, p => {
-			if (!is_piece_inside(p)) {
+			if (is_piece_unbesieged(p)) {
 				if (can_attacker_retreat_from_to(p, from, to))
 					move_piece_to(p, to);
 				else
@@ -5036,7 +5043,7 @@ states.retreat_defender = {
 		clear_undo();
 		let from = game.battle.where;
 		for_each_friendly_piece_in_space(from, p => {
-			if (!is_piece_inside(p))
+			if (is_piece_unbesieged(p))
 				eliminate_piece(p, false);
 		});
 		end_retreat();
@@ -5133,7 +5140,7 @@ function goto_retreat_lone_leader(from, reason) {
 
 function pick_unbesieged_leader(s) {
 	for (let p = first_friendly_leader; p <= last_friendly_leader; ++p)
-		if (is_piece_in_space(p, s) && !is_piece_inside(p))
+		if (is_piece_unbesieged_in_space(p, s))
 			return p;
 	return 0;
 }
@@ -5599,11 +5606,11 @@ function resolve_raid() {
 
 function can_follow_indians_home(from) {
 	for (let p = first_friendly_leader; p <= last_friendly_leader; ++p) {
-		if (is_piece_in_space(p, from) && !is_piece_inside(p))
+		if (is_piece_unbesieged_in_space(p, from))
 			return true;
 	}
 	for (let p = first_friendly_unit; p <= last_friendly_unit; ++p) {
-		if (is_coureurs(p) && is_piece_in_space(p, from) && !is_piece_inside(p))
+		if (is_coureurs(p) && is_piece_unbesieged_in_space(p, from))
 			return true;
 	}
 	return false;
@@ -5705,7 +5712,7 @@ states.indians_and_leaders_go_home = {
 		let done = true;
 		for (let p = first_friendly_piece; p <= last_friendly_piece; ++p) {
 			let s = piece_space(p);
-			if (s && !is_piece_inside(p) && !has_friendly_fortifications(s)) {
+			if (s && is_piece_unbesieged(p) && !has_friendly_fortifications(s)) {
 
 				// Indians not at their settlement
 				if (is_indian(p)) {
@@ -5847,11 +5854,11 @@ states.go_home_with_indians = {
 		view.where = to;
 
 		for (let p = first_friendly_leader; p <= last_friendly_leader; ++p) {
-			if (is_piece_in_space(p, from) && !is_piece_inside(p))
+			if (is_piece_unbesieged_in_space(p, from))
 				gen_action_piece(p);
 		}
 		for (let p = first_friendly_unit; p <= last_friendly_unit; ++p) {
-			if (is_coureurs(p) && is_piece_in_space(p, from) && !is_piece_inside(p))
+			if (is_coureurs(p) && is_piece_unbesieged_in_space(p, from))
 				gen_action_piece(p);
 		}
 
