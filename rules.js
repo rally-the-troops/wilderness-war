@@ -601,12 +601,12 @@ function deal_cards() {
 
 	if (game.options.pitt_dip_rev) {
 		if (game.events.pitt && !game.events.diplo && game.discard.includes(DIPLOMATIC_REVOLUTION)) {
-			log(`France receives Diplomatic Revolution from discard.`);
+			log(`France received Diplomatic Revolution from discard.`);
 			remove_from_array(game.discard, DIPLOMATIC_REVOLUTION);
 			game.french.hand.push(DIPLOMATIC_REVOLUTION);
 		}
 		if (!game.events.pitt && game.events.diplo && game.discard.includes(WILLIAM_PITT)) {
-			log(`Britain receives William Pitt from discard.`);
+			log(`Britain received William Pitt from discard.`);
 			remove_from_array(game.discard, WILLIAM_PITT);
 			game.british.hand.push(WILLIAM_PITT);
 		}
@@ -1512,14 +1512,14 @@ function find_enemy_commanding_leader_in_space(s) {
 function log_vp(n) {
 	if (game.active === FRANCE) {
 		if (n < 0)
-			log(`France loses ${-n} VP.`);
+			log(`France lost ${-n} VP.`);
 		else
-			log(`France gains ${n} VP.`);
+			log(`France gained ${n} VP.`);
 	} else {
 		if (n < 0)
-			log(`Britain gains ${-n} VP.`);
+			log(`Britain gained ${-n} VP.`);
 		else
-			log(`Britain loses ${n} VP.`);
+			log(`Britain lost ${n} VP.`);
 	}
 }
 
@@ -3163,7 +3163,7 @@ states.lake_schooner = {
 		set_active_enemy();
 		stop_move();
 		move_piece_to(who, from);
-		log(`${piece_name(who)} stops in ${space_name(from)}.`);
+		log(`${piece_name(who)} stopped in ${space_name(from)}.`);
 
 		// 6.63 eliminate if forced back into enemy-occupied space
 		if (has_unbesieged_enemy_units(from) || has_unbesieged_enemy_fortifications(from)) {
@@ -4678,7 +4678,7 @@ function return_militia(where) {
 			}
 		}
 		if (n > 0) {
-			log(`${n} Militia units return to their box.`);
+			log(`${n} Militia units returned to their box.`);
 		}
 	}
 }
@@ -5406,7 +5406,7 @@ states.assault_possible = {
 	pass() {
 		let where = game.assault_possible;
 		delete game.assault_possible;
-		log("Does not assault " + space_name(where));
+		log("Did not assault " + space_name(where));
 		end_move_step(true);
 	},
 }
@@ -5883,14 +5883,14 @@ function end_go_home_to() {
 function goto_remove_raided_markers() {
 	if (game.french.raids.length > 0) {
 		log("");
-		log(`France removes ${game.french.raids.length} raided markers.`);
+		log(`France removed ${game.french.raids.length} raided markers.`);
 		award_french_vp(Math.ceil(game.french.raids.length / 2));
 		game.french.raids = [];
 	}
 
 	if (game.british.raids.length > 0) {
 		log("");
-		log(`Britain removes ${game.british.raids.length} raided markers.`);
+		log(`Britain removed ${game.british.raids.length} raided markers.`);
 		award_british_vp(Math.ceil(game.british.raids.length / 2));
 		game.british.raids = [];
 	}
@@ -7113,7 +7113,7 @@ events.françois_bigot = {
 		let c = enemy_player.hand[i];
 		enemy_player.hand.splice(i, 1);
 		game.discard.push(c);
-		log(`France discards ${card_name(c)}.`);
+		log(`France discarded ${card_name(c)}.`);
 		end_action_phase();
 	},
 }
@@ -7571,7 +7571,7 @@ states.bastions_repaired = {
 	},
 	space(s) {
 		push_undo();
-		log(`Replaces siege marker in ${space_name(s)}.`);
+		log(`Replaced siege marker in ${space_name(s)} with siege 0.`);
 		game.sieges[s] = 0;
 		game.count = 0;
 	},
@@ -8264,7 +8264,7 @@ states.william_pitt = {
 	},
 	card(c) {
 		push_undo();
-		log(`Draws ${card_name(c)} from discard.`);
+		log(`Drew ${card_name(c)} from discard.`);
 		remove_from_array(game.discard, c);
 		player.hand.push(c);
 		game.count = 0;
@@ -8306,7 +8306,7 @@ states.diplomatic_revolution = {
 	},
 	card(c) {
 		push_undo();
-		log(`Draws ${card_name(c)} from discard.`);
+		log(`Drew ${card_name(c)} from discard.`);
 		remove_from_array(game.discard, c);
 		player.hand.push(c);
 		game.count = 0;
