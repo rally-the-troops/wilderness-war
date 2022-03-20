@@ -1494,16 +1494,6 @@ function movement_allowance(who) {
 	return m;
 }
 
-function potential_movement_allowance(who) {
-	let m = piece_movement(who);
-	for_each_unit_in_force(who, p => {
-		let pm = piece_movement(p);
-		if (pm > m)
-			m = pm;
-	});
-	return m;
-}
-
 function moving_piece() {
 	return game.move.moving;
 }
@@ -2676,10 +2666,6 @@ function max_land_movement_cost() {
 	return game.events.foul_weather ? 2 : movement_allowance(moving_piece());
 }
 
-function max_potential_land_movement_cost() {
-	return game.events.foul_weather ? 2 : potential_movement_allowance(moving_piece());
-}
-
 function max_movement_cost(type) {
 	switch (type) {
 	case 'boat-or-land':
@@ -2922,7 +2908,7 @@ function apply_move(to) {
 				game.move.type = 'land';
 			}
 		}
-		if (game.move.used > max_potential_land_movement_cost('land'))
+		if (game.move.used > max_land_movement_cost('land'))
 			game.move.type = 'boat';
 	}
 
