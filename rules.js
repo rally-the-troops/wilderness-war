@@ -4904,6 +4904,24 @@ function end_retreat_attacker(to) {
 function goto_retreat_defender() {
 	set_active(game.battle.defender);
 	game.state = 'retreat_defender';
+	game.summary = {};
+}
+
+function log_retreat(s, p) {
+	if (!(s in game.summary))
+		game.summary[s] = [];
+	game.summary[s].push(p);
+}
+
+function flush_log_retreat() {
+	if (game.summary.inside) {
+		log("Retreated into fortification:\n" + game.summary[s].map(piece_name).join(",\n") + ".");
+	}
+	for (let s in game.summary) {
+		if (s !== 'inside')
+			log("Retreated to " + s + ":\n" + game.summary[s].map(piece_name).join(",\n") + ".");
+	}
+	delete game.summary;
 }
 
 function can_defender_retreat_from_to(p, from, to) {
@@ -5006,6 +5024,7 @@ states.retreat_defender = {
 	},
 	next() {
 		clear_undo();
+		flush_log_retreat();
 		let from = game.battle.where;
 		for_each_friendly_piece_in_space(from, p => {
 			if (is_piece_unbesieged(p))
@@ -5036,10 +5055,10 @@ states.retreat_defender_to = {
 		let from = game.battle.where;
 		let who = game.battle.who;
 		if (from === to) {
-			log(`${piece_name(who)} retreats inside fortification.`);
+			log_retreat("inside", who);
 			set_piece_inside(who);
 		} else {
-			log(`${piece_name(who)} retreats to ${space_name(to)}.`);
+			log_retreat(space_name(to), who);
 			move_piece_to(who, to);
 		}
 		game.state = 'retreat_defender';
@@ -5068,14 +5087,14 @@ states.retreat_all_defenders_to = {
 		for_each_unbesieged_friendly_piece_in_space(from, p => {
 			if (from === to) {
 				if (can_defender_retreat_inside(p, from)) {
-					log(`${piece_name(p)} retreats inside fortification.`);
+					log_retreat("inside", p);
 					set_piece_inside(p);
 				} else {
 					done = false;
 				}
 			} else {
 				if (can_defender_retreat_from_to(p, from, to)) {
-					log(`${piece_name(p)} retreats to ${space_name(to)}.`);
+					log_retreat(space_name(to), p);
 					move_piece_to(p, to);
 				} else {
 					done = false;
@@ -5146,10 +5165,10 @@ states.retreat_lone_leader = {
 		let from = game.retreat.from;
 		let who = pick_unbesieged_leader(from);
 		if (from === to) {
-			log("retreats inside fortification");
+			log(`${piece_name(who)} retreated into fortification.`);
 			set_piece_inside(who);
 		} else {
-			log("retreats to " + space_name(to));
+			log(`${piece_name(who)} retreated to ${space_name(to)}.`);
 			move_piece_to(who, to);
 		}
 		resume_retreat_lone_leader(from);
