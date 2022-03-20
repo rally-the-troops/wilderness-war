@@ -4,12 +4,6 @@
 // TODO: select leader for defense instead of automatically picking the best
 // TODO: remove old 7 command leader(s) immediately as they're drawn, before placing reinforcements
 
-// CLEANUPS
-// TODO: use is_enemy_occupied(s) instead of has_unbesieged_enemy_units || has_unbesieged_enemy_fortifications
-// TODO: use leader box location for 'pool'
-// TODO: move core of is_friendly/enemy to is_british/french and branch in is_friendly/enemy
-// TODO: is_piece_in_space && inside/unbesieged into one function
-
 // TODO: summary of step losses in log (brief/verbose)
 
 const { spaces, pieces, cards } = require("./data");
@@ -32,7 +26,6 @@ const FOUL_WEATHER = 14;
 const LAKE_SCHOONER = 15;
 const GEORGE_CROGHAN = 16;
 const LOUISBOURG_SQUADRONS = 21;
-const ACADIANS_EXPELLED = 66;
 const WILLIAM_PITT = 67;
 const DIPLOMATIC_REVOLUTION = 69;
 
@@ -375,15 +368,15 @@ function find_unused_friendly_militia() {
 }
 
 function find_unused_coureurs() {
-	for (let p = first_french_unit; p <= last_french_unit; ++p)
-		if (is_coureurs(p) && is_piece_unused(p))
+	for (let p = first_coureurs; p <= last_coureurs; ++p)
+		if (is_piece_unused(p))
 			return p;
 	return 0;
 }
 
 function find_unused_ranger() {
-	for (let p = first_friendly_unit; p <= last_friendly_unit; ++p)
-		if (is_ranger(p) && is_piece_unused(p))
+	for (let p = first_ranger; p <= last_ranger; ++p)
+		if (is_piece_unused(p))
 			return p;
 	return 0;
 }
@@ -2792,7 +2785,6 @@ function can_infiltrate_search(type, used, carry, from, to) {
 		// See if we must stop.
 		if (type === 'land') {
 			const from_ff = has_friendly_fortifications_or_cultivated(from);
-			const to_ff = has_friendly_fortifications_or_cultivated(to);
 			// Must stop on mountains.
 			if (!from_ff && is_mountain(from)) {
 				console.log("  STOP mountain");
@@ -4955,24 +4947,6 @@ function can_defender_retreat_from(p, from) {
 	return can_retreat;
 }
 
-function can_all_defenders_retreat_from_to(from, to) {
-	let result = true;
-	for_each_unbesieged_friendly_piece_in_space(from, p => {
-		if (!can_defender_retreat_from_to(p, from, to))
-			result = false;
-	});
-	return result;
-}
-
-function can_all_defenders_retreat_inside(from) {
-	let result = true;
-	for_each_unbesieged_friendly_piece_in_space(from, p => {
-		if (!can_defender_retreat_inside(p, from))
-			result = false;
-	});
-	return result;
-}
-
 function can_all_defenders_retreat_from(from) {
 	let result = true;
 	for_each_unbesieged_friendly_piece_in_space(from, p => {
@@ -4995,15 +4969,6 @@ function can_any_defenders_retreat_inside(from) {
 	let result = false;
 	for_each_unbesieged_friendly_piece_in_space(from, p => {
 		if (can_defender_retreat_inside(p, from))
-			result = true;
-	});
-	return result;
-}
-
-function can_any_defenders_retreat_from(from) {
-	let result = false;
-	for_each_unbesieged_friendly_piece_in_space(from, p => {
-		if (can_defender_retreat_from(p, from))
 			result = true;
 	});
 	return result;
@@ -8178,7 +8143,7 @@ states.acadians_expelled_place_regulars = {
 		view.prompt = "Acadians Expelled: Place two Regulars at Halifax.";
 		gen_action_space(HALIFAX);
 	},
-	space(s) {
+	space() {
 		for (let i = 0; i < 2; ++i) {
 			let p = find_unused_british_regular();
 			place_piece(p, HALIFAX);
@@ -8788,6 +8753,7 @@ exports.setup = function (seed, scenario, options) {
 	default:
 	// Start at 2VP for balance.
 	// See https://boardgamegeek.com/thread/1366550/article/19163465#19163465
+	// fallthrough
 	case "Annus Mirabilis": setup_1757(1759, 2); break;
 	case "Early War Campaign": setup_1755(1759); break;
 	case "Late War Campaign": setup_1757(1762, 4); break;
@@ -8860,14 +8826,6 @@ function pop_undo() {
 	game.log = save_log;
 }
 
-function pop_to_undo(save_undo) {
-	let save_log = game.log;
-	game = JSON.parse(save_undo);
-	game.undo = [];
-	save_log.length = game.log;
-	game.log = save_log;
-}
-
 function gen_action_undo() {
 	if (!view.actions)
 		view.actions = {}
@@ -8932,15 +8890,13 @@ exports.action = function (state, current, action, arg) {
 	} else {
 		if (action === 'undo' && game.undo && game.undo.length > 0)
 			pop_undo();
-		else if (action === 'supply')
-			goto_debug_supply(current);
 		else
 			throw new Error("Invalid action: " + action);
 	}
 	return game;
 }
 
-exports.query = function (state, current, q, params) {
+exports.query = function (state, current, q) {
 	if (q === 'supply') {
 		load_game_state(state, current);
 		return query_supply();
