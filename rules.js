@@ -11,16 +11,6 @@
 // TODO: is_piece_in_space && inside/unbesieged into one function
 
 // TODO: summary of step losses in log (brief/verbose)
-// TODO: define/declare/designate force?
-
-// MAJOR
-// TODO: find closest path to non-infiltration space for allowing infiltration
-
-// RETREAT BEHAVIOR
-// a) auto-select retreat destination if only one available like for attack retreats?
-// b) auto-send retreating units to destination if only one available?
-// b) click to retreat/eliminate all attackers individually?
-// c) click destination to send pieces
 
 const { spaces, pieces, cards } = require("./data");
 
@@ -2219,7 +2209,7 @@ states.activate_force = {
 			commander: p,
 			reason: 'move',
 		};
-		game.state = 'define_force';
+		game.state = 'designate_force';
 	},
 }
 
@@ -2239,7 +2229,7 @@ states.select_campaign_1 = {
 			commander: p,
 			reason: 'campaign_1',
 		};
-		game.state = 'define_force';
+		game.state = 'designate_force';
 	},
 }
 
@@ -2259,7 +2249,7 @@ states.select_campaign_2 = {
 			commander: p,
 			reason: 'campaign_2',
 		};
-		game.state = 'define_force';
+		game.state = 'designate_force';
 	},
 }
 
@@ -2325,7 +2315,7 @@ function can_drop_off_leader(commander, subordinate) {
 	return count_non_british_iroquois_and_mohawk_units_in_force(commander) <= force_command(commander) - leader_command(subordinate);
 }
 
-const define_force_reason_prompt = {
+const designate_force_reason_prompt = {
 	'campaign_1': "for first campaign",
 	'campaign_2': "for second campaign",
 	'move': "to move",
@@ -2333,9 +2323,9 @@ const define_force_reason_prompt = {
 	'avoid': "to avoid battle",
 }
 
-states.define_force = {
+states.designate_force = {
 	get inactive() {
-		return "define force " + define_force_reason_prompt[game.force.reason];
+		return "define force " + designate_force_reason_prompt[game.force.reason];
 	},
 	prompt() {
 		let commander = game.force.commander;
@@ -2345,7 +2335,7 @@ states.define_force = {
 		let cmd_use = count_non_british_iroquois_and_mohawk_units_in_force(commander);
 		let cmd_cap = force_command(commander);
 
-		view.prompt = `Define force ${define_force_reason_prompt[game.force.reason]} with ${piece_name(commander)} from ${space_name(where)} (${cmd_use}/${cmd_cap}).`;
+		view.prompt = `Define force ${designate_force_reason_prompt[game.force.reason]} with ${piece_name(commander)} from ${space_name(where)} (${cmd_use}/${cmd_cap}).`;
 		view.who = commander;
 
 		let can_pick_up = false;
@@ -2466,8 +2456,8 @@ states.define_force = {
 	},
 }
 
-// TODO: merge with define_force using reason=intercept_lone_ax
-states.define_force_lone_ax = {
+// TODO: merge with designate_force using reason=intercept_lone_ax
+states.designate_force_lone_ax = {
 	inactive: "define lone auxiliary force to intercept",
 	prompt() {
 		let commander = game.force.commander;
@@ -3088,7 +3078,7 @@ states.move = {
 	},
 	stop() {
 		game.move.infiltrated = 0;
-		goto_declare_inside();
+		goto_designate_inside();
 	},
 	next() {
 		end_move();
@@ -3417,7 +3407,7 @@ function goto_intercept() {
 	if (game.move.infiltrated)
 		end_move_step();
 	else
-		goto_declare_inside();
+		goto_designate_inside();
 }
 
 function is_moving_piece_lone_ax_in_wilderness_or_mountain() {
@@ -3452,9 +3442,9 @@ states.intercept_who = {
 				reason: 'intercept',
 			};
 			if (is_moving_piece_lone_ax_in_wilderness_or_mountain() && from !== to) {
-				game.state = 'define_force_lone_ax';
+				game.state = 'designate_force_lone_ax';
 			} else {
-				game.state = 'define_force';
+				game.state = 'designate_force';
 			}
 		} else {
 			game.move.intercepting = p;
@@ -3501,7 +3491,7 @@ function end_intercept_fail() {
 	if (game.move.infiltrated)
 		end_move_step();
 	else
-		goto_declare_inside();
+		goto_designate_inside();
 }
 
 function end_intercept_success() {
@@ -3511,25 +3501,25 @@ function end_intercept_success() {
 	unstack_force(who);
 	set_active_enemy();
 	game.state = 'move';
-	goto_declare_inside();
+	goto_designate_inside();
 }
 
 // DECLARE INSIDE/OUTSIDE FORTIFICATION
 
-function goto_declare_inside() {
+function goto_designate_inside() {
 	let where = moving_piece_space();
 	if (has_unbesieged_enemy_units_that_did_not_intercept(where)) {
 		clear_undo();
 		if (is_fortress(where) || has_enemy_fort(where)) {
 			set_active_enemy();
-			game.state = 'declare_inside';
+			game.state = 'designate_inside';
 			return;
 		}
 	}
 	goto_avoid_battle();
 }
 
-states.declare_inside = {
+states.designate_inside = {
 	prompt() {
 		let where = moving_piece_space();
 		view.prompt = "You may withdraw leaders and units into the fortification.";
@@ -3602,7 +3592,7 @@ states.avoid_who = {
 				commander: p,
 				reason: 'avoid',
 			};
-			game.state = 'define_force';
+			game.state = 'designate_force';
 		} else {
 			game.move.avoiding = p;
 		}
@@ -5439,7 +5429,6 @@ function goto_assault(where) {
 // RAID
 
 function goto_pick_raid() {
-	// TODO: retroactive
 	if (game.raid.list.length > 0) {
 		clear_undo();
 		game.state = 'pick_raid';
@@ -5452,7 +5441,7 @@ function goto_pick_raid() {
 
 states.pick_raid = {
 	prompt() {
-		view.prompt = "Pick the next raid space."; // TODO
+		view.prompt = "Pick the next raid space.";
 		for (let i=0; i < game.raid.list.length; ++i)
 			gen_action_space(game.raid.list[i]);
 	},
@@ -5558,7 +5547,6 @@ function resolve_raid() {
 	let natural_die = roll_die("for raid");
 	let die = natural_die;
 
-	// TODO: only use leader that could command the force (johnson & indians, activation limit, etc?)
 	let commander = find_friendly_commanding_leader_in_space(where);
 	if (commander)
 		die = modify(die, leader_tactics(commander), "leader");
