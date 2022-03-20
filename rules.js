@@ -1998,7 +1998,6 @@ function start_action_phase() {
 }
 
 function end_season() {
-
 	if (game.british.hand.length > 0)
 		game.british.held = 1;
 	else
@@ -2042,12 +2041,6 @@ function end_action_phase() {
 	lift_sieges_and_amphib();
 	clear_undo();
 	game.count = 0;
-
-	// TODO: should not be needed! (but we may have forgotten some place where it should happen)
-	for (let p = first_friendly_leader; p <= last_friendly_leader; ++p) {
-		if (count_pieces_in_force(p) > 1)
-			console.log("FORGOT TO UNSTACK", piece_name(p));
-	}
 
 	if (!enemy_player.passed && enemy_player.hand.length > 0) {
 		console.log("END ACTION PHASE - NEXT PLAYER");
