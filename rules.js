@@ -5679,14 +5679,19 @@ function can_follow_indians_home(from) {
 }
 
 function goto_raiders_go_home() {
-	game.state = 'raiders_go_home';
-	game.go_home = {
-		reason: 'raid',
-		who: 0,
-		from: 0,
-		to: 0,
-		follow: {},
-	};
+	// Surviving raiders must go home!
+	if (has_friendly_pieces(game.raid.where)) {
+		game.state = 'raiders_go_home';
+		game.go_home = {
+			reason: 'raid',
+			who: 0,
+			from: 0,
+			to: 0,
+			follow: {},
+		};
+	} else {
+		end_raiders_go_home();
+	}
 }
 
 function end_raiders_go_home() {
