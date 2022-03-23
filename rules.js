@@ -1111,8 +1111,8 @@ function place_fieldworks(s) {
 
 function remove_fieldworks(s) {
 	if (game.fieldworks.includes(s)) {
-		// log(`Removed fieldworks at ${space_name(s)}.`);
-		log(`Fieldworks (${space_name(s)}) removed.`);
+		// log(`Fieldworks (${space_name(s)}) removed.`);
+		log(`Removed fieldworks at ${space_name(s)}.`);
 		remove_from_array(game.fieldworks, s);
 	}
 }
@@ -1459,18 +1459,19 @@ function has_besieged_friendly_units(s) {
 }
 
 function count_militia_in_department(box) {
+	let n = 0;
 	if (box === ST_LAWRENCE_CANADIAN_MILITIAS) {
 		for (let p = first_french_militia; p <= last_french_militia; ++p) {
 			if (piece_node(p) === box)
-				return true;
+				++n;
 		}
 	} else {
 		for (let p = first_british_militia; p <= last_british_militia; ++p) {
 			if (piece_node(p) === box)
-				return true;
+				++n;
 		}
 	}
-	return false;
+	return n;
 }
 
 function enemy_department_has_at_least_n_militia(where, n) {
@@ -3385,7 +3386,7 @@ function goto_battle_check() {
 	}
 }
 
-function end_move_step(final) {
+function end_move_step(final=false, overrun=false) {
 	let did_battle = !!game.battle;
 
 	lift_sieges_and_amphib();
@@ -3421,6 +3422,11 @@ function end_move_step(final) {
 			}
 			stop_move();
 		}
+	}
+
+	if (overrun) {
+		log(".b Overrun");
+		logbr();
 	}
 
 	if (!is_lone_leader(who) && is_piece_on_map(who)
@@ -3558,7 +3564,7 @@ function goto_intercept() {
 	}
 
 	if (game.move.infiltrated)
-		end_move_step();
+		end_move_step(false);
 	else
 		goto_designate_inside();
 }
@@ -3588,7 +3594,7 @@ states.intercept_who = {
 		let to = moving_piece_space();
 		let from = piece_space(p);
 		// All units can intercept in same space (even lone ax in wilderness), but no need to designate the force.
-		if (is_leader(p) && from !== to) {
+		if (is_leader(p)) {
 			game.move.intercepting = p;
 			game.force = {
 				commander: p,
@@ -3642,7 +3648,7 @@ function end_intercept_fail() {
 	set_active_enemy();
 	game.state = 'move';
 	if (game.move.infiltrated)
-		end_move_step();
+		end_move_step(false);
 	else
 		goto_designate_inside();
 }
@@ -4050,7 +4056,7 @@ function goto_battle(where, is_assault) {
 
 function goto_battle_militia() {
 	let box = department_militia(game.battle.where);
-	if (box && count_militia_in_department(box) > 0 && !game.raid) {
+	if (box && count_militia_in_department(box) > 0 && !game.raid.where) {
 		let first = 0, last = 0;
 		switch (box) {
 		case ST_LAWRENCE_CANADIAN_MILITIAS:
@@ -4324,7 +4330,7 @@ states.attacker_events = {
 			view.prompt += " You don't have " + dont_have.join(" or ") + ".";
 		if (have.length === 0 && dont_have.length === 0)
 			view.prompt += " You have no more response events.";
-		gen_action_pass();
+		gen_action_next();
 	},
 	play_event(c) {
 		push_undo();
@@ -4343,7 +4349,7 @@ states.attacker_events = {
 			break;
 		}
 	},
-	pass() {
+	next() {
 		clear_undo();
 		goto_battle_defender_events();
 	},
@@ -4391,7 +4397,7 @@ states.defender_events = {
 			view.prompt += " You don't have " + dont_have.join(" or ") + ".";
 		if (have.length === 0 && dont_have.length === 0)
 			view.prompt += " You have no more response events.";
-		gen_action_pass();
+		gen_action_next();
 	},
 	play_event(c) {
 		push_undo();
@@ -4410,7 +4416,7 @@ states.defender_events = {
 			break;
 		}
 	},
-	pass() {
+	next() {
 		clear_undo();
 		goto_battle_roll();
 	},
@@ -4489,8 +4495,17 @@ function end_leader_check() {
 function goto_atk_fire() {
 	set_active(game.battle.attacker);
 
+	// Attacker who is wiped out by ambush does not get to fire back!
+	if (game.events.ambush === game.battle.defender) {
+		if (!some_attacking_piece(is_unit)) {
+			game.battle.atk_die = 0;
+			game.battle.atk_result = 0;
+			return end_atk_fire();
+		}
+	}
+
 	logbr();
-	log("ATTACKER");
+	log(".b Attacker");
 
 	let str = attacker_combat_strength();
 	let shift = 0;
@@ -4547,8 +4562,17 @@ function goto_atk_fire() {
 function goto_def_fire() {
 	set_active(game.battle.defender);
 
+	// Defender who is wiped out by ambush does not get to fire back!
+	if (game.events.ambush === game.battle.attacker) {
+		if (!some_defending_piece(is_unit)) {
+			game.battle.def_die = 0;
+			game.battle.def_result = 0;
+			return end_def_fire();
+		}
+	}
+
 	logbr();
-	log("DEFENDER");
+	log(".b Defender");
 
 	let str = defender_combat_strength();
 	let shift = 0;
@@ -4563,6 +4587,9 @@ function goto_def_fire() {
 	let p = find_friendly_commanding_leader_in_space(game.battle.where);
 	if (p) {
 		die = modify(die, leader_tactics(p), "leader tactics");
+	}
+	if (game.events.coehorns === game.battle.defender) {
+		die = modify(die, 2, "for coehorns");
 	}
 
 	if (!game.battle.assault) {
@@ -4606,7 +4633,7 @@ function goto_atk_step_losses() {
 				game.battle.units.push(p);
 		});
 		logbr();
-		log("ATTACKER LOSSES");
+		log(".b Attacker Losses");
 	} else {
 		end_step_losses();
 	}
@@ -4632,7 +4659,7 @@ function goto_def_step_losses() {
 			end_step_losses();
 		else {
 			logbr();
-			log("DEFENDER LOSSES");
+			log(".b Defender Losses");
 		}
 	} else {
 		end_step_losses();
@@ -4903,9 +4930,9 @@ function determine_winner_battle() {
 
 	logbr();
 	if (victor === game.battle.attacker)
-		log("ATTACKER WON");
+		log(".b Attacker Won");
 	else
-		log("DEFENDER WON");
+		log(".b Defender Won");
 
 	if (victor === game.battle.attacker && game.battle.def_worth_vp) {
 		if (victor === FRANCE)
@@ -4947,13 +4974,14 @@ function determine_winner_battle() {
 		victor = game.battle.defender;
 
 	if (victor === game.battle.attacker) {
+		if (def_eliminated && game.battle.def_result === 0)
+			game.battle.overrun = 1;
 		if (has_unbesieged_enemy_pieces(where)) {
-			log("DEFENDER RETREAT");
+			log(".b Defender Retreat");
 			goto_retreat_defender();
 		} else {
-			if (def_eliminated && game.battle.def_result === 0) {
-				log("OVERRUN");
-				end_move_step(false);
+			if (game.battle.overrun) {
+				end_move_step(false, true);
 			} else {
 				end_move_step(true);
 			}
@@ -4993,7 +5021,7 @@ function determine_winner_assault() {
 		victor = game.battle.defender;
 
 	if (victor === game.battle.attacker) {
-		log("ATTACKER WON ASSAULT");
+		log(".b Attacker Won Assault");
 		eliminate_enemy_pieces_inside(where);
 		remove_siege_marker(where);
 		remove_fieldworks(where);
@@ -5008,7 +5036,7 @@ function determine_winner_assault() {
 				return goto_massacre('assault');
 		}
 	} else {
-		log("DEFENDER WON ASSAULT");
+		log(".b Defender Won Assault");
 	}
 
 	logbr();
@@ -5058,7 +5086,7 @@ states.retreat_attacker = {
 
 		// NOTE: Besieged pieces that sortie out are 'inside' so not affected by the code below.
 		init_retreat_summary();
-		log("ATTACKER RETREAT");
+		log(".b Attacker Retreat");
 		for_each_friendly_piece_in_space(from, p => {
 			if (is_piece_unbesieged(p)) {
 				if (can_attacker_retreat_from_to(p, from, to)) {
@@ -5295,7 +5323,11 @@ states.retreat_all_defenders_to = {
 
 function end_retreat() {
 	set_active(game.battle.attacker);
-	end_move_step(true);
+	if (game.battle.overrun) {
+		end_move_step(false, overrun);
+	} else {
+		end_move_step(true);
+	}
 }
 
 function goto_retreat_lone_leader(from, reason) {
@@ -5537,9 +5569,9 @@ function end_surrender() {
 }
 
 const SIEGE_TABLE_RESULT = {
-	0: "no effect",
-	1: "+1",
-	2: "+2"
+	0: "No effect.",
+	1: "Siege +1.",
+	2: "Siege +2."
 };
 
 function resolve_siege() {
@@ -5551,13 +5583,15 @@ function resolve_siege() {
 	let def_leader = find_enemy_commanding_leader_in_space(where);
 	let die = roll_die("for siege");
 	die = modify(die, leader_tactics(att_leader), "besieging leader");
+	if (game.events.coehorns)
+		die = modify(die, game.events.coehorns === game.active ? 2 : -2, "for coehorns");
 	if (def_leader)
 		die = modify(die, -leader_tactics(def_leader), "defending leader");
 	if (where === LOUISBOURG)
 		die = modify(die, -1, "for Louisbourg");
 	let result = SIEGE_TABLE[clamp(die, 0, 7)];
 	log(`Lookup ${die} on siege table.`);
-	log(`Siege result: ${SIEGE_TABLE_RESULT[result]}.`);
+	log(SIEGE_TABLE_RESULT[result]);
 	if (result > 0) {
 		let level = change_siege_marker(where, result);
 		log("Siege level " + level + ".");
@@ -6284,7 +6318,7 @@ function goto_victory_check() {
 				count_british_controlled_spaces([QUEBEC, MONTREAL, NIAGARA, OHIO_FORKS]) >= 2)
 				return goto_game_over(BRITAIN, "British Victory: Britain controls all its fortresses and two of Québec, Montréal, Niagara, and Ohio Forks.");
 			if (game.vp >= 1)
-				return goto_game_over(FRANCE, "French Vectory: France has at least 1 VP.");
+				return goto_game_over(FRANCE, "French Victory: France has at least 1 VP.");
 			if (game.vp <= -1)
 				return goto_game_over(BRITAIN, "British Victory: Britain has at least 1 VP.");
 		}
@@ -7363,6 +7397,7 @@ events.british_ministerial_crisis = {
 		return enemy_player.hand.length > 0;
 	},
 	play() {
+		clear_undo();
 		let n = 0;
 		for (let i = 0; i < enemy_player.hand.length; ++i) {
 			let c = enemy_player.hand[i];
@@ -7908,6 +7943,7 @@ events.victories_in_germany_release_troops_and_finances_for_new_world = {
 		return has_unbesieged_reduced_regular_or_light_infantry_units();
 	},
 	play() {
+		clear_undo();
 		game.state = 'restore_regular_or_light_infantry_units';
 		game.count = roll_die();
 	},

@@ -24,9 +24,10 @@ aside { width: 220px; }
 #log .h1 { background-color: tan; font-weight: bold; padding-top:2px; padding-bottom:2px; text-align: center; }
 #log .h2 { background-color: wheat; padding-top:2px; padding-bottom:2px; text-align: center; }
 #log .h3 { background-color: antiquewhite; padding-top:2px; padding-bottom:2px; text-align: center; }
+#log .b { text-transform: uppercase; }
 
 #log .tip { color: blue; }
-#log .tip:hover { text-decoration: dotted underline; }
+#log .tip { text-decoration: dotted underline; }
 
 #log .indent {
 	padding-left: 12px;
@@ -142,12 +143,18 @@ aside { width: 220px; }
 #popup div.enabled:hover { background-color: black; color: white; }
 #popup div.always { display: block; }
 
+.card.highlight {
+	outline: 2px solid yellow;
+}
+
 /* MAP */
 
+/*
 #mapwrap:not(.fit) ~ .hand {
 	width: 2550px;
 	margin: 15px auto;
 }
+*/
 
 #mapwrap {
 	position: relative;

@@ -161,6 +161,7 @@ const EARLY = 0;
 const LATE = 1;
 
 const VP_MARKER = "marker vps ";
+const VP10_MARKER = "marker vps vps_10 ";
 const PA_MARKER = "marker provincial_assemblies ";
 const SEASON_MARKER_FF = "marker season_french_first ";
 const SEASON_MARKER_BF = "marker season_british_first ";
@@ -330,6 +331,10 @@ function on_log(text) {
 	if (text.match(/^\.raid/)) {
 		text = "Raid at " + text.substring(6);
 		p.className = 'h3 raid';
+	}
+	if (text.match(/^\.b /)) {
+		text = text.substring(3);
+		p.className = 'b';
 	}
 
 	if (text.indexOf("\n") < 0) {
@@ -1288,6 +1293,10 @@ function update_card(id) {
 		card.element.classList.add('enabled');
 	else
 		card.element.classList.remove('enabled');
+	if (view.actions && view.actions.card && view.actions.card.includes(id))
+		card.element.classList.add('highlight');
+	else
+		card.element.classList.remove('highlight');
 	if (view.hand.includes(id))
 		card.element.classList.add("show");
 	else
@@ -1365,11 +1374,11 @@ function update_map() {
 
 	let vpm = document.getElementById("vp_marker");
 	if (view.vp > 10)
-		vpm.className = VP_MARKER + "flip french_vp_" + (view.vp-10);
+		vpm.className = VP10_MARKER + "french_vp_" + (view.vp-10);
 	else if (view.vp > 0)
 		vpm.className = VP_MARKER + "french_vp_" + view.vp;
 	else if (view.vp < -10)
-		vpm.className = VP_MARKER + "flip british_vp_" + (-(view.vp+10));
+		vpm.className = VP10_MARKER + "flip british_vp_" + (-(view.vp+10));
 	else if (view.vp < 0)
 		vpm.className = VP_MARKER + "british_vp_" + (-view.vp);
 	else
