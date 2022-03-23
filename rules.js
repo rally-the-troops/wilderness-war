@@ -9026,6 +9026,13 @@ exports.query = function (state, current, q) {
 	return null;
 }
 
+exports.is_checkpoint = function (a, b) {
+	let x = b.log[b.log.length-2];
+	if (x === ".h2 Britain") return true;
+	if (x === ".h2 France") return true;
+	return false;
+}
+
 exports.view = function(state, current) {
 	load_game_state(state);
 
