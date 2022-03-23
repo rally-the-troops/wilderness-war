@@ -1773,8 +1773,7 @@ function is_fort_or_fortress_vacant_of_besieging_units(s) {
 }
 
 function lift_sieges_and_amphib() {
-	console.log("LIFT");
-
+	// Lift sieges
 	for_each_siege(s => {
 		if (is_fort_or_fortress_vacant_of_besieging_units(s)) {
 			log(`Lifted siege at ${space_name(s)}.`);
@@ -1785,10 +1784,11 @@ function lift_sieges_and_amphib() {
 		}
 	});
 
+	// Remove amphib
 	for (let i = game.amphib.length-1; i >= 0; --i) {
 		let s = game.amphib[i];
 		if (!has_british_units(s)) {
-			if (s !== LOUISBOURG && (has_french_drilled_troops(s) || has_unbesieged_french_fortification(s))) {
+			if (has_french_drilled_troops(s) || (s !== LOUISBOURG && has_unbesieged_french_fortification(s))) {
 				log(`Removed Amphib at ${space_name(s)}.`);
 				game.amphib.splice(i, 1);
 			}
