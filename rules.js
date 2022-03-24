@@ -2458,8 +2458,8 @@ const designate_force_reason_prompt = {
 }
 
 states.designate_force = {
-	get inactive() {
-		return "designate force " + designate_force_reason_prompt[game.force.reason];
+	inactive() {
+		inactive_prompt("designate force " + designate_force_reason_prompt[game.force.reason], game.force.commander, 0);
 	},
 	prompt() {
 		let commander = game.force.commander;
@@ -2604,7 +2604,9 @@ states.designate_force = {
 
 // TODO: merge with designate_force using reason=intercept_lone_ax
 states.designate_force_lone_ax = {
-	inactive: "designate lone auxiliary force to intercept",
+	inactive() {
+		inactive_prompt("designate lone auxiliary force to intercept", game.force.commander, 0);
+	},
 	prompt() {
 		let commander = game.force.commander;
 		let where = piece_space(commander);
@@ -2723,6 +2725,9 @@ function start_move() {
 }
 
 states.siege_or_move = {
+	inactive() {
+		inactive_prompt("siege or move", moving_piece(), 0);
+	},
 	prompt() {
 		let where = moving_piece_space();
 		view.who = moving_piece();
@@ -3091,8 +3096,7 @@ function apply_move(to) {
 
 states.move = {
 	inactive() {
-		inactive_prompt("move");
-		view.who = moving_piece();
+		inactive_prompt("move", moving_piece(), 0);
 	},
 	prompt() {
 		let who = moving_piece();
@@ -3251,8 +3255,7 @@ states.move = {
 
 states.drop_off = {
 	inactive() {
-		inactive_prompt("move");
-		view.who = moving_piece();
+		inactive_prompt("move", moving_piece(), 0);
 	},
 	prompt() {
 		let who = moving_piece();
@@ -3295,7 +3298,9 @@ states.drop_off = {
 }
 
 states.confirm_end_move = {
-	inactive: "move",
+	inactive() {
+		inactive_prompt("move", moving_piece(), 0);
+	},
 	prompt() {
 		view.prompt = `You have not moved yet \u2014 are you sure you want to pass?`;
 		view.who = moving_piece();
@@ -3324,6 +3329,9 @@ function goto_retroactive_foul_weather() {
 }
 
 states.foul_weather = {
+	inactive() {
+		inactive_prompt("foul weather", moving_piece(), 0);
+	},
 	prompt() {
 		let p = moving_piece();
 		view.who = p;
@@ -3360,6 +3368,9 @@ states.foul_weather = {
 }
 
 states.lake_schooner = {
+	inactive() {
+		inactive_prompt("lake schooner", moving_piece(), moving_piece_came_from());
+	},
 	prompt() {
 		let p = moving_piece();
 		let to = moving_piece_space();
@@ -3400,6 +3411,9 @@ states.lake_schooner = {
 }
 
 states.amphibious_landing = {
+	inactive() {
+		inactive_prompt("amphibious landing", moving_piece(), 0);
+	},
 	prompt() {
 		let who = moving_piece();
 		let from = moving_piece_space();
@@ -3635,6 +3649,9 @@ function is_moving_piece_lone_ax_in_wilderness_or_mountain() {
 }
 
 states.intercept_who = {
+	inactive() {
+		inactive_prompt("intercept", moving_piece(), 0);
+	},
 	prompt() {
 		let where = moving_piece_space();
 		view.where = where;
@@ -3738,6 +3755,9 @@ function goto_designate_inside() {
 }
 
 states.designate_inside = {
+	inactive() {
+		inactive_prompt("designate inside", moving_piece(), 0);
+	},
 	prompt() {
 		let where = moving_piece_space();
 		view.prompt = "You may withdraw leaders and units into the fortification.";
@@ -3789,7 +3809,9 @@ function did_piece_intercept(p) {
 }
 
 states.avoid_who = {
-	inactive: "avoid battle",
+	inactive() {
+		inactive_prompt("avoid battle", moving_piece(), 0);
+	},
 	prompt() {
 		let from = moving_piece_space();
 		view.where = from;
@@ -3871,6 +3893,9 @@ function can_enemy_avoid_battle(from) {
 }
 
 states.avoid_to = {
+	inactive() {
+		inactive_prompt("avoid battle", moving_piece(), 0);
+	},
 	prompt() {
 		let from = moving_piece_space();
 		view.prompt = `Avoid battle from ${space_name(from)} \u2014 select where to.`;
@@ -4145,6 +4170,9 @@ function goto_battle_militia() {
 }
 
 states.militia_in_battle = {
+	inactive() {
+		inactive_prompt("deploy militia in battle", 0, game.battle.where);
+	},
 	prompt() {
 		view.prompt = `You may deploy militia at ${space_name(game.battle.where)}.`;
 		let box = department_militia(game.battle.where);
@@ -4191,6 +4219,9 @@ function sortie_with_piece(p) {
 }
 
 states.sortie = {
+	inactive() {
+		inactive_prompt("sortie with besieged units", 0, game.battle.where);
+	},
 	prompt() {
 		view.prompt = `You may sortie with besieged units at ${space_name(game.battle.where)}.`;
 		view.where = game.battle.where;
@@ -4340,6 +4371,9 @@ function goto_battle_defender_events() {
 }
 
 states.attacker_events = {
+	inactive() {
+		inactive_prompt("attacker events", 0, game.battle.where);
+	},
 	prompt() {
 		let have = [];
 		let dont_have = [];
@@ -4415,6 +4449,9 @@ states.attacker_events = {
 }
 
 states.defender_events = {
+	inactive() {
+		inactive_prompt("defender events", 0, game.battle.where);
+	},
 	prompt() {
 		let have = [];
 		let dont_have = [];
@@ -4726,6 +4763,12 @@ function goto_def_step_losses() {
 }
 
 states.step_losses = {
+	inactive() {
+		if (game.active === game.battle.defender)
+			inactive_prompt("defender step losses", 0, game.battle.where);
+		else
+			inactive_prompt("attacker step losses", 0, game.battle.where);
+	},
 	prompt() {
 		let done = true;
 		if (game.battle.step_loss > 0) {
@@ -4807,6 +4850,9 @@ function goto_raid_step_losses() {
 }
 
 states.raid_step_losses = {
+	inactive() {
+		inactive_prompt("raid step losses", 0, game.raid.where);
+	},
 	prompt() {
 		view.prompt = `Apply step losses (${game.raid.step_loss}).`;
 		let can_reduce = false;
@@ -4877,6 +4923,12 @@ function goto_def_leader_check() {
 }
 
 states.leader_check = {
+	inactive() {
+		if (game.active === game.battle.defender)
+			inactive_prompt("defender leader check", 0, game.battle.where);
+		else
+			inactive_prompt("attacker leader check", 0, game.battle.where);
+	},
 	prompt() {
 		view.prompt = "Roll for leader losses.";
 		for (let i = 0; i < game.battle.leader_check.length; ++i)
@@ -4914,6 +4966,9 @@ function goto_raid_leader_check() {
 }
 
 states.raid_leader_check = {
+	inactive() {
+		inactive_prompt("raider leader check", 0, game.raid.where);
+	},
 	prompt() {
 		view.prompt = "Roll for leader losses.";
 		for (let i = 0; i < game.raid.leader_check.length; ++i)
@@ -5128,6 +5183,9 @@ function retreat_attacker(from, to) {
 }
 
 states.retreat_attacker = {
+	inactive() {
+		inactive_prompt("attacker retreat", 0, game.retreat.from);
+	},
 	prompt() {
 		let from = game.retreat.from;
 		let to = game.retreat.to;
@@ -5255,6 +5313,9 @@ function can_any_defenders_retreat_inside(from) {
 }
 
 states.retreat_defender = {
+	inactive() {
+		inactive_prompt("defender retreat", 0, game.battle.where);
+	},
 	prompt() {
 		let from = game.battle.where;
 		view.prompt = "Retreat losing leaders and units \u2014";
@@ -5299,6 +5360,9 @@ states.retreat_defender = {
 }
 
 states.retreat_defender_to = {
+	inactive() {
+		inactive_prompt("defender retreat", 0, game.battle.where);
+	},
 	prompt() {
 		let from = game.battle.where;
 		let who = game.battle.who;
@@ -5333,6 +5397,9 @@ states.retreat_defender_to = {
 }
 
 states.retreat_all_defenders_to = {
+	inactive() {
+		inactive_prompt("defender retreat", 0, game.battle.where);
+	},
 	prompt() {
 		let from = game.battle.where;
 		view.prompt = "Retreat all losing leaders and units \u2014 select where to.";
@@ -5404,6 +5471,9 @@ function pick_unbesieged_leader(s) {
 }
 
 states.retreat_lone_leader = {
+	inactive() {
+		inactive_prompt("retreat lone leader", game.move ? moving_piece() : 0, game.retreat.where);
+	},
 	prompt() {
 		let from = game.retreat.from;
 		let who = pick_unbesieged_leader(from);
@@ -5500,6 +5570,9 @@ function goto_siege(space) {
 }
 
 states.siege_coehorns_attacker = {
+	inactive() {
+		inactive_prompt("attacker siege coehorns", 0, game.siege_where);
+	},
 	prompt() {
 		if (player.hand.includes(COEHORNS)) {
 			view.prompt = `Siege at ${space_name(game.siege_where)}. You may play "Coehorns & Howitzers".`;
@@ -5528,6 +5601,9 @@ function end_siege_coehorns_attacker() {
 }
 
 states.siege_coehorns_defender = {
+	inactive() {
+		inactive_prompt("defender siege coehorns", 0, game.siege_where);
+	},
 	prompt() {
 		if (player.hand.includes(COEHORNS)) {
 			view.prompt = `Siege at ${space_name(game.siege_where)}. You may play "Coehorns & Howitzers".`;
@@ -5560,6 +5636,9 @@ function end_siege_coehorns_defender() {
 }
 
 states.siege_surrender = {
+	inactive() {
+		inactive_prompt("siege surrender", 0, game.siege_where);
+	},
 	prompt() {
 		if (player.hand.includes(SURRENDER)) {
 			view.prompt = `Siege at ${space_name(game.siege_where)}. You may play "Surrender!"`;
@@ -5606,6 +5685,9 @@ function goto_surrender_place() {
 }
 
 states.surrender = {
+	inactive() {
+		inactive_prompt("surrender", 0, game.siege_where);
+	},
 	prompt() {
 		view.prompt = "Surrender! Place defenders at the closest unbesieged fortification.";
 		view.where = game.siege_where;
@@ -5679,6 +5761,9 @@ function goto_assault_possible(where) {
 }
 
 states.assault_possible = {
+	inactive() {
+		inactive_prompt("assault is possible", 0, game.assault_possible);
+	},
 	prompt() {
 		view.prompt = `You may assault at ${space_name(game.assault_possible)}.`;
 		gen_action_space(game.assault_possible);
@@ -5722,6 +5807,7 @@ function goto_pick_raid() {
 }
 
 states.pick_raid = {
+	inactive: "pick raid",
 	prompt() {
 		view.prompt = "Pick the next raid space.";
 		for (let i=0; i < game.raid.list.length; ++i)
@@ -5753,6 +5839,9 @@ function goto_raid_militia() {
 }
 
 states.militia_against_raid = {
+	inactive() {
+		inactive_prompt("deploy militia against raid", 0, game.raid.where);
+	},
 	prompt() {
 		view.prompt = `You may deploy one militia against the raid at ${space_name(game.raid.where)}.`;
 		view.where = game.raid.where;
@@ -5801,6 +5890,9 @@ function goto_raid_events() {
 }
 
 states.raid_blockhouses = {
+	inactive() {
+		inactive_prompt("raid blockhouses", 0, game.raid.where);
+	},
 	prompt() {
 		if (player.hand.includes(BLOCKHOUSES)) {
 			view.prompt = `Raid at ${space_name(game.raid.where)}. You may play "Blockhouses".`;
@@ -5956,6 +6048,9 @@ function end_indians_and_leaders_go_home() {
 }
 
 states.raiders_go_home = {
+	inactive() {
+		inactive_prompt("raiders go home", 0, game.raid.where);
+	},
 	prompt() {
 		let from = game.raid.where;
 		let done = true;
@@ -6003,6 +6098,7 @@ states.raiders_go_home = {
 }
 
 states.indians_and_leaders_go_home = {
+	inactive: "indians and leaders go home",
 	prompt() {
 		let done = true;
 		for (let p = first_friendly_piece; p <= last_friendly_piece; ++p) {
@@ -6045,6 +6141,12 @@ states.indians_and_leaders_go_home = {
 }
 
 states.go_home_to = {
+	inactive() {
+		if (game.go_home.reason === 'late_season')
+			inactive_prompt("indians and leaders go home", 0, 0);
+		else
+			inactive_prompt("raiders go home", 0, game.raid.where);
+	},
 	prompt() {
 		let who = game.go_home.who;
 		let from = game.go_home.from;
@@ -6133,6 +6235,12 @@ states.go_home_to = {
 }
 
 states.go_home_with_indians = {
+	inactive() {
+		if (game.go_home.reason === 'late_season')
+			inactive_prompt("indians and leaders go home", 0, 0);
+		else
+			inactive_prompt("raiders go home", 0, game.raid.where);
+	},
 	prompt() {
 		let from = game.go_home.from;
 		let to = game.go_home.to;
@@ -6272,6 +6380,7 @@ function end_winter_attrition() {
 }
 
 states.winter_attrition = {
+	inactive: "winter attrition",
 	prompt() {
 		let done = true;
 		for (let s in game.winter_attrition) {
@@ -6459,6 +6568,7 @@ function end_demolish() {
 }
 
 states.demolish_fort = {
+	inactive: "demolish fort",
 	prompt() {
 		view.prompt = "Demolish an unbesieged friendly fort.";
 		for (let s of player.forts)
@@ -6485,6 +6595,7 @@ states.demolish_fort = {
 }
 
 states.demolish_stockade = {
+	inactive: "demolish stockade",
 	prompt() {
 		view.prompt = "Demolish a friendly stockade.";
 		for (let s of player.stockades)
@@ -6501,6 +6612,7 @@ states.demolish_stockade = {
 }
 
 states.demolish_fieldworks = {
+	inactive: "demolish fieldworks",
 	prompt() {
 		view.prompt = "Demolish friendly fieldworks.";
 		for (let s of game.fieldworks)
@@ -6530,6 +6642,7 @@ function goto_construct_stockades(card) {
 }
 
 states.construct_stockades = {
+	inactive: "construct stockades",
 	prompt() {
 		view.prompt = `Construct Stockades${format_remain(game.count)}.`;
 		gen_action_next();
@@ -6574,6 +6687,7 @@ function goto_construct_forts(card) {
 }
 
 states.construct_forts = {
+	inactive: "construct forts",
 	prompt() {
 		view.prompt = `Construct Forts${format_remain(game.count)}.`;
 		gen_action_next();
@@ -6637,6 +6751,7 @@ function end_british_reinforcement() {
 }
 
 states.max_two_7_command_leaders_in_play = {
+	inactive: "remove a 7 command leader",
 	prompt() {
 		if (count_7_command_leaders_in_play() > 2) {
 			view.prompt = `Remove a 7 command leader from play.`;
@@ -6694,7 +6809,9 @@ function end_massacre() {
 }
 
 states.massacre_1 = {
-	inactive: "massacre",
+	inactive() {
+		inactive_prompt("massacre", moving_piece(), 0);
+	},
 	prompt() {
 		if (player.hand.includes(MASSACRE)) {
 			view.prompt = `You may play "Massacre!"`;
@@ -6717,7 +6834,9 @@ states.massacre_1 = {
 }
 
 states.massacre_2 = {
-	inactive: "massacre",
+	inactive() {
+		inactive_prompt("massacre", moving_piece(), 0);
+	},
 	prompt() {
 		let s = moving_piece_space();
 		let done = true;
@@ -7355,6 +7474,9 @@ states.small_pox = {
 }
 
 states.small_pox_eliminate_steps = {
+	inactive() {
+		inactive_prompt("small pox", 0, game.small_pox);
+	},
 	prompt() {
 		let done = true;
 		if (game.count > 0) {
@@ -7396,6 +7518,9 @@ states.small_pox_eliminate_steps = {
 }
 
 states.small_pox_remove_indians = {
+	inactive() {
+		inactive_prompt("small pox", 0, game.small_pox);
+	},
 	prompt() {
 		view.prompt = `Small Pox at ${space_name(game.small_pox)}: Remove all indians.`;
 		for_each_friendly_unit_in_space(game.small_pox, p => {
@@ -9298,8 +9423,12 @@ exports.is_checkpoint = function (a, b) {
 	return false;
 }
 
-function inactive_prompt(name) {
+function inactive_prompt(name, who, where) {
 	view.prompt = `Waiting for ${game.active} \u2014 ${name}...`;
+	if (who)
+		view.who = who;
+	if (where)
+		view.where = where;
 }
 
 exports.view = function(state, current) {
