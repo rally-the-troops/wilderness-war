@@ -3165,15 +3165,8 @@ states.move = {
 		}
 
 		if (game.move.used < 9) {
-			if (is_leader(who)) {
-				for_each_leader_in_force(who, p => {
-					if (p !== who && can_drop_off_leader(who, p))
-						gen_action_piece(p);
-				});
-				for_each_unit_in_force(who, p => {
-					gen_action_piece(p);
-				});
-			}
+			if (is_leader(who) && count_pieces_in_force(who) > 1)
+				gen_action('drop_off');
 		}
 	},
 	play_event(card) {
@@ -3208,11 +3201,9 @@ states.move = {
 
 		goto_intercept();
 	},
-	piece(who) {
+	drop_off() {
 		push_undo();
-		log(`Dropped off ${piece_name(who)}.`);
-		move_piece_to(who, moving_piece_space());
-		resume_move();
+		game.state = 'drop_off';
 	},
 	siege() {
 		goto_siege(moving_piece_space());
@@ -3225,11 +3216,50 @@ states.move = {
 		goto_designate_inside();
 	},
 	next() {
-		end_move();
+		if (game.move.used > 0) {
+			end_move();
+		} else {
+			push_undo();
+			game.state = 'confirm_end_move';
+		}
 	},
-	pass() {
+	demolish_fort: goto_demolish_fort,
+	demolish_stockade: goto_demolish_stockade,
+	demolish_fieldworks: goto_demolish_fieldworks,
+}
+
+states.drop_off = {
+	inactive() {
+		inactive_prompt("move");
+		view.who = moving_piece();
+	},
+	prompt() {
+		let who = moving_piece();
+		let where = moving_piece_space();
+
+		view.prompt = `Drop off subordinate units or leaders in ${space_name(where)}.`;
+		view.who = who;
+		view.where = where;
+
+		gen_action_next()
+		gen_action_demolish();
+
+		for_each_leader_in_force(who, p => {
+			if (p !== who && can_drop_off_leader(who, p))
+				gen_action_piece(p);
+		});
+		for_each_unit_in_force(who, p => {
+			gen_action_piece(p);
+		});
+	},
+	piece(who) {
 		push_undo();
-		game.state = 'confirm_end_move';
+		log(`Dropped off ${piece_name(who)}.`);
+		move_piece_to(who, moving_piece_space());
+	},
+	next() {
+		push_undo();
+		resume_move();
 	},
 	demolish_fort: goto_demolish_fort,
 	demolish_stockade: goto_demolish_stockade,

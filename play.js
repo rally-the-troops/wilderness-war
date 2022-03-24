@@ -1425,10 +1425,9 @@ function update_map() {
 	action_button("assault", "Assault");
 	action_button("move", "Move");
 	action_button("naval_move", "Naval");
-	action_button("boat_move", "Boat");
-	action_button("land_move", "Land");
 	action_button("eliminate", "Eliminate");
 	action_button("pick_up_all", "Pick up all");
+	action_button("drop_off", "Drop off");
 	action_button("exchange", "Exchange");
 	action_button("stop", "Stop");
 	action_button("pass", "Pass");
