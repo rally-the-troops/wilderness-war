@@ -2517,8 +2517,20 @@ states.designate_force = {
 			gen_action('pick_up_all');
 
 		// Must be a force to proceed (leader + at least one unit)
-		if (count_units_in_force(commander) > 0)
-			gen_action_next();
+		if (count_units_in_force(commander) > 0) {
+			switch (game.force.reason) {
+			default:
+				gen_action_next();
+				break;
+			case 'intercept':
+				gen_action('intercept');
+				break;
+			case 'avoid':
+				gen_action('avoid');
+				attempt_avoid_battle();
+				break;
+			}
+		}
 	},
 
 	pick_up_all() {
@@ -2578,15 +2590,15 @@ states.designate_force = {
 		case 'move':
 			goto_move_piece(commander);
 			break;
-		case 'intercept':
-			attempt_intercept();
-			break;
-		case 'avoid':
-			attempt_avoid_battle();
-			break;
 		default:
 			throw Error("unknown reason state: " + game.reason);
 		}
+	},
+	intercept() {
+		attempt_intercept();
+	},
+	avoid() {
+		attempt_avoid_battle();
 	},
 }
 
@@ -2634,7 +2646,7 @@ states.designate_force_lone_ax = {
 		});
 
 		if (n === 1)
-			gen_action_next();
+			gen_action('intercept');
 	},
 
 	piece(p) {
@@ -2647,7 +2659,7 @@ states.designate_force_lone_ax = {
 			move_piece_to(p, leader_box(commander));
 	},
 
-	next() {
+	intercept() {
 		push_undo();
 		attempt_intercept();
 	},
@@ -3078,6 +3090,10 @@ function apply_move(to) {
 }
 
 states.move = {
+	inactive() {
+		inactive_prompt("move");
+		view.who = moving_piece();
+	},
 	prompt() {
 		let who = moving_piece();
 		let from = moving_piece_space();
@@ -3149,10 +3165,7 @@ states.move = {
 			if (!has_unbesieged_enemy_fort_or_fortress(from))
 				gen_action('stop');
 		} else {
-			if (game.move.used > 0)
-				gen_action_next()
-			else
-				gen_action_pass()
+			gen_action('end_move');
 		}
 
 		gen_action_demolish();
@@ -3215,7 +3228,7 @@ states.move = {
 		game.move.infiltrated = 0;
 		goto_designate_inside();
 	},
-	next() {
+	end_move() {
 		if (game.move.used > 0) {
 			end_move();
 		} else {
@@ -3271,9 +3284,9 @@ states.confirm_end_move = {
 	prompt() {
 		view.prompt = `You have not moved yet \u2014 are you sure you want to pass?`;
 		view.who = moving_piece();
-		gen_action_pass();
+		gen_action('end_move');
 	},
-	pass() {
+	end_move() {
 		end_move();
 	}
 }
@@ -3454,7 +3467,8 @@ function end_move_step(final=false, overrun=false) {
 		}
 	}
 
-	if (overrun) {
+	if (overrun && game.move.used < 9) {
+		logbr();
 		log(".b Overrun");
 		logbr();
 	}
@@ -3612,7 +3626,7 @@ states.intercept_who = {
 		if (game.move.intercepting) {
 			view.prompt = `Intercept into ${space_name(where)} with ${piece_name(game.move.intercepting)}.`;
 			view.who = game.move.intercepting;
-			gen_action_next();
+			gen_action('intercept');
 		} else {
 			view.prompt = "You may select a force or unit to intercept into " + space_name(where) + ".";
 			gen_action_pass();
@@ -3639,7 +3653,7 @@ states.intercept_who = {
 			game.move.intercepting = p;
 		}
 	},
-	next() {
+	intercept() {
 		attempt_intercept();
 	},
 	pass() {
@@ -3767,7 +3781,7 @@ states.avoid_who = {
 		if (game.move.avoiding) {
 			view.prompt = `Avoid battle from ${space_name(from)} with ${piece_name(game.move.avoiding)}.`;
 			view.who = game.move.avoiding;
-			gen_action_next();
+			gen_action('avoid');
 		} else {
 			view.prompt = "You may select a force or unit to avoid battle from " + space_name(from) + ".";
 			gen_action_pass();
@@ -3790,7 +3804,7 @@ states.avoid_who = {
 			game.move.avoiding = p;
 		}
 	},
-	next() {
+	avoid() {
 		attempt_avoid_battle();
 	},
 	pass() {
@@ -9195,12 +9209,14 @@ function gen_action(action, argument) {
 	}
 }
 
-function gen_action_pass() {
-	gen_action('pass');
+function gen_action_next(prompt) {
+	if (!view.actions)
+		view.actions = {}
+	view.actions.next = prompt || 1;
 }
 
-function gen_action_next() {
-	gen_action('next');
+function gen_action_pass() {
+	gen_action('pass');
 }
 
 function gen_action_space(s) {
@@ -9262,6 +9278,10 @@ exports.is_checkpoint = function (a, b) {
 	if (x === ".h2 Britain") return true;
 	if (x === ".h2 France") return true;
 	return false;
+}
+
+function inactive_prompt(name) {
+	view.prompt = `Waiting for ${game.active} \u2014 ${name}...`;
 }
 
 exports.view = function(state, current) {
@@ -9330,9 +9350,9 @@ exports.view = function(state, current) {
 		if (typeof inactive === 'function')
 			states[game.state].inactive();
 		else if (typeof inactive === 'string')
-			view.prompt = `Waiting for ${game.active} \u2014 ${inactive}...`;
+			inactive_prompt(inactive);
 		else
-			view.prompt = `Waiting for ${game.active} \u2014 ${game.state.replace(/_/g, " ")}...`;
+			inactive_prompt(game.state.replace(/_/g, " "));
 	} else {
 		states[game.state].prompt();
 		gen_action_undo();

@@ -1428,10 +1428,13 @@ function update_map() {
 	action_button("eliminate", "Eliminate");
 	action_button("pick_up_all", "Pick up all");
 	action_button("drop_off", "Drop off");
+	action_button("intercept", "Intercept");
+	action_button("avoid", "Avoid battle");
 	action_button("exchange", "Exchange");
 	action_button("stop", "Stop");
 	action_button("pass", "Pass");
 	action_button("next", "Next");
+	action_button("end_move", "End move");
 	action_button("undo", "Undo");
 }
 
