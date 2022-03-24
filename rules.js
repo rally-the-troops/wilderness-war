@@ -3152,9 +3152,15 @@ states.move = {
 				} else {
 					if (!game.events.no_amphib) {
 						if (game.active === BRITAIN && has_amphibious_arrow(from)) {
-							for (let card = first_amphib_card; card <= last_amphib_card; ++card)
-								if (player.hand.includes(card))
+							let has_amphib = false;
+							for (let card = first_amphib_card; card <= last_amphib_card; ++card) {
+								if (player.hand.includes(card)) {
+									has_amphib = true;
 									gen_action('play_event', card);
+								}
+							}
+							if (has_amphib)
+								view.prompt += ` You may play "Amphibious Landing."`;
 						}
 					}
 				}
