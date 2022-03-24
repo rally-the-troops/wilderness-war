@@ -5461,6 +5461,8 @@ function goto_retreat_lone_leader(from, reason) {
 	set_active_enemy();
 	game.state = 'retreat_lone_leader';
 	game.retreat = { from, reason };
+	// Pause for foul weather if necessary
+	goto_retroactive_foul_weather();
 }
 
 function pick_unbesieged_leader(s) {
@@ -5525,6 +5527,7 @@ states.retreat_lone_leader = {
 function resume_retreat_lone_leader(from) {
 	let who = pick_unbesieged_leader(from);
 	if (!who) {
+		flush_summary();
 		set_active_enemy();
 		switch (game.retreat.reason) {
 		case 'indian_alliance':
