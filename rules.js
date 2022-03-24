@@ -3216,6 +3216,8 @@ states.move = {
 	},
 	drop_off() {
 		push_undo();
+		if (game.summary)
+			game.summary.drop_off = [];
 		game.state = 'drop_off';
 	},
 	siege() {
@@ -3267,11 +3269,18 @@ states.drop_off = {
 	},
 	piece(who) {
 		push_undo();
-		log(`Dropped off ${piece_name(who)}.`);
+		if (game.summary)
+			game.summary.drop_off.push(who);
+		else
+			log(`Dropped off ${piece_name(who)}.`);
 		move_piece_to(who, moving_piece_space());
 	},
 	next() {
 		push_undo();
+		if (game.summary) {
+			log("Dropped off\n" + game.summary.drop_off.sort((a,b)=>a-b).map(piece_name).join(",\n") + ".");
+			delete game.summary.drop_off;
+		}
 		resume_move();
 	},
 	demolish_fort: goto_demolish_fort,
@@ -9094,16 +9103,19 @@ exports.setup = function (seed, scenario, options) {
 		// raid: {},
 		// go_home: {},
 
-		// Log summaries
 		summary: {
 			placed: {},
 			restored: {},
 			reduced: {},
 			eliminated: {},
 		},
+
 		undo: [],
 		log: [],
 	});
+
+	if (false)
+		delete game.summary;
 
 	switch (scenario) {
 	default:
