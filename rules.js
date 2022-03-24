@@ -8316,11 +8316,8 @@ events.french_regulars = {
 	},
 	play() {
 		game.state = 'french_regulars';
-		game.leader = [];
 		if (game.events.once_french_regulars) {
-			game.leader.push(MONTCALM);
-			game.leader.push(LEVIS);
-			game.leader.push(BOUGAINVILLE);
+			game.leader = 1;
 			move_piece_to(MONTCALM, leader_box(MONTCALM));
 			move_piece_to(LEVIS, leader_box(LEVIS));
 			move_piece_to(BOUGAINVILLE, leader_box(BOUGAINVILLE));
@@ -8334,15 +8331,13 @@ events.french_regulars = {
 
 states.french_regulars = {
 	prompt() {
-		if (game.leader.length > 0) {
-			let p = game.leader[0];
-			view.prompt = `French Regulars: Place ${piece_name(p)} at either Québec or Louisbourg.`;
-			view.who = p;
-		} else {
-			if (game.count > 0)
-				view.prompt = `French Regulars: Place ${game.count} regulars at either Québec or Louisbourg.`;
+		if (game.count > 0) {
+			if (game.leader)
+				view.prompt = `French Regulars: Place Montcalm, Lévis, Bougainville and two regulars at either Québec or Louisbourg.`;
 			else
-				view.prompt = `French Regulars \u2014 done.`;
+				view.prompt = `French Regulars: Place two regulars at either Québec or Louisbourg.`;
+		} else {
+			view.prompt = `French Regulars \u2014 done.`;
 		}
 		if (game.count > 0) {
 			if (!has_british_units(QUEBEC))
@@ -8355,18 +8350,18 @@ states.french_regulars = {
 	},
 	space(s) {
 		push_undo();
-		if (game.leader.length > 0) {
-			let p = game.leader.shift();
-			place_piece(p, s);
-		} else {
-			let p = find_unused_french_regular();
-			if (p) {
+		if (game.leader) {
+			place_piece(MONTCALM, s);
+			place_piece(LEVIS, s);
+			place_piece(BOUGAINVILLE, s);
+		}
+		for (let p = first_french_regular; p <= last_french_regular && game.count > 0; ++p) {
+			if (is_piece_unused(p)) {
 				place_piece(p, s);
-				game.count --;
-			} else {
-				game.count = 0;
+				--game.count;
 			}
 		}
+		game.count = 0;
 	},
 	next() {
 		game.events.french_regulars = 1;
