@@ -7,14 +7,6 @@ body.Britain header.your_turn { background-color: salmon; }
 #role_Britain, #log .h2.britain { background-color: #fcb; }
 aside { width: 220px; }
 
-/* Z-indexes:
-	1-99 	normal stacks
-	100	focus window backdrop
-	101-299 focused stack
-	200	highlighted spaces
-	300	tooltips
-*/
-
 /* LOG */
 
 .checked::before { content: "\2714  " }
@@ -26,8 +18,7 @@ aside { width: 220px; }
 #log .h3 { background-color: antiquewhite; padding-top:2px; padding-bottom:2px; text-align: center; }
 #log .b { text-transform: uppercase; }
 
-#log .tip { color: blue; }
-#log .tip { text-decoration: dotted underline; }
+#log .tip { color: blue; text-decoration: dotted underline; }
 
 #log .indent {
 	padding-left: 12px;
@@ -149,13 +140,6 @@ aside { width: 220px; }
 
 /* MAP */
 
-/*
-#mapwrap:not(.fit) ~ .hand {
-	width: 2550px;
-	margin: 15px auto;
-}
-*/
-
 #mapwrap {
 	position: relative;
 	box-shadow: 0px 1px 10px rgba(0,0,0,0.5);
@@ -208,9 +192,9 @@ aside { width: 220px; }
 .leader-box { background-repeat: no-repeat; background-size: 32px; }
 .leader-box.french { background-position: center bottom 35px; }
 .leader-box.british { background-position: center bottom 30px; }
-.leader-box.dead { background-image: url('/images/hasty-grave.svg'); opacity: 60%; }
-.leader-box.pool { background-image: url('/images/swap-bag.svg');  opacity: 40%;}
-.leader-box.unavailable { background-image: url('/images/swap-bag.svg'); opacity: 20%; }
+.leader-box.dead { background-image: url(/images/hasty-grave.svg); opacity: 60%; }
+.leader-box.pool { background-image: url(/images/swap-bag.svg);  opacity: 40%;}
+.leader-box.unavailable { background-image: url(/images/swap-bag.svg); opacity: 20%; }
 
 .wilderness, .cultivated, .box, .militia-box, .leader-box {
 	position: absolute;
@@ -227,10 +211,10 @@ aside { width: 220px; }
 	background-repeat: no-repeat;
 }
 .mountain.highlight {
-	background-image: url('mountain-highlight.svg');
+	background-image: url(mountain-highlight.svg);
 }
 .mountain.selected {
-	background-image: url('mountain-selected.svg');
+	background-image: url(mountain-selected.svg);
 }
 
 .cultivated.highlight, .box.highlight, .militia-box.highlight {
