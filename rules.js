@@ -1976,7 +1976,7 @@ function search_supply_spaces() {
 	} else {
 		let list = originally_british_fortresses_and_all_ports.filter(is_friendly_controlled_space);
 		for (let s of game.amphib)
-			if (!list.includes(s) && is_space_unbesieged(s))
+			if (!list.includes(s))
 				list.push(s);
 		supply_cache = search_supply_spaces_imp(list);
 	}
