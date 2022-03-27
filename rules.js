@@ -1088,7 +1088,7 @@ function is_piece_in_space(p, s) {
 }
 
 function is_piece_unbesieged_in_space(p, s) {
-	return game.location[p] === s;
+	return piece_space_and_inside(p) === s;
 }
 
 function is_piece_besieged_in_space(p, s) {
