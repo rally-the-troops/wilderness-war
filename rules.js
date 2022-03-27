@@ -3438,6 +3438,7 @@ states.amphibious_landing = {
 		game.amphib.push(to);
 		apply_move(to);
 		goto_intercept();
+		return goto_retroactive_foul_weather();
 	},
 }
 
