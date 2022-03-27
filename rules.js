@@ -9433,7 +9433,7 @@ function load_game_state(state) {
 exports.resign = function (state, current) {
 	load_game_state(state);
 	if (game.state !== 'game_over')
-		goto_game_over(enemy(), current + " resigned.");
+		goto_game_over(current === FRANCE ? BRITAIN : FRANCE, current + " resigned.");
 	return game;
 }
 
