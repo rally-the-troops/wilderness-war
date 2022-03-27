@@ -3755,6 +3755,8 @@ function goto_designate_inside() {
 		if (is_fortress(where) || has_enemy_fort(where)) {
 			set_active_enemy();
 			game.state = 'designate_inside';
+			if (game.summary)
+				game.summary.inside = [];
 			return;
 		}
 	}
@@ -3780,14 +3782,25 @@ states.designate_inside = {
 	},
 	piece(p) {
 		push_undo();
-		if (is_fortress(moving_piece_space()))
-			log(`${piece_name(p)} withdrew into fortress.`);
-		else
-			log(`${piece_name(p)} withdrew into fort.`);
+		if (game.summary) {
+			game.summary.inside.push(p);
+		} else {
+			if (is_fortress(moving_piece_space()))
+				log(`${piece_name(p)} withdrew into fortress.`);
+			else
+				log(`${piece_name(p)} withdrew into fort.`);
+		}
 		set_piece_inside(p);
 	},
 	next() {
 		clear_undo();
+		if (game.summary) {
+			if (is_fortress(moving_piece_space()))
+				log("Withdrew into fortress with\n" + game.summary.inside.sort((a,b)=>a-b).map(piece_name).join(",\n") + ".");
+			else
+				log("Withdrew into fort with\n" + game.summary.inside.sort((a,b)=>a-b).map(piece_name).join(",\n") + ".");
+			delete game.summary.inside;
+		}
 		set_active_enemy();
 		goto_avoid_battle();
 	},
@@ -4171,6 +4184,8 @@ function goto_battle_militia() {
 			if (has_enemy_raided_marker(s))
 				return goto_battle_sortie();
 		game.state = 'militia_in_battle';
+		if (game.summary)
+			game.summary.deploy = [];
 	} else {
 		goto_battle_sortie();
 	}
@@ -4198,9 +4213,16 @@ states.militia_in_battle = {
 	piece(p) {
 		push_undo();
 		move_piece_to(p, game.battle.where);
-		log(`Deployed ${piece_name(p)}.`);
+		if (game.summary)
+			game.summary.deploy.push(p);
+		else
+			log(`Deployed ${piece_name(p)}.`);
 	},
 	next() {
+		if (game.summary) {
+			log("Deployed\n" + game.summary.deploy.sort((a,b)=>a-b).map(piece_name).join(",\n") + ".");
+			delete game.summary.deploy;
+		}
 		clear_undo();
 		goto_battle_sortie();
 	},
@@ -4210,13 +4232,19 @@ function goto_battle_sortie() {
 	set_active(game.battle.attacker);
 	if (has_besieged_friendly_units(game.battle.where)) {
 		game.state = 'sortie';
+		if (game.summary)
+			game.summary.sortie = [];
 	} else {
 		goto_battle_attacker_events();
 	}
 }
 
 function sortie_with_piece(p) {
-	log(`${piece_name(p)} sortied.`);
+	if (game.summary)
+		game.summary.sortie.push(p);
+	else
+		log(`${piece_name(p)} sortied.`);
+
 	game.battle.atk_pcs.push(p);
 
 	// 5.36 unit or leader may not be activated if it participated in combat or assault.
@@ -4258,6 +4286,10 @@ states.sortie = {
 	},
 	next() {
 		clear_undo();
+		if (game.summary) {
+			log("Sortied with\n" + game.summary.sortie.sort((a,b)=>a-b).map(piece_name).join(",\n") + ".");
+			delete game.summary.inside;
+		}
 		goto_battle_attacker_events();
 	},
 }
@@ -4923,6 +4955,7 @@ function goto_def_leader_check() {
 		});
 	}
 	if (game.battle.leader_check.length > 0) {
+		log(`Leader loss check.`);
 		game.state = 'leader_check';
 	} else {
 		end_leader_check();
@@ -4957,11 +4990,11 @@ states.leader_check = {
 function goto_raid_leader_check() {
 	if (game.raid.leader_check) {
 		game.raid.leader_check = [];
-		log(`${game.active} leader loss check`);
 		for_each_friendly_leader_in_space(game.raid.where, p => {
 			game.raid.leader_check.push(p);
 		});
 		if (game.raid.leader_check.length > 0) {
+			log(`Leader loss check.`);
 			game.state = 'raid_leader_check';
 		} else {
 			delete game.raid.leader_check;
