@@ -1686,10 +1686,15 @@ function place_friendly_fort_uc(s) {
 }
 
 // Isolate piece from any forces it may be involved in.
-function unstack_force(p) {
-	let s = piece_space(p);
-	if (is_leader(p))
-		move_pieces_from_node_to_node(leader_box(p), s);
+function unstack_force(ldr) {
+	if (is_leader(ldr)) {
+		let box = leader_box(ldr);
+		let s = piece_space_and_inside(ldr);
+		for (let p = 1; p <= last_piece; ++p) {
+			if (piece_node(p) === box)
+				game.location[p] = s;
+		}
+	}
 }
 
 function unstack_piece_from_force(p) {
@@ -1803,13 +1808,6 @@ function place_piece(who, to) {
 				}
 			}
 		}
-	}
-}
-
-function move_pieces_from_node_to_node(from, to) {
-	for (let p = 1; p <= last_piece; ++p) {
-		if (piece_node(p) === from)
-			move_piece_to(p, to);
 	}
 }
 
