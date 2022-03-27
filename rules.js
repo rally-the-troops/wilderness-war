@@ -2521,20 +2521,27 @@ states.designate_force = {
 		if (can_pick_up)
 			gen_action('pick_up_all');
 
-		// Must be a force to proceed (leader + at least one unit)
-		if (count_units_in_force(commander) > 0) {
-			switch (game.force.reason) {
-			default:
+		switch (game.force.reason) {
+		case 'campaign_1':
+		case 'campaign_2':
+			// Campaign can activate lone leaders as well as forces.
+			gen_action_next();
+			break;
+		case 'move':
+			// Must be a force to proceed (leader + at least one unit)
+			if (count_units_in_force(commander) > 0)
 				gen_action_next();
-				break;
-			case 'intercept':
+			break;
+		case 'intercept':
+			// Must be a force to proceed (leader + at least one unit)
+			if (count_units_in_force(commander) > 0)
 				gen_action('intercept');
-				break;
-			case 'avoid':
+			break;
+		case 'avoid':
+			// Must be a force to proceed (leader + at least one unit)
+			if (count_units_in_force(commander) > 0)
 				gen_action('avoid');
-				attempt_avoid_battle();
-				break;
-			}
+			break;
 		}
 	},
 
