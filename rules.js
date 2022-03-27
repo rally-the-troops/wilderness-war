@@ -278,6 +278,14 @@ function push_summary(summary, p) {
 	summary[s].push(piece_name(p));
 }
 
+function print_plain_summary(verb, list) {
+	if (game.summary) {
+		if (game.summary[list].length > 0)
+			log(verb + "\n" + game.summary[list].sort((a,b)=>a-b).map(piece_name).join(",\n") + ".");
+		delete game.summary[list];
+	}
+}
+
 function print_summary(summary, verb) {
 	for (let s in summary)
 		log(verb + space_name(Number(s)) + "\n" + summary[s].join(",\n") + ".");
@@ -2690,7 +2698,7 @@ function describe_force(force, verbose) {
 		});
 		return desc;
 	} else {
-		return piece_name_and_place(force);
+		return verbose ? piece_name_and_place(force) : piece_name(force);
 	}
 }
 
@@ -3298,10 +3306,7 @@ states.drop_off = {
 	},
 	next() {
 		push_undo();
-		if (game.summary) {
-			log("Dropped off\n" + game.summary.drop_off.sort((a,b)=>a-b).map(piece_name).join(",\n") + ".");
-			delete game.summary.drop_off;
-		}
+		print_plain_summary("Dropped off", 'drop_off');
 		resume_move();
 	},
 	demolish_fort: goto_demolish_fort,
@@ -3800,13 +3805,10 @@ states.designate_inside = {
 	},
 	next() {
 		clear_undo();
-		if (game.summary) {
-			if (is_fortress(moving_piece_space()))
-				log("Withdrew into fortress with\n" + game.summary.inside.sort((a,b)=>a-b).map(piece_name).join(",\n") + ".");
-			else
-				log("Withdrew into fort with\n" + game.summary.inside.sort((a,b)=>a-b).map(piece_name).join(",\n") + ".");
-			delete game.summary.inside;
-		}
+		if (is_fortress(moving_piece_space()))
+			print_plain_summary("Withdrew into fortress", 'inside');
+		else
+			print_plain_summary("Withdrew into fort", 'inside');
 		set_active_enemy();
 		goto_avoid_battle();
 	},
@@ -3882,12 +3884,12 @@ function attempt_avoid_battle() {
 
 	// 6.8 Exception: Auxiliary and all-Auxiliary forces automatically succeed.
 	if (is_wilderness_or_mountain(from) && force_has_only_auxiliary_units(who)) {
-		log("Avoided battle from " + spaces[from].type + "\n" + describe_force(who, false) + ".");
+		log("Auxiliaries avoided battle\n" + describe_force(who, false) + ".");
 		game.state = 'avoid_to';
 		return;
 	}
 
-	let die = roll_die("to avoid battle with\n" + describe_force(who, false));
+	let die = roll_die("to avoid battle\n" + describe_force(who, false));
 	if (is_leader(who))
 		die = modify(die, leader_tactics(who), "leader tactics");
 	if (die >= 4) {
@@ -4225,10 +4227,7 @@ states.militia_in_battle = {
 			log(`Deployed ${piece_name(p)}.`);
 	},
 	next() {
-		if (game.summary) {
-			log("Deployed\n" + game.summary.deploy.sort((a,b)=>a-b).map(piece_name).join(",\n") + ".");
-			delete game.summary.deploy;
-		}
+		print_plain_summary("Deployed", 'deploy');
 		clear_undo();
 		goto_battle_sortie();
 	},
@@ -4292,10 +4291,7 @@ states.sortie = {
 	},
 	next() {
 		clear_undo();
-		if (game.summary) {
-			log("Sortied with\n" + game.summary.sortie.sort((a,b)=>a-b).map(piece_name).join(",\n") + ".");
-			delete game.summary.inside;
-		}
+		print_plain_summary("Sortied", 'sortie');
 		goto_battle_attacker_events();
 	},
 }
