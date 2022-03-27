@@ -192,7 +192,7 @@ aside { width: 220px; }
 .leader-box { background-repeat: no-repeat; background-size: 32px; }
 .leader-box.french { background-position: center bottom 35px; }
 .leader-box.british { background-position: center bottom 30px; }
-.leader-box.dead { background-image: url(/images/hasty-grave.svg); opacity: 60%; }
+.leader-box.dead { background-image: url(/images/hasty-grave.svg); opacity: 20%; }
 .leader-box.pool { background-image: url(/images/swap-bag.svg);  opacity: 40%;}
 .leader-box.unavailable { background-image: url(/images/swap-bag.svg); opacity: 20%; }
 
