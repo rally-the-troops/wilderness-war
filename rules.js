@@ -5594,7 +5594,9 @@ function can_moving_force_siege_or_assault() {
 	let where = moving_piece_space();
 	if (has_besieged_enemy_fortifications(where)) {
 		let commanding = find_friendly_commanding_leader_in_space(where);
-		if (leader === commanding && force_has_supplied_drilled_troops(leader)) {
+		let cmd_rank = leader_command(commanding);
+		let ldr_rank = leader_command(leader);
+		if (ldr_rank === cmd_rank && force_has_supplied_drilled_troops(leader)) {
 			return true;
 		}
 	}
