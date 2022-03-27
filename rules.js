@@ -961,6 +961,13 @@ function piece_node(p) {
 	return abs(game.location[p]);
 }
 
+function piece_space_and_inside(p) {
+	let where = abs(game.location[p]);
+	if (is_leader_box(where))
+		return game.location[leader_from_box[where-first_leader_box]];
+	return game.location[p];
+}
+
 function piece_space(p) {
 	let where = abs(game.location[p]);
 	if (is_leader_box(where))
@@ -1686,7 +1693,7 @@ function unstack_force(p) {
 }
 
 function unstack_piece_from_force(p) {
-	move_piece_to(p, piece_space(p));
+	game.location[p] = piece_space_and_inside(p);
 }
 
 function restore_unit(p) {
@@ -5212,6 +5219,11 @@ states.retreat_attacker = {
 				} else {
 					eliminate_piece(p, false);
 				}
+			} else {
+				if (is_fortress(to))
+					push_retreat_summary(p, "into fortress");
+				else
+					push_retreat_summary(p, "into fort");
 			}
 		});
 		flush_retreat_summary();
