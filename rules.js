@@ -8537,8 +8537,8 @@ states.british_regulars = {
 events.highlanders = {
 	can_play() {
 		if (game.events.pitt || game.year > 1758)
-			return true;
-		return can_place_in_british_ports();
+			return can_place_in_british_ports();
+		return false;
 	},
 	play(card) {
 		clear_undo(); // drawing leader from pool
