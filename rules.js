@@ -5241,7 +5241,6 @@ states.retreat_attacker = {
 	space() {
 		let from = game.retreat.from;
 		let to = game.retreat.to;
-		delete game.retreat;
 
 		// NOTE: Besieged pieces that sortie out are 'inside' so not affected by the code below.
 		init_retreat_summary();
@@ -5278,10 +5277,12 @@ function end_retreat_attacker(to) {
 		// space, unless they retreat to join other raiders
 		if (!game.raid.from[to])
 			game.raid.from[to] = game.retreat.from;
+		delete game.retreat;
 		return goto_pick_raid();
 	}
 
 	// Normal battle
+	delete game.retreat;
 	end_retreat();
 }
 
@@ -9314,7 +9315,7 @@ exports.setup = function (seed, scenario, options) {
 	}
 
 	if (game.options.no_foul_weather) {
-		log(`${card_name(FOUL_WEATHER)} removed.`);
+		log(`"Foul Weather" removed.`);
 		remove_from_array(game.deck, FOUL_WEATHER);
 		game.removed.push(FOUL_WEATHER);
 	}
