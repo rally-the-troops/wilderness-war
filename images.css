@@ -52,8 +52,8 @@ html.avif .marker.siege_0{background-image:url(markers.1x/siege_0.avif)}
 html.avif .marker.siege_1{background-image:url(markers.1x/siege_1.avif)}
 html.avif .marker.siege_2{background-image:url(markers.1x/siege_2.avif)}
 html.avif .marker.fieldworks{background-image:url(markers.1x/fieldworks.avif)}
-html.avif #british_card_held{background-image:url(markers.1x/british_card_held.avif)}
-html.avif #french_card_held{background-image:url(markers.1x/french_card_held.avif)}
+html.avif #british_card_held{background-image:url(markers.1x/british_card_held_b.avif)}
+html.avif #french_card_held{background-image:url(markers.1x/french_card_held_b.avif)}
 html.avif #event_british_blockhouses{background-image:url(markers.1x/british_blockhouses.avif)}
 html.avif #event_british_blockhouses:hover{background-image:url(markers.1x/british_blockhouses_b.avif)}
 html.avif #event_cherokee_uprising{background-image:url(markers.1x/cherokee_uprising.avif)}
@@ -188,8 +188,8 @@ html.jpeg .marker.siege_0{background-image:url(markers.1x/siege_0.jpg)}
 html.jpeg .marker.siege_1{background-image:url(markers.1x/siege_1.jpg)}
 html.jpeg .marker.siege_2{background-image:url(markers.1x/siege_2.jpg)}
 html.jpeg .marker.fieldworks{background-image:url(markers.1x/fieldworks.jpg)}
-html.jpeg #british_card_held{background-image:url(markers.1x/british_card_held.jpg)}
-html.jpeg #french_card_held{background-image:url(markers.1x/french_card_held.jpg)}
+html.jpeg #british_card_held{background-image:url(markers.1x/british_card_held_b.jpg)}
+html.jpeg #french_card_held{background-image:url(markers.1x/french_card_held_b.jpg)}
 html.jpeg #event_british_blockhouses{background-image:url(markers.1x/british_blockhouses.jpg)}
 html.jpeg #event_british_blockhouses:hover{background-image:url(markers.1x/british_blockhouses_b.jpg)}
 html.jpeg #event_cherokee_uprising{background-image:url(markers.1x/cherokee_uprising.jpg)}
@@ -326,8 +326,8 @@ html.avif .marker.siege_0{background-image:url(markers.2x/siege_0.avif)}
 html.avif .marker.siege_1{background-image:url(markers.2x/siege_1.avif)}
 html.avif .marker.siege_2{background-image:url(markers.2x/siege_2.avif)}
 html.avif .marker.fieldworks{background-image:url(markers.2x/fieldworks.avif)}
-html.avif #british_card_held{background-image:url(markers.2x/british_card_held.avif)}
-html.avif #french_card_held{background-image:url(markers.2x/french_card_held.avif)}
+html.avif #british_card_held{background-image:url(markers.2x/british_card_held_b.avif)}
+html.avif #french_card_held{background-image:url(markers.2x/french_card_held_b.avif)}
 html.avif #event_british_blockhouses{background-image:url(markers.2x/british_blockhouses.avif)}
 html.avif #event_british_blockhouses:hover{background-image:url(markers.2x/british_blockhouses_b.avif)}
 html.avif #event_cherokee_uprising{background-image:url(markers.2x/cherokee_uprising.avif)}
@@ -462,8 +462,8 @@ html.jpeg .marker.siege_0{background-image:url(markers.2x/siege_0.jpg)}
 html.jpeg .marker.siege_1{background-image:url(markers.2x/siege_1.jpg)}
 html.jpeg .marker.siege_2{background-image:url(markers.2x/siege_2.jpg)}
 html.jpeg .marker.fieldworks{background-image:url(markers.2x/fieldworks.jpg)}
-html.jpeg #british_card_held{background-image:url(markers.2x/british_card_held.jpg)}
-html.jpeg #french_card_held{background-image:url(markers.2x/french_card_held.jpg)}
+html.jpeg #british_card_held{background-image:url(markers.2x/british_card_held_b.jpg)}
+html.jpeg #french_card_held{background-image:url(markers.2x/french_card_held_b.jpg)}
 html.jpeg #event_british_blockhouses{background-image:url(markers.2x/british_blockhouses.jpg)}
 html.jpeg #event_british_blockhouses:hover{background-image:url(markers.2x/british_blockhouses_b.jpg)}
 html.jpeg #event_cherokee_uprising{background-image:url(markers.2x/cherokee_uprising.jpg)}
