@@ -1291,11 +1291,11 @@ function has_british_fort(s) {
 }
 
 function is_french_fortress(s) {
-	return originally_french_fortresses.includes(s);
+	return game.french.fortresses.includes(s);
 }
 
 function is_british_fortress(s) {
-	return originally_british_fortresses.includes(s);
+	return game.british.fortresses.includes(s);
 }
 
 function has_french_fortifications(s) {
