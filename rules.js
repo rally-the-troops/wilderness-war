@@ -2532,13 +2532,9 @@ states.designate_force = {
 		switch (game.force.reason) {
 		case 'campaign_1':
 		case 'campaign_2':
-			// Campaign can activate lone leaders as well as forces.
-			gen_action_next();
-			break;
 		case 'move':
-			// Must be a force to proceed (leader + at least one unit)
-			if (count_units_in_force(commander) > 0)
-				gen_action_next();
+			// Campaign and normal activations can activate leaders without forces.
+			gen_action_next();
 			break;
 		case 'intercept':
 			// Must be a force to proceed (leader + at least one unit)
