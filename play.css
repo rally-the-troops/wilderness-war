@@ -134,10 +134,6 @@ aside { width: 220px; }
 #popup div.enabled:hover { background-color: black; color: white; }
 #popup div.always { display: block; }
 
-.card.highlight {
-	outline: 2px solid yellow;
-}
-
 /* MAP */
 
 #mapwrap {
