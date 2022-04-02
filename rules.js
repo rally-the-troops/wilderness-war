@@ -2591,24 +2591,10 @@ states.designate_force = {
 
 	next() {
 		push_undo();
-		let commander = game.force.commander;
-		let reason = game.force.reason;
-		delete game.force;
-		switch (reason) {
-		case 'campaign_1':
-			game.activation.push(commander);
-			game.state = 'select_campaign_2';
-			break;
-		case 'campaign_2':
-			game.activation.push(commander);
-			goto_pick_first_move();
-			break;
-		case 'move':
-			goto_move_piece(commander);
-			break;
-		default:
-			throw Error("unknown reason state: " + game.reason);
-		}
+		if (game.force.reason === 'move' && count_units_in_force(game.force.commander) === 0)
+			game.state = 'confirm_designate_force';
+		else
+			end_designate_force();
 	},
 	intercept() {
 		attempt_intercept();
@@ -2616,6 +2602,41 @@ states.designate_force = {
 	avoid() {
 		attempt_avoid_battle();
 	},
+}
+
+states.confirm_designate_force = {
+	inactive() {
+		inactive_prompt("designate force " + designate_force_reason_prompt[game.force.reason], game.force.commander, 0);
+	},
+	prompt() {
+		view.prompt = `You have not picked up any units \u2014 are you sure you want to continue?`;
+		view.who = game.force.commander;
+		gen_action('next');
+	},
+	next() {
+		end_designate_force();
+	}
+}
+
+function end_designate_force() {
+	let commander = game.force.commander;
+	let reason = game.force.reason;
+	delete game.force;
+	switch (reason) {
+	case 'campaign_1':
+		game.activation.push(commander);
+		game.state = 'select_campaign_2';
+		break;
+	case 'campaign_2':
+		game.activation.push(commander);
+		goto_pick_first_move();
+		break;
+	case 'move':
+		goto_move_piece(commander);
+		break;
+	default:
+		throw Error("unknown reason state: " + game.reason);
+	}
 }
 
 // TODO: merge with designate_force using reason=intercept_lone_ax
