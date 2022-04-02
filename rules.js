@@ -5515,7 +5515,7 @@ states.retreat_all_defenders_to = {
 function end_retreat() {
 	set_active(game.battle.attacker);
 	if (game.battle.overrun) {
-		end_move_step(false, overrun);
+		end_move_step(false, true);
 	} else {
 		end_move_step(true);
 	}
