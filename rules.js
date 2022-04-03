@@ -6998,9 +6998,9 @@ states.provincial_regiments_dispersed_for_frontier_duty = {
 		}
 		if (done) {
 			view.prompt = `Provincial Regiments Dispersed \u2014 done.`;
+			gen_action_next();
 		} else {
 			view.prompt = `Provincial Regiments Dispersed: Eliminate ${game.frontier_duty.southern} southern and ${game.frontier_duty.northern} northern provincials.`;
-			gen_action_next();
 		}
 	},
 	piece(p) {
