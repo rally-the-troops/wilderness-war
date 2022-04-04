@@ -36,8 +36,12 @@ aside { width: 220px; }
 	background-color: #f1ead0;
 	background-size: cover;
 	background-repeat: no-repeat;
-	outline: 1px solid #655c4d;
+	border: 1px solid #655c4d;
 
+}
+
+.card.highlight {
+	box-shadow: 0 0 0 2px yellow;
 }
 
 .card.enabled:hover, .card.selected {
@@ -57,10 +61,6 @@ aside { width: 220px; }
 	height: 168px;
 	border-radius: 8px;
 	margin: 0 auto;
-}
-
-.card.highlight {
-	box-shadow: 0 0 0 3px yellow;
 }
 
 #tooltip {
@@ -163,9 +163,7 @@ aside { width: 220px; }
 }
 
 .event {
-	border: 1px solid black;
 	margin: 3px;
-	background-color: white;
 }
 
 #focus {
@@ -239,21 +237,12 @@ aside { width: 220px; }
 .leader, .unit, .marker {
 	transition: left 200ms, top 200ms;
 	position: absolute;
-	background-color: white;
 	background-size: auto 100%;
 	background-repeat: no-repeat;
 }
 
 .leader.activated, .unit.activated {
 	transform: rotate(20deg);
-}
-
-.unit.french {
-	background-color: #aae0fa;
-}
-
-.unit.british {
-	background-color: #eac99e;
 }
 
 .leader.inside, .unit.inside {
@@ -268,17 +257,16 @@ body.flat .marker,
 body.flat .event {
 	border-width: 1px;
 	border-style: solid;
-	border-color: #444;
 }
 
 body.flat .leader.highlight,
 body.flat .unit.highlight {
-	outline: 2px solid yellow;
+	box-shadow:0 0 0 2px yellow;
 }
 
 body.flat .leader.selected,
 body.flat .unit.selected {
-	outline: 2px solid crimson;
+	box-shadow:0 0 0 2px crimson;
 }
 
 /* BEVEL STYLE ( top right bottom left ) */
@@ -289,83 +277,6 @@ body.bevel .marker,
 body.bevel .event {
 	border-width: 2px;
 	border-style: solid;
-	border-color: #666;
-	outline: 1px solid #666;
-}
-
-body.bevel .leader.highlight,
-body.bevel .unit.highlight {
-	box-shadow: 0 0 0 3px yellow;
-}
-
-body.bevel .leader.selected,
-body.bevel .unit.selected {
-	box-shadow: 0 0 0 3px crimson;
-}
-
-body.bevel .leader,
-body.bevel .event {
-	border-color: #f0f0f0 #b9b9b9 #b9b9b9 #f0f0f0
-}
-
-body.bevel .marker.british_allied,
-body.bevel .marker.french_allied {
-	border-color: #ffecc8 #b79550 #b79550 #ffecc8
-}
-
-body.bevel .marker.british_stockade,
-body.bevel .marker.french_stockade {
-	border-color: #f3f1e2 #a29d82 #a29d82 #f3f1e2
-}
-
-body.bevel .marker.siege_0,
-body.bevel .marker.siege_1,
-body.bevel .marker.siege_2 {
-	border-color: #fffab0 #b5ae09 #b5ae09 #fffab0
-}
-
-body.bevel .marker.fieldworks {
-	border-color: #f1efeb #9e9b92 #9e9b92 #f1efeb
-}
-
-body.bevel .unit.british {
-	border-color: #f5e4cf #a4865e #a4865e #f5e4cf
-}
-
-body.bevel .marker.british_fort {
-	border-color: #f7a39f #a00007 #a00007 #f7a39f
-}
-
-body.bevel .marker.british_fort_uc {
-	border-color: #f8ada7 #a30018 #a30018 #f8ada7
-}
-
-body.bevel .unit.french {
-	border-color: #d5f0fd #669bb4 #669bb4 #d5f0fd
-}
-
-body.bevel .marker.french_fort {
-	border-color: #63c7ff #004282 #004282 #63c7ff
-}
-
-body.bevel .marker.french_fort_uc {
-	border-color: #6bd1ff #005491 #005491 #6bd1ff
-}
-
-body.bevel .marker.season_french_first {
-	border-color: #5ec0ff #003778 #003778 #5ec0ff
-}
-
-body.bevel .marker.season_british_first {
-	border-color: #ee8f93 #8b0000 #8b0000 #ee8f93
-}
-
-body.bevel .marker.provincial_assemblies {
-	border-color: #49a3ff #001352 #001352 #49a3ff
-}
-
-body.bevel .marker.vps {
-	border-color: #ddc49b #6f4b00 #6f4b00 #ddc49b
 }
 
 /* TRACKS */
@@ -435,7 +346,7 @@ body.bevel .marker.vps {
 
 /* MARKERS */
 
-.marker{width:45px;height:45px;background-size:cover}
+.marker{width:45px;height:45px;}
 .marker.small{width:36px;height:36px}
 
 .event{width:54px;height:54px;background-size:cover;display:none}
@@ -521,49 +432,113 @@ body.bevel .marker.vps {
 
 /* COLORS */
 
-body.bevel .leader{background-color:#f0f0f0;outline-color:#707070;border-color:#f5f5f5 #d8d8d8 #d8d8d8 #f5f5f5}
-body.flat .leader{background-color:#f0f0f0;border-color:#707070}
-body.bevel .event{background-color:#f0f0f0;outline-color:#707070;border-color:#f5f5f5 #d8d8d8 #d8d8d8 #f5f5f5}
-body.flat .event{background-color:#f0f0f0;border-color:#707070}
-body.bevel .marker.amphib{background-color:#f0f0f0;outline-color:#707070;border-color:#f5f5f5 #d8d8d8 #d8d8d8 #f5f5f5}
-body.flat .marker.amphib{background-color:#f0f0f0;border-color:#707070}
-body.bevel .marker.british_allied{background-color:#ffd990;outline-color:#7f580f;border-color:#fff8af #dfb86f #dfb86f #fff8af}
-body.flat .marker.british_allied{background-color:#ffd990;border-color:#7f580f}
-body.bevel .marker.french_allied{background-color:#ffd990;outline-color:#7f580f;border-color:#fff8af #dfb86f #dfb86f #fff8af}
-body.flat .marker.french_allied{background-color:#ffd990;border-color:#7f580f}
-body.bevel .marker.british_stockade{background-color:#e7e2c5;outline-color:#676244;border-color:#ffffe3 #c7c2a4 #c7c2a4 #ffffe3}
-body.flat .marker.british_stockade{background-color:#e7e2c5;border-color:#676244}
-body.bevel .marker.french_stockade{background-color:#e7e2c5;outline-color:#676244;border-color:#ffffe3 #c7c2a4 #c7c2a4 #ffffe3}
-body.flat .marker.french_stockade{background-color:#e7e2c5;border-color:#676244}
-body.bevel .marker.british_raided{background-color:#f78b33;outline-color:#770a00;border-color:#ffaa52 #d76a12 #d76a12 #ffaa52}
-body.flat .marker.british_raided{background-color:#f78b33;border-color:#770a00}
-body.bevel .marker.french_raided{background-color:#f78b33;outline-color:#770a00;border-color:#ffaa52 #d76a12 #d76a12 #ffaa52}
-body.flat .marker.french_raided{background-color:#f78b33;border-color:#770a00}
-body.bevel .marker.siege_0{background-color:#fff460;outline-color:#7f7400;border-color:#ffff78 #dfd43f #dfd43f #ffff78}
-body.flat .marker.siege_0{background-color:#fff460;border-color:#7f7400}
-body.bevel .marker.siege_1{background-color:#fff460;outline-color:#7f7400;border-color:#ffff78 #dfd43f #dfd43f #ffff78}
-body.flat .marker.siege_1{background-color:#fff460;border-color:#7f7400}
-body.bevel .marker.siege_2{background-color:#fff460;outline-color:#7f7400;border-color:#ffff78 #dfd43f #dfd43f #ffff78}
-body.flat .marker.siege_2{background-color:#fff460;border-color:#7f7400}
-body.bevel .marker.fieldworks{background-color:#e3dfd6;outline-color:#635e55;border-color:#fffef5 #c3beb5 #c3beb5 #fffef5}
-body.flat .marker.fieldworks{background-color:#e3dfd6;border-color:#635e55}
-body.bevel .unit.british{background-color:#eac99e;outline-color:#6a481d;border-color:#ffe8bd #caa87d #caa87d #ffe8bd}
-body.flat .unit.british{background-color:#eac99e;border-color:#6a481d}
-body.bevel .marker.british_fort{background-color:#ef473e;outline-color:#770000;border-color:#ff665d #cf261d #cf261d #ff665d}
-body.flat .marker.british_fort{background-color:#ef473e;border-color:#770000}
-body.bevel .marker.british_fort_uc{background-color:#f15a4f;outline-color:#710000;border-color:#ff796e #d1392e #d1392e #ff796e}
-body.flat .marker.british_fort_uc{background-color:#f15a4f;border-color:#710000}
-body.bevel .unit.french{background-color:#aae0fa;outline-color:#29607a;border-color:#c9ffff #89c0da #89c0da #c9ffff}
-body.flat .unit.french{background-color:#aae0fa;border-color:#29607a}
-body.bevel .marker.french_fort{background-color:#007ec5;outline-color:#001d64;border-color:#1f9ee5 #005ea5 #005ea5 #1f9ee5}
-body.flat .marker.french_fort{background-color:#007ec5;border-color:#001d64}
-body.bevel .marker.french_fort_uc{background-color:#0093d6;outline-color:#002467;border-color:#1fb3f6 #0073b6 #0073b6 #1fb3f6}
-body.flat .marker.french_fort_uc{background-color:#0093d6;border-color:#002467}
-body.bevel .marker.season_french_first{background-color:#0072bb;outline-color:#001963;border-color:#1f92db #00529b #00529b #1f92db}
-body.flat .marker.season_french_first{background-color:#0072bb;border-color:#001963}
-body.bevel .marker.season_british_first{background-color:#da2127;outline-color:#810000;border-color:#fa4046 #ba0006 #ba0006 #fa4046}
-body.flat .marker.season_british_first{background-color:#da2127;border-color:#810000}
-body.bevel .marker.provincial_assemblies{background-color:#004892;outline-color:#000d57;border-color:#1f68b2 #002872 #002872 #1f68b2}
-body.flat .marker.provincial_assemblies{background-color:#004892;border-color:#000d57}
-body.bevel .marker.vps{background-color:#b4883d;outline-color:#340700;border-color:#d4a75c #94671c #94671c #d4a75c}
-body.flat .marker.vps{background-color:#b4883d;border-color:#340700}
+.leader{background-color:#f0f0f0}
+body.bevel .leader{border-color:#f5f5f5 #d8d8d8 #d8d8d8 #f5f5f5;box-shadow:0 0 0 1px #707070}
+body.bevel .leader.highlight{box-shadow:0 0 0 1px #707070,0 0 0 3px yellow}
+body.bevel .leader.selected{box-shadow:0 0 0 1px #707070,0 0 0 3px crimson}
+body.flat .leader{border-color:#707070}
+.event{background-color:#f0f0f0}
+body.bevel .event{border-color:#f5f5f5 #d8d8d8 #d8d8d8 #f5f5f5;box-shadow:0 0 0 1px #707070}
+body.bevel .event.highlight{box-shadow:0 0 0 1px #707070,0 0 0 3px yellow}
+body.bevel .event.selected{box-shadow:0 0 0 1px #707070,0 0 0 3px crimson}
+body.flat .event{border-color:#707070}
+.marker.british_allied{background-color:#ffd990}
+body.bevel .marker.british_allied{border-color:#fff8af #dfb86f #dfb86f #fff8af;box-shadow:0 0 0 1px #7f580f}
+body.bevel .marker.british_allied.highlight{box-shadow:0 0 0 1px #7f580f,0 0 0 3px yellow}
+body.bevel .marker.british_allied.selected{box-shadow:0 0 0 1px #7f580f,0 0 0 3px crimson}
+body.flat .marker.british_allied{border-color:#7f580f}
+.marker.french_allied{background-color:#ffd990}
+body.bevel .marker.french_allied{border-color:#fff8af #dfb86f #dfb86f #fff8af;box-shadow:0 0 0 1px #7f580f}
+body.bevel .marker.french_allied.highlight{box-shadow:0 0 0 1px #7f580f,0 0 0 3px yellow}
+body.bevel .marker.french_allied.selected{box-shadow:0 0 0 1px #7f580f,0 0 0 3px crimson}
+body.flat .marker.french_allied{border-color:#7f580f}
+.marker.british_stockade{background-color:#e7e2c5}
+body.bevel .marker.british_stockade{border-color:#ffffe3 #c7c2a4 #c7c2a4 #ffffe3;box-shadow:0 0 0 1px #676244}
+body.bevel .marker.british_stockade.highlight{box-shadow:0 0 0 1px #676244,0 0 0 3px yellow}
+body.bevel .marker.british_stockade.selected{box-shadow:0 0 0 1px #676244,0 0 0 3px crimson}
+body.flat .marker.british_stockade{border-color:#676244}
+.marker.french_stockade{background-color:#e7e2c5}
+body.bevel .marker.french_stockade{border-color:#ffffe3 #c7c2a4 #c7c2a4 #ffffe3;box-shadow:0 0 0 1px #676244}
+body.bevel .marker.french_stockade.highlight{box-shadow:0 0 0 1px #676244,0 0 0 3px yellow}
+body.bevel .marker.french_stockade.selected{box-shadow:0 0 0 1px #676244,0 0 0 3px crimson}
+body.flat .marker.french_stockade{border-color:#676244}
+.marker.british_raided{background-color:#f78b33}
+body.bevel .marker.british_raided{border-color:#ffaa52 #d76a12 #d76a12 #ffaa52;box-shadow:0 0 0 1px #770a00}
+body.bevel .marker.british_raided.highlight{box-shadow:0 0 0 1px #770a00,0 0 0 3px yellow}
+body.bevel .marker.british_raided.selected{box-shadow:0 0 0 1px #770a00,0 0 0 3px crimson}
+body.flat .marker.british_raided{border-color:#770a00}
+.marker.french_raided{background-color:#f78b33}
+body.bevel .marker.french_raided{border-color:#ffaa52 #d76a12 #d76a12 #ffaa52;box-shadow:0 0 0 1px #770a00}
+body.bevel .marker.french_raided.highlight{box-shadow:0 0 0 1px #770a00,0 0 0 3px yellow}
+body.bevel .marker.french_raided.selected{box-shadow:0 0 0 1px #770a00,0 0 0 3px crimson}
+body.flat .marker.french_raided{border-color:#770a00}
+.marker.siege_0{background-color:#fff460}
+body.bevel .marker.siege_0{border-color:#ffff78 #dfd43f #dfd43f #ffff78;box-shadow:0 0 0 1px #7f7400}
+body.bevel .marker.siege_0.highlight{box-shadow:0 0 0 1px #7f7400,0 0 0 3px yellow}
+body.bevel .marker.siege_0.selected{box-shadow:0 0 0 1px #7f7400,0 0 0 3px crimson}
+body.flat .marker.siege_0{border-color:#7f7400}
+.marker.siege_1{background-color:#fff460}
+body.bevel .marker.siege_1{border-color:#ffff78 #dfd43f #dfd43f #ffff78;box-shadow:0 0 0 1px #7f7400}
+body.bevel .marker.siege_1.highlight{box-shadow:0 0 0 1px #7f7400,0 0 0 3px yellow}
+body.bevel .marker.siege_1.selected{box-shadow:0 0 0 1px #7f7400,0 0 0 3px crimson}
+body.flat .marker.siege_1{border-color:#7f7400}
+.marker.siege_2{background-color:#fff460}
+body.bevel .marker.siege_2{border-color:#ffff78 #dfd43f #dfd43f #ffff78;box-shadow:0 0 0 1px #7f7400}
+body.bevel .marker.siege_2.highlight{box-shadow:0 0 0 1px #7f7400,0 0 0 3px yellow}
+body.bevel .marker.siege_2.selected{box-shadow:0 0 0 1px #7f7400,0 0 0 3px crimson}
+body.flat .marker.siege_2{border-color:#7f7400}
+.marker.fieldworks{background-color:#e3dfd6}
+body.bevel .marker.fieldworks{border-color:#fffef5 #c3beb5 #c3beb5 #fffef5;box-shadow:0 0 0 1px #635e55}
+body.bevel .marker.fieldworks.highlight{box-shadow:0 0 0 1px #635e55,0 0 0 3px yellow}
+body.bevel .marker.fieldworks.selected{box-shadow:0 0 0 1px #635e55,0 0 0 3px crimson}
+body.flat .marker.fieldworks{border-color:#635e55}
+.unit.british{background-color:#eac99e}
+body.bevel .unit.british{border-color:#ffe8bd #caa87d #caa87d #ffe8bd;box-shadow:0 0 0 1px #6a481d}
+body.bevel .unit.british.highlight{box-shadow:0 0 0 1px #6a481d,0 0 0 3px yellow}
+body.bevel .unit.british.selected{box-shadow:0 0 0 1px #6a481d,0 0 0 3px crimson}
+body.flat .unit.british{border-color:#6a481d}
+.marker.british_fort{background-color:#ef473e}
+body.bevel .marker.british_fort{border-color:#ff665d #cf261d #cf261d #ff665d;box-shadow:0 0 0 1px #770000}
+body.bevel .marker.british_fort.highlight{box-shadow:0 0 0 1px #770000,0 0 0 3px yellow}
+body.bevel .marker.british_fort.selected{box-shadow:0 0 0 1px #770000,0 0 0 3px crimson}
+body.flat .marker.british_fort{border-color:#770000}
+.marker.british_fort_uc{background-color:#f15a4f}
+body.bevel .marker.british_fort_uc{border-color:#ff796e #d1392e #d1392e #ff796e;box-shadow:0 0 0 1px #710000}
+body.bevel .marker.british_fort_uc.highlight{box-shadow:0 0 0 1px #710000,0 0 0 3px yellow}
+body.bevel .marker.british_fort_uc.selected{box-shadow:0 0 0 1px #710000,0 0 0 3px crimson}
+body.flat .marker.british_fort_uc{border-color:#710000}
+.unit.french{background-color:#aae0fa}
+body.bevel .unit.french{border-color:#c9ffff #89c0da #89c0da #c9ffff;box-shadow:0 0 0 1px #29607a}
+body.bevel .unit.french.highlight{box-shadow:0 0 0 1px #29607a,0 0 0 3px yellow}
+body.bevel .unit.french.selected{box-shadow:0 0 0 1px #29607a,0 0 0 3px crimson}
+body.flat .unit.french{border-color:#29607a}
+.marker.french_fort{background-color:#007ec5}
+body.bevel .marker.french_fort{border-color:#1f9ee5 #005ea5 #005ea5 #1f9ee5;box-shadow:0 0 0 1px #001d64}
+body.bevel .marker.french_fort.highlight{box-shadow:0 0 0 1px #001d64,0 0 0 3px yellow}
+body.bevel .marker.french_fort.selected{box-shadow:0 0 0 1px #001d64,0 0 0 3px crimson}
+body.flat .marker.french_fort{border-color:#001d64}
+.marker.french_fort_uc{background-color:#0093d6}
+body.bevel .marker.french_fort_uc{border-color:#1fb3f6 #0073b6 #0073b6 #1fb3f6;box-shadow:0 0 0 1px #002467}
+body.bevel .marker.french_fort_uc.highlight{box-shadow:0 0 0 1px #002467,0 0 0 3px yellow}
+body.bevel .marker.french_fort_uc.selected{box-shadow:0 0 0 1px #002467,0 0 0 3px crimson}
+body.flat .marker.french_fort_uc{border-color:#002467}
+.marker.season_french_first{background-color:#0072bb}
+body.bevel .marker.season_french_first{border-color:#1f92db #00529b #00529b #1f92db;box-shadow:0 0 0 1px #001963}
+body.bevel .marker.season_french_first.highlight{box-shadow:0 0 0 1px #001963,0 0 0 3px yellow}
+body.bevel .marker.season_french_first.selected{box-shadow:0 0 0 1px #001963,0 0 0 3px crimson}
+body.flat .marker.season_french_first{border-color:#001963}
+.marker.season_british_first{background-color:#da2127}
+body.bevel .marker.season_british_first{border-color:#fa4046 #ba0006 #ba0006 #fa4046;box-shadow:0 0 0 1px #810000}
+body.bevel .marker.season_british_first.highlight{box-shadow:0 0 0 1px #810000,0 0 0 3px yellow}
+body.bevel .marker.season_british_first.selected{box-shadow:0 0 0 1px #810000,0 0 0 3px crimson}
+body.flat .marker.season_british_first{border-color:#810000}
+.marker.provincial_assemblies{background-color:#004892}
+body.bevel .marker.provincial_assemblies{border-color:#1f68b2 #002872 #002872 #1f68b2;box-shadow:0 0 0 1px #000d57}
+body.bevel .marker.provincial_assemblies.highlight{box-shadow:0 0 0 1px #000d57,0 0 0 3px yellow}
+body.bevel .marker.provincial_assemblies.selected{box-shadow:0 0 0 1px #000d57,0 0 0 3px crimson}
+body.flat .marker.provincial_assemblies{border-color:#000d57}
+.marker.vps{background-color:#b4883d}
+body.bevel .marker.vps{border-color:#d4a75c #94671c #94671c #d4a75c;box-shadow:0 0 0 1px #340700}
+body.bevel .marker.vps.highlight{box-shadow:0 0 0 1px #340700,0 0 0 3px yellow}
+body.bevel .marker.vps.selected{box-shadow:0 0 0 1px #340700,0 0 0 3px crimson}
+body.flat .marker.vps{border-color:#340700}
