@@ -18,7 +18,8 @@ aside { width: 220px; }
 #log .h3 { background-color: antiquewhite; padding-top:2px; padding-bottom:2px; text-align: center; }
 #log .b { text-transform: uppercase; }
 
-#log .tip { color: blue; text-decoration: dotted underline; }
+#log .tip { color: blue; }
+#log .tip:hover { text-decoration: underline; }
 
 #log .indent {
 	padding-left: 12px;
