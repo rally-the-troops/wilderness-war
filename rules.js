@@ -2573,7 +2573,7 @@ states.designate_force = {
 				if (is_piece_in_force(JOHNSON, commander))
 					move_piece_to(p, box);
 			} else {
-				if (count_non_british_iroquois_and_mohawk_units_in_force(commander) <= force_command(commander))
+				if (count_non_british_iroquois_and_mohawk_units_in_force(commander) < force_command(commander))
 					move_piece_to(p, box);
 			}
 		});
