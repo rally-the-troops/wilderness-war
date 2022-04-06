@@ -3542,6 +3542,13 @@ function end_move_step(final=false, overrun=false) {
 		&& !has_unbesieged_enemy_units(where))
 		return goto_retreat_lone_leader(where, 'move');
 
+	// If enemy intercepted into moving piece and lone friendly leaders remain after battle.
+	if (has_unbesieged_friendly_leader(where) && !has_unbesieged_friendly_units(where) && has_unbesieged_enemy_units(where)) {
+		game.state = 'retreat_lone_leader';
+		game.retreat = { from: where, reason: 'friendly_move' };
+		return;
+	}
+
 	resume_move();
 }
 
@@ -5315,7 +5322,8 @@ function can_defender_retreat_from_to(p, from, to) {
 	if (has_unbesieged_enemy_fortifications(to))
 		return false;
 	if (game.move && moving_piece_came_from() === to)
-		return false;
+		if (!game.retreat || game.retreat.reason !== 'friendly_move')
+			return false;
 	if (force_has_drilled_troops(p)) {
 		if (is_cultivated(to) || has_friendly_fortifications(to))
 			return true;
@@ -5593,13 +5601,18 @@ function resume_retreat_lone_leader(from) {
 	let who = pick_unbesieged_leader(from);
 	if (!who) {
 		flush_summary();
-		set_active_enemy();
 		switch (game.retreat.reason) {
 		case 'indian_alliance':
+			set_active_enemy();
 			delete game.retreat;
 			game.state = 'indian_alliance';
 			break;
 		case 'move':
+			set_active_enemy();
+			delete game.retreat;
+			resume_move();
+			break;
+		case 'friendly_move':
 			delete game.retreat;
 			resume_move();
 			break;
