@@ -9125,8 +9125,9 @@ function setup_1757(end_year, start_vp) {
 	game.events.diplo = 1;
 }
 
-function setup_1755() {
+function setup_1755(end_year) {
 	game.year = 1755;
+	game.end_year = end_year;
 	game.season = EARLY;
 	game.vp = 0;
 	game.pa = SUPPORTIVE;
