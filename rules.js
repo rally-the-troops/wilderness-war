@@ -477,13 +477,6 @@ function find_unused_british_regular() {
 	return 0;
 }
 
-function find_unused_french_regular() {
-	for (let p = first_french_regular; p <= last_french_regular; ++p)
-		if (is_piece_unused(p))
-			return p;
-	return 0;
-}
-
 function find_unused_highland() {
 	for (let p = first_highland; p <= last_highland; ++p)
 		if (is_piece_unused(p))
