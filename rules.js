@@ -3495,6 +3495,9 @@ function end_move_step(final=false, overrun=false) {
 	delete game.battle;
 	game.move.did_attempt_intercept = 0; // reset flag for next move step
 
+	if (force_has_drilled_troops(who))
+		remove_enemy_forts_uc_in_path(where);
+
 	if (final)
 		stop_move();
 
@@ -3657,12 +3660,6 @@ function gen_intercept() {
 }
 
 function goto_intercept() {
-	let who = moving_piece();
-
-	let here = moving_piece_space();
-	if (force_has_drilled_troops(who))
-		remove_enemy_forts_uc_in_path(here);
-
 	if (can_be_intercepted()) {
 		game.move.intercepting = 0;
 		clear_undo();
