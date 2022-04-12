@@ -1400,6 +1400,13 @@ function has_friendly_drilled_troops(s) {
 	return false;
 }
 
+function has_enemy_drilled_troops(s) {
+	for (let p = first_enemy_unit; p <= last_enemy_unit; ++p)
+		if (is_drilled_troops(p) && is_piece_in_space(p, s))
+			return true;
+	return false;
+}
+
 function has_friendly_regulars(s) {
 	for (let p = first_friendly_unit; p <= last_friendly_unit; ++p)
 		if (is_regular(p) && is_piece_in_space(p, s))
@@ -1908,6 +1915,20 @@ function lift_sieges_and_amphib() {
 	for (let s of originally_british_fortresses)
 		if (game.french.fortresses.includes(s) && is_british_controlled_space(s))
 			recapture_british_fortress(s);
+
+	// Remove forts u/c if solely occupied by enemy drilled troops
+	for (let s of player.forts_uc) {
+		if (has_enemy_drilled_troops(s) && !has_friendly_units(s)) {
+			log(`Removed fort u/c at ${space_name(s)}.`);
+			remove_friendly_fort_uc(s);
+		}
+	}
+	for (let s of enemy_player.forts_uc) {
+		if (has_friendly_drilled_troops(s) && !has_enemy_units(s)) {
+			log(`Removed fort u/c at ${space_name(s)}.`);
+			remove_enemy_fort_uc(s);
+		}
+	}
 
 	// Check ownership of other VP locations:
 	update_vp("niagara", NIAGARA);
@@ -2855,13 +2876,6 @@ function resume_move() {
 	game.state = 'move';
 }
 
-function remove_enemy_forts_uc_in_path(s) {
-	if (has_enemy_fort_uc(s)) {
-		log(`Removed fort u/c at ${space_name(s)}`);
-		remove_enemy_fort_uc(s);
-	}
-}
-
 function is_land_path(from, to) {
 	return spaces[from].land.includes(to);
 }
@@ -3494,9 +3508,6 @@ function end_move_step(final=false, overrun=false) {
 	let where = moving_piece_space();
 	delete game.battle;
 	game.move.did_attempt_intercept = 0; // reset flag for next move step
-
-	if (force_has_drilled_troops(who))
-		remove_enemy_forts_uc_in_path(where);
 
 	if (final)
 		stop_move();
