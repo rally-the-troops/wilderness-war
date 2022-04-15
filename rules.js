@@ -718,6 +718,8 @@ function draw_leader_from_pool() {
 		let i = random(game.british.pool.length);
 		let p = game.british.pool[i];
 
+		log(`Drew ${piece_name(p)} from pool.`);
+
 		// 5.55 If both on-map 7 leaders are besieged, return the third to the pool without substitution.
 		if (is_seven_command_leader(p)) {
 			let n = 0;
