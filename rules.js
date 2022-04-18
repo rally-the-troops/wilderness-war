@@ -3795,7 +3795,7 @@ function goto_designate_inside() {
 			game.state = 'designate_inside';
 			if (game.summary)
 				game.summary.inside = [];
-			return;
+			return goto_retroactive_foul_weather();
 		}
 	}
 	goto_avoid_battle();
