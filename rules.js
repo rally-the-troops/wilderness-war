@@ -3790,7 +3790,7 @@ function goto_designate_inside() {
 	let where = moving_piece_space();
 	if (has_unbesieged_enemy_units_that_did_not_intercept(where)) {
 		clear_undo();
-		if (is_fortress(where) || has_enemy_fort(where)) {
+		if (has_enemy_fortress(where) || has_enemy_fort(where)) {
 			set_active_enemy();
 			game.state = 'designate_inside';
 			if (game.summary)
