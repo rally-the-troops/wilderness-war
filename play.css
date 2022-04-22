@@ -443,6 +443,11 @@ body.bevel .event{border-color:#f5f5f5 #d8d8d8 #d8d8d8 #f5f5f5;box-shadow:0 0 0 
 body.bevel .event.highlight{box-shadow:0 0 0 1px #707070,0 0 0 3px yellow}
 body.bevel .event.selected{box-shadow:0 0 0 1px #707070,0 0 0 3px crimson}
 body.flat .event{border-color:#707070}
+.marker.amphib{background-color:#f0f0f0}
+body.bevel .marker.amphib{border-color:#f5f5f5 #d8d8d8 #d8d8d8 #f5f5f5;box-shadow:0 0 0 1px #707070}
+body.bevel .marker.amphib.highlight{box-shadow:0 0 0 1px #707070,0 0 0 3px yellow}
+body.bevel .marker.amphib.selected{box-shadow:0 0 0 1px #707070,0 0 0 3px crimson}
+body.flat .marker.amphib{border-color:#707070}
 .marker.british_allied{background-color:#ffd990}
 body.bevel .marker.british_allied{border-color:#fff8af #dfb86f #dfb86f #fff8af;box-shadow:0 0 0 1px #7f580f}
 body.bevel .marker.british_allied.highlight{box-shadow:0 0 0 1px #7f580f,0 0 0 3px yellow}
