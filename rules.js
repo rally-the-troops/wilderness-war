@@ -8394,7 +8394,7 @@ events.french_regulars = {
 			return false;
 		if (!has_british_units(QUEBEC))
 			return true;
-		if (!has_british_units(LOUISBOURG))
+		if (!has_british_units(LOUISBOURG) && !has_amphib(LOUISBOURG))
 			return true;
 		return false;
 	},
@@ -8426,7 +8426,7 @@ states.french_regulars = {
 		if (game.count > 0) {
 			if (!has_british_units(QUEBEC))
 				gen_action_space(QUEBEC);
-			if (!has_british_units(LOUISBOURG))
+			if (!has_british_units(LOUISBOURG) && !has_amphib(LOUISBOURG))
 				gen_action_space(LOUISBOURG);
 		} else {
 			gen_action_next();
