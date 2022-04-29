@@ -2090,6 +2090,11 @@ function start_season() {
 		break;
 	}
 
+	delete game.british.pass_fw;
+	delete game.british.pass_bh;
+	delete game.french.pass_fw;
+	delete game.french.pass_bh;
+
 	deal_cards();
 
 	if (game.options.regulars_from_discard && game.year >= 1757) {
@@ -2164,6 +2169,11 @@ function end_action_phase() {
 	lift_sieges_and_amphib();
 	clear_undo();
 	game.count = 0;
+
+	if (game.british.pass_fw === 1)
+		delete game.british.pass_fw;
+	if (game.french.pass_fw === 1)
+		delete game.french.pass_fw;
 
 	if (!enemy_player.passed && enemy_player.hand.length > 0) {
 		set_active_enemy();
@@ -2867,7 +2877,7 @@ function max_movement_cost(type) {
 function resume_move() {
 	// Interrupt for Foul Weather response at first opportunity to move.
 	if (game.move.used < 0) {
-		if (is_enemy_card_available(FOUL_WEATHER)) {
+		if (is_enemy_card_available(FOUL_WEATHER) && !enemy_player.pass_fw) {
 			if (game.options.retroactive) {
 				game.retro_foul_weather = JSON.stringify(game);
 			} else {
@@ -3366,7 +3376,7 @@ function goto_retroactive_foul_weather() {
 		delete game.retro_foul_weather;
 		let state_next = JSON.stringify(game);
 
-		game = JSON.parse(state_start);
+		load_game_state(JSON.parse(state_start));
 		set_active_enemy();
 		game.state = 'foul_weather';
 		game.retro_foul_weather = state_next;
@@ -3389,6 +3399,9 @@ states.foul_weather = {
 		} else {
 			view.prompt = `${piece_name_and_place(p)} is about to move. You don't have "Foul Weather".`;
 		}
+		gen_action('pass_fw_season');
+		if (game.activation && game.activation.length > 0)
+			gen_action('pass_fw_action');
 		gen_action_pass();
 	},
 	play_event(c) {
@@ -3402,10 +3415,18 @@ states.foul_weather = {
 		set_active_enemy();
 		resume_move();
 	},
+	pass_fw_season() {
+		states.foul_weather.pass();
+		enemy_player.pass_fw = 2;
+	},
+	pass_fw_action() {
+		states.foul_weather.pass();
+		enemy_player.pass_fw = 1;
+	},
 	pass() {
 		if (game.options.retroactive) {
 			console.log("RETRO PASS");
-			game = JSON.parse(game.retro_foul_weather);
+			load_game_state(JSON.parse(game.retro_foul_weather));
 		} else {
 			game.move.used = 0;
 			set_active_enemy();
@@ -5972,7 +5993,7 @@ const RAID_TABLE = {
 };
 
 function goto_raid_events() {
-	if (is_enemy_card_available(BLOCKHOUSES)) {
+	if (is_enemy_card_available(BLOCKHOUSES) && !enemy_player.pass_bh) {
 		set_active_enemy();
 		game.state = 'raid_blockhouses';
 	} else {
@@ -5991,6 +6012,7 @@ states.raid_blockhouses = {
 		} else {
 			view.prompt = `Raid at ${space_name(game.raid.where)}. You don't have "Blockhouses".`;
 		}
+		gen_action('pass_bh_season');
 		gen_action_pass();
 	},
 	play_event(c) {
@@ -5998,6 +6020,10 @@ states.raid_blockhouses = {
 		game.events.blockhouses = game.active;
 		set_active_enemy();
 		resolve_raid();
+	},
+	pass_bh_season() {
+		player.pass_bh = 1;
+		states.raid_blockhouses.pass();
 	},
 	pass() {
 		set_active_enemy();
@@ -9413,6 +9439,7 @@ function pop_undo() {
 	game.undo = save_undo;
 	save_log.length = game.log;
 	game.log = save_log;
+	update_active_aliases();
 }
 
 function gen_action_undo() {
@@ -9522,7 +9549,7 @@ exports.view = function(state, current) {
 	load_game_state(state);
 
 	if (game.retro_foul_weather && game.state !== 'foul_weather' && current !== game.active) {
-		game = JSON.parse(game.retro_foul_weather);
+		load_game_state(JSON.parse(game.retro_foul_weather));
 	}
 
 	view = {

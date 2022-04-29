@@ -1432,6 +1432,17 @@ function update_map() {
 	action_button("avoid", "Avoid battle");
 	action_button("exchange", "Exchange");
 	action_button("stop", "Stop");
+
+	confirm_action_button("pass_bh_season", "Pass season",
+		"PASS on playing \"Blockhouses\" for the rest of this SEASON?"
+	);
+	confirm_action_button("pass_fw_season", "Pass season",
+		"PASS on playing \"Foul Weather\" for the rest of this SEASON?"
+	);
+	confirm_action_button("pass_fw_action", "Pass action",
+		"PASS on playing \"Foul Weather\" for the rest of this ACTION PHASE?"
+	);
+
 	action_button("pass", "Pass");
 	action_button("next", "Next");
 	action_button("end_move", "End move");
