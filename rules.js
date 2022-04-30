@@ -2507,6 +2507,8 @@ states.designate_force = {
 		for_each_friendly_leader_in_node(where, p => {
 			if (game.force.reason === 'avoid' && is_piece_inside(p))
 				return; // continue
+			if (game.activation && game.activation.includes(p))
+				return; // continue
 			if (p !== commander && leader_command(p) <= leader_command(commander)) {
 				can_pick_up = true;
 				gen_action_piece(p);
@@ -2575,6 +2577,8 @@ states.designate_force = {
 		// pick up all sub-commanders
 		for_each_friendly_leader_in_node(where, p => {
 			if (game.force.reason === 'avoid' && is_piece_inside(p))
+				return; // continue
+			if (game.activation && game.activation.includes(p))
 				return; // continue
 			if (p !== commander && leader_command(p) <= leader_command(commander))
 				move_piece_to(p, box);
