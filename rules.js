@@ -5166,10 +5166,12 @@ function determine_winner_battle() {
 		if (victor === game.battle.attacker) {
 			goto_raid_events();
 		} else {
-			if (game.battle.atk_pcs.length > 0)
+			if (game.battle.atk_pcs.length > 0) {
 				retreat_attacker(game.raid.where, game.raid.from[game.raid.where] | 0);
-			else
+			} else {
+				retreat_attacker(game.raid.where, game.raid.from[game.raid.where] | 0);
 				end_retreat_attacker(game.raid.from[game.raid.where]);
+			}
 		}
 		return;
 	}
@@ -5205,6 +5207,7 @@ function determine_winner_battle() {
 			unstack_force(moving_piece());
 			retreat_attacker(game.battle.where, moving_piece_came_from());
 		} else {
+			retreat_attacker(game.battle.where, moving_piece_came_from());
 			end_retreat_attacker(moving_piece_came_from());
 		}
 	}
