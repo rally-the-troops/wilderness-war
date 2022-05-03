@@ -5549,6 +5549,8 @@ states.retreat_all_defenders_to = {
 				}
 			}
 		});
+		if (!can_all_defenders_retreat_from(from))
+			done = true;
 		if (done)
 			game.state = 'retreat_defender';
 	},
