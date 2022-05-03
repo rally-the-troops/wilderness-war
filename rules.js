@@ -3416,12 +3416,20 @@ states.foul_weather = {
 		resume_move();
 	},
 	pass_fw_season() {
+		let current = game.active;
 		states.foul_weather.pass();
-		enemy_player.pass_fw = 2;
+		if (current === BRITAIN)
+			game.british.pass_fw = 2;
+		else
+			game.french.pass_fw = 2;
 	},
 	pass_fw_action() {
+		let current = game.active;
 		states.foul_weather.pass();
-		enemy_player.pass_fw = 1;
+		if (current === BRITAIN)
+			game.british.pass_fw = 1;
+		else
+			game.french.pass_fw = 1;
 	},
 	pass() {
 		if (game.options.retroactive) {
