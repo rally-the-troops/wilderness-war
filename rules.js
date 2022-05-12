@@ -7096,7 +7096,7 @@ events.northern_indian_alliance = {
 
 events.western_indian_alliance = {
 	can_play() {
-		return is_friendly_controlled_space(MONTREAL);
+		return has_friendly_fort(OHIO_FORKS);
 	},
 	play() {
 		clear_undo(); // rolling die
