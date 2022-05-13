@@ -211,6 +211,15 @@ aside { width: 220px; }
 .mountain.selected {
 	background-image: url(mountain-selected.svg);
 }
+.mountain.british_supply {
+	background-image: url(mountain-supply-british.svg);
+}
+.mountain.french_supply {
+	background-image: url(mountain-supply-french.svg);
+}
+.mountain.british_supply.french_supply {
+	background-image: url(mountain-supply-both.svg);
+}
 
 .cultivated.highlight, .box.highlight, .militia-box.highlight {
 	border-color: white;

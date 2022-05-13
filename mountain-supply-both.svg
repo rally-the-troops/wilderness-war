@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="210" height="148">
+<path
+	fill="none"
+	stroke="#f0594e"
+	stroke-width="10"
+	d="M 10 138 L 200 138 L 128 10 "/>
+<path
+	fill="none"
+	stroke="#0092d5"
+	stroke-width="10"
+	d="M 10 138 L 78 35 L 101 57 L 128 10"/>
+</svg>
