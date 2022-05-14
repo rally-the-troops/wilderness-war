@@ -7,12 +7,15 @@ body.Britain header.your_turn { background-color: salmon; }
 #role_Britain, #log .h2.britain { background-color: #fcb; }
 aside { width: 220px; }
 
-/* LOG */
+.role_vp { float: right; }
 
 .checked::before { content: "\2714  " }
 .unchecked::before { content: "\2714  "; color:transparent; }
 
+/* LOG */
+
 #log { background-color: floralwhite; }
+#log > div { padding-left: 20px; text-indent: -12px; }
 #log .h1 { background-color: tan; font-weight: bold; padding-top:2px; padding-bottom:2px; text-align: center; }
 #log .h2 { background-color: wheat; padding-top:2px; padding-bottom:2px; text-align: center; }
 #log .h3 { background-color: antiquewhite; padding-top:2px; padding-bottom:2px; text-align: center; }
@@ -27,6 +30,14 @@ aside { width: 220px; }
 }
 
 /* CARDS */
+
+.hand {
+	margin: 15px;
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: center;
+	min-height: 370px;
+}
 
 .card {
 	width: 240px;
@@ -45,10 +56,15 @@ aside { width: 220px; }
 	box-shadow: 0 0 0 2px yellow;
 }
 
+.card.enabled {
+	cursor: pointer;
+}
+
 .card.enabled:hover, .card.selected {
 	transform: translateY(-10px);
 }
 
+.hand .card { margin: 10px; }
 .hand .card { display: none; }
 .hand .card.show { display: block; }
 
