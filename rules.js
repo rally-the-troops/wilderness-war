@@ -3938,19 +3938,20 @@ states.avoid_who = {
 }
 
 function attempt_avoid_battle() {
+	let avoiding = avoiding_piece();
+	let moving = moving_piece();
 	let from = moving_piece_space();
-	let who = avoiding_piece();
 
 	// 6.8 Exception: Auxiliary and all-Auxiliary forces automatically succeed.
-	if (is_wilderness_or_mountain(from) && force_has_only_auxiliary_units(who)) {
-		log("Auxiliaries avoided battle\n" + describe_force(who, false) + ".");
+	if (is_wilderness_or_mountain(from) && force_has_only_auxiliary_units(avoiding) && !force_has_auxiliary(moving)) {
+		log("Auxiliaries avoided battle\n" + describe_force(avoiding, false) + ".");
 		game.state = 'avoid_to';
 		return;
 	}
 
-	let die = roll_die("to avoid battle\n" + describe_force(who, false));
-	if (is_leader(who))
-		die = modify(die, leader_tactics(who), "leader tactics");
+	let die = roll_die("to avoid battle\n" + describe_force(avoiding, false));
+	if (is_leader(avoiding))
+		die = modify(die, leader_tactics(avoiding), "leader tactics");
 	if (die >= 4) {
 		game.state = 'avoid_to';
 	} else {
