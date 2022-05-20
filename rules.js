@@ -9575,7 +9575,7 @@ exports.view = function(state, current) {
 		amphib: game.amphib,
 		fieldworks: game.fieldworks,
 		last_card: game.last_card,
-		// deck: game.deck.length,
+		deck: game.deck.length,
 		french: {
 			hand: game.french.hand.length,
 			allied: game.french.allied,

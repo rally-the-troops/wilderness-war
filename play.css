@@ -29,6 +29,21 @@ aside { width: 220px; }
 	text-indent: -12px;
 }
 
+.card_info {
+	position: relative;
+}
+
+.card_info:hover #deck_size {
+	visibility: visible;
+}
+
+#deck_size {
+	visibility: hidden;
+	position: absolute;
+	right: 5px;
+	bottom: 3px;
+}
+
 /* CARDS */
 
 .hand {

@@ -1393,6 +1393,7 @@ function update_map() {
 
 	document.getElementById("british_hand").textContent = view.british.hand;
 	document.getElementById("french_hand").textContent = view.french.hand;
+	document.getElementById("deck_size").textContent = view.deck;
 
 	toggle_marker("british_card_held", view.british.held);
 	toggle_marker("french_card_held", view.french.held);
