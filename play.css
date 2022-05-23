@@ -97,6 +97,7 @@ aside { width: 220px; }
 
 #tooltip {
 	display: none;
+	pointer-events: none;
 	position: fixed;
 	z-index: 300;
 	right: 240px;
@@ -110,7 +111,7 @@ aside { width: 220px; }
 /* CARD LIST DIALOGS */
 
 .card_list_dialog {
-	position: absolute;
+	position: fixed;
 	width: 300px;
 	border: 1px solid black;
 	box-shadow: 0px 5px 10px 0px rgba(0,0,0,0.5);
@@ -588,3 +589,28 @@ body.bevel .marker.vps{border-color:#d4a75c #94671c #94671c #d4a75c;box-shadow:0
 body.bevel .marker.vps.highlight{box-shadow:0 0 0 1px #340700,0 0 0 3px yellow}
 body.bevel .marker.vps.selected{box-shadow:0 0 0 1px #340700,0 0 0 3px crimson}
 body.flat .marker.vps{border-color:#340700}
+
+/* MOBILE PHONE LAYOUT */
+
+@media (max-width: 640px) {
+	.hand .card {
+		width: 120px;
+		height: 168px;
+		border-radius: 8px;
+	}
+	.hand {
+		min-height: 168px;
+	}
+	#tooltip {
+		top: 10px;
+		right: 10px;
+	}
+	#removed, #discard {
+		position: static;
+		box-shadow: none;
+		border-top: none;
+		width: auto;
+	}
+	#removed { grid-row: 3; }
+	#discard { grid-row: 4; }
+}
