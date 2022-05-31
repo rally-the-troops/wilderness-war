@@ -1373,10 +1373,14 @@ function update_map() {
 	}
 
 	let vpm = document.getElementById("vp_marker");
-	if (view.vp > 10)
+	if (view.vp > 20)
+		vpm.className = VP10_MARKER + "french_vp_10";
+	else if (view.vp > 10)
 		vpm.className = VP10_MARKER + "french_vp_" + (view.vp-10);
 	else if (view.vp > 0)
 		vpm.className = VP_MARKER + "french_vp_" + view.vp;
+	else if (view.vp < -20)
+		vpm.className = VP10_MARKER + "flip british_vp_10";
 	else if (view.vp < -10)
 		vpm.className = VP10_MARKER + "flip british_vp_" + (-(view.vp+10));
 	else if (view.vp < 0)
