@@ -3358,7 +3358,7 @@ states.confirm_end_move = {
 
 function goto_retroactive_foul_weather() {
 	if (game.options.retroactive && game.retro_foul_weather) {
-		console.log("RETRO REWIND")
+		// console.log("RETRO REWIND")
 
 		let state_start = game.retro_foul_weather
 		delete game.retro_foul_weather
@@ -3392,7 +3392,7 @@ states.foul_weather = {
 	},
 	play_event(c) {
 		if (game.options.retroactive) {
-			console.log("RETRO STAY")
+			// console.log("RETRO STAY")
 			delete game.retro_foul_weather
 		}
 		play_card(c)
@@ -3419,7 +3419,7 @@ states.foul_weather = {
 	},
 	pass() {
 		if (game.options.retroactive) {
-			console.log("RETRO PASS")
+			// console.log("RETRO PASS")
 			load_game_state(JSON.parse(game.retro_foul_weather))
 		} else {
 			game.move.used = 0
