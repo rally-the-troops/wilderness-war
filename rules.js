@@ -232,6 +232,7 @@ function abs(x) {
 }
 
 function random(n) {
+	clear_undo()
 	return ((game.seed = game.seed * 69621 % 0x7fffffff) / 0x7fffffff) * n | 0
 }
 
@@ -356,11 +357,14 @@ function enemy() {
 }
 
 function set_active_enemy() {
+	clear_undo()
 	game.active = (game.active === FRANCE) ? BRITAIN : FRANCE
 	update_active_aliases()
 }
 
 function set_active(new_active) {
+	if (new_active !== game.active)
+		clear_undo()
 	game.active = new_active
 	update_active_aliases()
 }
@@ -2168,7 +2172,6 @@ function end_action_phase() {
 	flush_summary()
 
 	lift_sieges_and_amphib()
-	clear_undo()
 	game.count = 0
 
 	if (game.british.pass_fw === 1)
@@ -2463,7 +2466,6 @@ function end_activation() {
 	delete game.events.george_croghan
 
 	lift_sieges_and_amphib()
-	clear_undo()
 	goto_pick_next_move()
 }
 
@@ -2748,8 +2750,6 @@ function describe_force(force, verbose) {
 }
 
 function goto_move_piece(who) {
-	clear_undo()
-
 	logbr()
 	log(`Activated\n${describe_force(who, true)}.`)
 
@@ -3271,7 +3271,6 @@ states.move = {
 		if (is_enemy_card_available(LAKE_SCHOONER)) {
 			let from = moving_piece_came_from()
 			if (has_enemy_fortifications(to) && is_lake_connection(from, to)) {
-				clear_undo()
 				set_active_enemy()
 				game.state = 'lake_schooner'
 				return goto_retroactive_foul_weather()
@@ -3369,8 +3368,6 @@ function goto_retroactive_foul_weather() {
 		set_active_enemy()
 		game.state = 'foul_weather'
 		game.retro_foul_weather = state_next
-	} else {
-		clear_undo()
 	}
 }
 
@@ -3696,7 +3693,6 @@ function gen_intercept() {
 function goto_intercept() {
 	if (can_be_intercepted()) {
 		game.move.intercepting = 0
-		clear_undo()
 		set_active_enemy()
 		game.state = 'intercept_who'
 		return goto_retroactive_foul_weather()
@@ -3810,7 +3806,6 @@ function end_intercept_success() {
 function goto_designate_inside() {
 	let where = moving_piece_space()
 	if (has_unbesieged_enemy_units_that_did_not_intercept(where)) {
-		clear_undo()
 		if (has_enemy_fortress(where) || has_enemy_fort(where)) {
 			set_active_enemy()
 			game.state = 'designate_inside'
@@ -3852,7 +3847,6 @@ states.designate_inside = {
 		set_piece_inside(p)
 	},
 	next() {
-		clear_undo()
 		if (is_fortress(moving_piece_space()))
 			print_plain_summary("Withdrew into fortress", 'inside')
 		else
@@ -3870,7 +3864,6 @@ function goto_avoid_battle() {
 		if (!game.move.did_attempt_intercept) {
 			if (can_enemy_avoid_battle(from)) {
 				game.move.avoiding = 0
-				clear_undo()
 				set_active_enemy()
 				game.state = 'avoid_who'
 				return goto_retroactive_foul_weather()
@@ -4125,8 +4118,6 @@ function combat_result(die, str, shift) {
 }
 
 function goto_battle(where, is_assault) {
-	clear_undo()
-
 	logbr()
 	if (is_assault)
 		log(".assault " + space_name(where))
@@ -4277,7 +4268,6 @@ states.militia_in_battle = {
 	},
 	next() {
 		print_plain_summary("Deployed", 'deploy')
-		clear_undo()
 		goto_battle_sortie()
 	},
 }
@@ -4339,7 +4329,6 @@ states.sortie = {
 					sortie_with_piece(p)
 	},
 	next() {
-		clear_undo()
 		print_plain_summary("Sortied", 'sortie')
 		goto_battle_attacker_events()
 	},
@@ -4533,7 +4522,6 @@ states.attacker_events = {
 		}
 	},
 	next() {
-		clear_undo()
 		goto_battle_defender_events()
 	},
 }
@@ -4603,7 +4591,6 @@ states.defender_events = {
 		}
 	},
 	next() {
-		clear_undo()
 		goto_battle_roll()
 	},
 }
@@ -4922,7 +4909,6 @@ states.step_losses = {
 			game.battle.def_caused = game.battle.def_result - game.battle.step_loss
 		else
 			game.battle.atk_caused = game.battle.atk_result - game.battle.step_loss
-		clear_undo()
 		end_step_losses()
 	},
 }
@@ -4973,7 +4959,6 @@ states.raid_step_losses = {
 	},
 	next() {
 		flush_summary()
-		clear_undo()
 		goto_raid_leader_check()
 	},
 }
@@ -5447,7 +5432,6 @@ states.retreat_defender = {
 		game.state = 'retreat_all_defenders_to'
 	},
 	next() {
-		clear_undo()
 		let from = game.battle.where
 		for_each_friendly_piece_in_space(from, p => {
 			if (is_piece_unbesieged(p))
@@ -5560,7 +5544,6 @@ function end_retreat() {
 }
 
 function goto_retreat_lone_leader(from, reason) {
-	clear_undo()
 	set_active_enemy()
 	game.state = 'retreat_lone_leader'
 	game.retreat = { from, reason }
@@ -5676,7 +5659,6 @@ function can_play_coehorns_in_siege(s) {
 
 function goto_siege(space) {
 	// TODO: unstack here?
-	clear_undo()
 	game.siege_where = space
 	if (can_play_coehorns_in_siege(game.siege_where))
 		game.state = 'siege_coehorns_attacker'
@@ -5912,7 +5894,6 @@ function goto_assault(where) {
 
 function goto_pick_raid() {
 	if (game.raid.list.length > 0) {
-		clear_undo()
 		game.state = 'pick_raid'
 	} else {
 		delete game.raid
@@ -5981,7 +5962,6 @@ states.militia_against_raid = {
 		game.count --
 	},
 	next() {
-		clear_undo()
 		set_active_enemy()
 		if (game.count === 0)
 			goto_battle(game.raid.where, false)
@@ -6156,7 +6136,6 @@ function resume_indians_and_leaders_go_home() {
 function end_indians_and_leaders_go_home() {
 	flush_go_home_summary()
 	logbr()
-	clear_undo()
 	if (game.active === FRANCE) {
 		set_active(BRITAIN)
 		resume_indians_and_leaders_go_home()
@@ -6486,7 +6465,6 @@ function resume_winter_attrition() {
 }
 
 function end_winter_attrition() {
-	clear_undo()
 	flush_summary()
 	if (game.active === FRANCE) {
 		set_active(BRITAIN)
@@ -6904,7 +6882,6 @@ function can_play_massacre() {
 }
 
 function goto_massacre(reason) {
-	clear_undo()
 	set_active_enemy()
 	game.state = 'massacre_1'
 	game.massacre = reason
@@ -7069,7 +7046,6 @@ events.northern_indian_alliance = {
 		return is_friendly_controlled_space(MONTREAL)
 	},
 	play() {
-		clear_undo() // rolling die
 		let roll = roll_die()
 		if (game.vp > 4)
 			game.count = roll
@@ -7088,7 +7064,6 @@ events.western_indian_alliance = {
 		return has_friendly_fort(OHIO_FORKS)
 	},
 	play() {
-		clear_undo() // rolling die
 		let roll = roll_die()
 		if (game.vp > 4)
 			game.count = roll
@@ -7120,7 +7095,6 @@ events.iroquois_alliance = {
 		return false
 	},
 	play() {
-		clear_undo() // rolling die
 		let roll = roll_die()
 		game.count = roll
 		game.alliance = [ 'gray' ]
@@ -7343,7 +7317,6 @@ events.cherokee_uprising = {
 		return false
 	},
 	play() {
-		clear_undo()
 		delete game.events.cherokees
 		game.events.cherokee_uprising = 1
 		set_active_enemy()
@@ -7403,7 +7376,6 @@ events.treaty_of_easton = {
 		return false
 	},
 	play() {
-		clear_undo()
 		set_active_enemy()
 		game.state = 'treaty_of_easton'
 	},
@@ -7576,7 +7548,6 @@ states.small_pox = {
 				gen_action_space(s)
 	},
 	space(s) {
-		clear_undo() // rolling die
 		log(`Small Pox at ${space_name(s)}.`)
 		let roll = roll_die()
 		if (count_enemy_units_in_space(s) > 8) {
@@ -7585,7 +7556,6 @@ states.small_pox = {
 			game.count = Math.ceil(roll / 2)
 		}
 		log(`Must eliminate ${game.count} steps.`)
-		clear_undo()
 		game.state = 'small_pox_eliminate_steps'
 		game.small_pox = s
 		set_active_enemy()
@@ -7628,7 +7598,6 @@ states.small_pox_eliminate_steps = {
 	},
 	next() {
 		if (has_friendly_indians(game.small_pox)) {
-			clear_undo()
 			game.state = 'small_pox_remove_indians'
 		} else {
 			end_small_pox()
@@ -7700,7 +7669,6 @@ events.british_ministerial_crisis = {
 		return enemy_player.hand.length > 0
 	},
 	play() {
-		clear_undo()
 		let n = 0
 		for (let i = 0; i < enemy_player.hand.length; ++i) {
 			let c = enemy_player.hand[i]
@@ -7828,7 +7796,6 @@ states.stingy_provincial_assembly_department = {
 }
 
 function goto_stingy_provincial_assembly(dept) {
-	clear_undo()
 	set_active_enemy()
 	game.state = 'stingy_provincial_assembly'
 	game.department = dept
@@ -7901,7 +7868,6 @@ function goto_british_colonial_politics() {
 		let max_n = northern_provincial_limit[game.pa]
 		let max_s = southern_provincial_limit[game.pa]
 		if (num_s > max_s || num_n > max_n) {
-			clear_undo()
 			set_active_enemy()
 			game.state = 'british_colonial_politics'
 			return
@@ -8169,7 +8135,6 @@ events.colonial_recruits = {
 		return n > 0
 	},
 	play() {
-		clear_undo() // rolling die
 		let roll = roll_die()
 		game.state = 'colonial_recruits'
 		game.count = roll
@@ -8246,7 +8211,6 @@ events.victories_in_germany_release_troops_and_finances_for_new_world = {
 		return has_unbesieged_reduced_regular_or_light_infantry_units()
 	},
 	play() {
-		clear_undo()
 		game.state = 'restore_regular_or_light_infantry_units'
 		game.count = roll_die()
 	},
@@ -8487,7 +8451,6 @@ states.french_regulars = {
 
 events.light_infantry = {
 	play() {
-		clear_undo() // drawing leader from pool
 		game.state = 'light_infantry'
 		game.count = 2
 		game.leader = draw_leader_from_pool()
@@ -8550,7 +8513,6 @@ events.british_regulars = {
 		return can_place_in_british_ports()
 	},
 	play() {
-		clear_undo() // drawing leader from pool
 		game.state = 'british_regulars'
 		game.count = 3
 		game.leader = draw_leader_from_pool()
@@ -8607,7 +8569,6 @@ events.highlanders = {
 		return false
 	},
 	play(card) {
-		clear_undo() // drawing leader from pool
 		game.state = 'highlanders'
 		game.leader = []
 		if (card === 60) {
@@ -8678,7 +8639,6 @@ events.royal_americans = {
 		return false
 	},
 	play() {
-		clear_undo() // drawing leader from pool
 		game.state = 'royal_americans'
 		game.count = 4
 		game.leader = draw_leader_from_pool()
@@ -8750,7 +8710,6 @@ states.acadians_expelled_place_regulars = {
 			let p = find_unused_british_regular()
 			place_piece(p, HALIFAX)
 		}
-		clear_undo()
 		game.acadians = game.active
 		set_active(FRANCE)
 		game.state = 'acadians_expelled_place_coureurs'
@@ -8924,8 +8883,6 @@ states.draw_regulars = {
 		}
 	},
 	card(c) {
-		clear_undo()
-
 		let x = player.hand[random(player.hand.length)]
 		remove_from_array(player.hand, x)
 		game.discard.push(x)
@@ -9431,7 +9388,8 @@ exports.setup = function (seed, scenario, options) {
 // ACTION HANDLERS
 
 function clear_undo() {
-	game.undo = []
+	if (game.undo.length > 0)
+		game.undo.length = 0
 }
 
 function push_undo() {
