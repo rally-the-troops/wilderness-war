@@ -2158,6 +2158,7 @@ function end_late_season() {
 
 function resume_action_phase() {
 	game.state = 'action_phase'
+	game.phasing = game.active
 	logbr()
 	log(`.h2 ${game.active}`)
 	logbr()
@@ -2186,6 +2187,7 @@ function end_action_phase() {
 		return
 	}
 
+	game.phasing = null
 	end_season()
 }
 
@@ -2252,11 +2254,7 @@ states.action_phase = {
 			gen_card_menu(player.hand[i])
 		if (player.hand.length === 1 && !player.held)
 			gen_action_pass()
-		gen_action_demolish()
 	},
-	demolish_fort: goto_demolish_fort,
-	demolish_stockade: goto_demolish_stockade,
-	demolish_fieldworks: goto_demolish_fieldworks,
 	play_event(card) {
 		push_undo()
 		player.did_construct = 0
@@ -3238,8 +3236,6 @@ states.move = {
 			gen_action('end_move')
 		}
 
-		gen_action_demolish()
-
 		if (game.move.used < max_movement_cost(game.move.type)) {
 			if (game.move.type === 'naval')
 				gen_naval_move()
@@ -3308,9 +3304,6 @@ states.move = {
 			game.state = 'confirm_end_move'
 		}
 	},
-	demolish_fort: goto_demolish_fort,
-	demolish_stockade: goto_demolish_stockade,
-	demolish_fieldworks: goto_demolish_fieldworks,
 }
 
 states.drop_off = {
@@ -3326,7 +3319,6 @@ states.drop_off = {
 		view.where = where
 
 		gen_action_next()
-		gen_action_demolish()
 
 		for_each_leader_in_force(who, p => {
 			if (p !== who && can_drop_off_leader(who, p))
@@ -3349,9 +3341,6 @@ states.drop_off = {
 		print_plain_summary("Dropped off", 'drop_off')
 		resume_move()
 	},
-	demolish_fort: goto_demolish_fort,
-	demolish_stockade: goto_demolish_stockade,
-	demolish_fieldworks: goto_demolish_fieldworks,
 }
 
 states.confirm_end_move = {
@@ -6905,7 +6894,6 @@ states.max_two_7_command_leaders_in_play = {
 	}
 }
 
-
 // EVENTS
 
 function can_play_massacre() {
@@ -8390,7 +8378,6 @@ states.rangers = {
 						done = false
 						gen_action_space(s)
 					}
-						
 				}
 			}
 		}
@@ -9300,6 +9287,7 @@ exports.setup = function (seed, scenario, options) {
 		seed: seed,
 		options: options,
 		state: null,
+		phasing: null,
 		active: FRANCE,
 
 		// Tracks, VP, and event triggers
@@ -9386,10 +9374,10 @@ exports.setup = function (seed, scenario, options) {
 	case "Early War Campaign":
 		setup_1755(1759)
 		break
-	case "Late War Campaign": 
+	case "Late War Campaign":
 		setup_1757(1762, 4)
 		break
-	case "The Full Campaign": 
+	case "The Full Campaign":
 		setup_1755(1762)
 		break
 	}
@@ -9524,15 +9512,18 @@ exports.resign = function (state, current) {
 
 exports.action = function (state, current, action, arg) {
 	load_game_state(state)
-	let S = states[game.state]
-	if (action in S) {
-		S[action](arg)
-	} else {
-		if (action === 'undo' && game.undo && game.undo.length > 0)
-			pop_undo()
-		else
-			throw new Error("Invalid action: " + action)
-	}
+	if (action in states[game.state])
+		states[game.state][action](arg)
+	else if (action === 'undo' && game.undo && game.undo.length > 0)
+		pop_undo()
+	else if (action === 'demolish_fort' && current === game.active && current === game.phasing)
+		goto_demolish_fort()
+	else if (action === 'demolish_stockade' && current === game.active && current === game.phasing)
+		goto_demolish_stockade()
+	else if (action === 'demolish_fieldworks' && current === game.active && current === game.phasing)
+		goto_demolish_fieldworks()
+	else
+		throw new Error("Invalid action: " + action)
 	return game
 }
 
@@ -9638,6 +9629,12 @@ exports.view = function(state, current) {
 			inactive_prompt(game.state.replace(/_/g, " "))
 	} else {
 		states[game.state].prompt()
+		if (game.active === game.phasing) {
+			if (game.state !== 'demolish_fort' &&
+			    game.state !== 'demolish_stockade' &&
+			    game.state !== 'demolish_fieldworks')
+				gen_action_demolish()
+		}
 		gen_action_undo()
 	}
 
