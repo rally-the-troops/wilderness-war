@@ -211,6 +211,9 @@ aside { width: 220px; }
 
 .highlight {
 	cursor: pointer;
+}
+
+.leader.highlight, .unit.highlight {
 	z-index: 200;
 }
 
