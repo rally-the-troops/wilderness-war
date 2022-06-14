@@ -8929,10 +8929,6 @@ exports.roles = [
 	BRITAIN,
 ]
 
-exports.ready = function (scenario, options, players) {
-	return players.length === 2
-}
-
 function setup_markers(m, list) {
 	list.forEach(name => m.push(find_space(name)))
 }
