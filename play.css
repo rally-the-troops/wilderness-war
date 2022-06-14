@@ -211,10 +211,12 @@ aside { width: 220px; }
 
 .highlight {
 	cursor: pointer;
+	z-index: 200;
 }
 
-.leader.highlight, .unit.highlight {
-	z-index: 200;
+body.shift .highlight {
+	pointer-events: none;
+	z-index: 0;
 }
 
 /* SPACES */
