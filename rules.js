@@ -9392,6 +9392,7 @@ function push_undo() {
 	game.undo.push(JSON.stringify(game, (k,v) => {
 		if (k === 'undo') return 0
 		if (k === 'log') return v.length
+		if (k === 'retro_foul_weather') return 1
 		return v
 	}))
 }
@@ -9399,10 +9400,13 @@ function push_undo() {
 function pop_undo() {
 	let save_undo = game.undo
 	let save_log = game.log
+	let save_retro_fw = game.retro_foul_weather
 	game = JSON.parse(save_undo.pop())
 	game.undo = save_undo
 	save_log.length = game.log
 	game.log = save_log
+	if (game.retro_foul_weather)
+		game.retro_foul_weather = save_retro_fw
 	update_active_aliases()
 }
 
