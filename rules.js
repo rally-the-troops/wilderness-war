@@ -2877,7 +2877,7 @@ function resume_move() {
 	if (game.move.used < 0) {
 		if (is_enemy_card_available(FOUL_WEATHER) && !enemy_player.pass_fw) {
 			if (game.options.retroactive) {
-				game.retro_foul_weather = JSON.stringify(game)
+				game.retro_foul_weather = deep_copy(game)
 			} else {
 				set_active_enemy()
 				game.state = 'foul_weather'
@@ -3362,9 +3362,9 @@ function goto_retroactive_foul_weather() {
 
 		let state_start = game.retro_foul_weather
 		delete game.retro_foul_weather
-		let state_next = JSON.stringify(game)
+		let state_next = deep_copy(game)
 
-		load_game_state(JSON.parse(state_start))
+		load_game_state(state_start)
 		set_active_enemy()
 		game.state = 'foul_weather'
 		game.retro_foul_weather = state_next
@@ -3420,7 +3420,7 @@ states.foul_weather = {
 	pass() {
 		if (game.options.retroactive) {
 			// console.log("RETRO PASS")
-			load_game_state(JSON.parse(game.retro_foul_weather))
+			load_game_state(game.retro_foul_weather)
 		} else {
 			game.move.used = 0
 			set_active_enemy()
@@ -9388,23 +9388,52 @@ function clear_undo() {
 		game.undo.length = 0
 }
 
+function deep_copy(original) {
+	if (Array.isArray(original)) {
+		let n = original.length
+		let copy = new Array(n)
+		for (let i = 0; i < n; ++i) {
+			let v = original[i]
+			if (typeof v === "object" && v !== null)
+				copy[i] = deep_copy(v)
+			else
+				copy[i] = v
+		}
+		return copy
+	} else {
+		let copy = {}
+		for (let i in original) {
+			let v = original[i]
+			if (typeof v === "object" && v !== null)
+				copy[i] = deep_copy(v)
+			else
+				copy[i] = v
+		}
+		return copy
+	}
+}
+
 function push_undo() {
-	game.undo.push(JSON.stringify(game, (k,v) => {
-		if (k === 'undo') return 0
-		if (k === 'log') return v.length
-		if (k === 'retro_foul_weather') return 1
-		return v
-	}))
+	let copy = {}
+	for (let k in game) {
+		let v = game[k]
+		if (k === "undo") continue
+		else if (k === "log") v = v.length
+		else if (k === "retro_foul_weather") v = 1
+		else if (typeof v === "object" && v !== null) v = deep_copy(v)
+		copy[k] = v
+	}
+	game.undo.push(copy)
 }
 
 function pop_undo() {
-	let save_undo = game.undo
 	let save_log = game.log
+	let save_undo = game.undo
 	let save_retro_fw = game.retro_foul_weather
-	game = JSON.parse(save_undo.pop())
-	game.undo = save_undo
+	game = save_undo.pop()
 	save_log.length = game.log
 	game.log = save_log
+	game.undo = save_undo
 	if (game.retro_foul_weather)
 		game.retro_foul_weather = save_retro_fw
 	update_active_aliases()
@@ -9520,7 +9549,7 @@ exports.view = function(state, current) {
 	load_game_state(state)
 
 	if (game.retro_foul_weather && game.state !== 'foul_weather' && current !== game.active) {
-		load_game_state(JSON.parse(game.retro_foul_weather))
+		load_game_state(game.retro_foul_weather)
 	}
 
 	view = {
