@@ -4261,6 +4261,8 @@ states.militia_in_battle = {
 	piece(p) {
 		push_undo()
 		move_piece_to(p, game.battle.where)
+		if (game.active === game.battle.attacker)
+			game.battle.atk_pcs.push(p)
 		if (game.summary)
 			game.summary.deploy.push(p)
 		else
