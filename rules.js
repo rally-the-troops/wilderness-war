@@ -4504,7 +4504,7 @@ states.attacker_events = {
 			view.prompt += " You don't have " + dont_have.join(" or ") + "."
 		if (have.length === 0 && dont_have.length === 0)
 			view.prompt += " You have no more response events."
-		gen_action_next()
+		gen_action_pass()
 	},
 	play_event(c) {
 		push_undo()
@@ -4522,6 +4522,9 @@ states.attacker_events = {
 			remove_fieldworks(game.battle.where)
 			break
 		}
+	},
+	pass() {
+		goto_battle_defender_events()
 	},
 	next() {
 		goto_battle_defender_events()
@@ -4573,7 +4576,7 @@ states.defender_events = {
 			view.prompt += " You don't have " + dont_have.join(" or ") + "."
 		if (have.length === 0 && dont_have.length === 0)
 			view.prompt += " You have no more response events."
-		gen_action_next()
+		gen_action_pass()
 	},
 	play_event(c) {
 		push_undo()
@@ -4591,6 +4594,9 @@ states.defender_events = {
 			place_fieldworks(game.battle.where)
 			break
 		}
+	},
+	pass() {
+		goto_battle_roll()
 	},
 	next() {
 		goto_battle_roll()
@@ -6745,7 +6751,10 @@ states.construct_stockades = {
 	inactive: "construct stockades",
 	prompt() {
 		view.prompt = `Construct Stockades${format_remain(game.count)}.`
-		gen_action_next()
+		if (game.count > 0)
+			gen_action_pass()
+		else
+			gen_action_next()
 		if (game.count > 0) {
 			for (let s = first_space; s <= last_space; ++s) {
 				if (has_friendly_supplied_drilled_troops(s) || is_originally_friendly(s)) {
@@ -6772,6 +6781,9 @@ states.construct_stockades = {
 		player.stockades.push(s)
 		game.count --
 	},
+	pass() {
+		end_action_phase()
+	},
 	next() {
 		end_action_phase()
 	},
@@ -6790,7 +6802,10 @@ states.construct_forts = {
 	inactive: "construct forts",
 	prompt() {
 		view.prompt = `Construct Forts${format_remain(game.count)}.`
-		gen_action_next()
+		if (game.count > 0)
+			gen_action_pass()
+		else
+			gen_action_next()
 		if (game.count > 0) {
 			for (let s = first_space; s <= last_space; ++s) {
 				if (has_friendly_supplied_drilled_troops(s)) {
@@ -6822,6 +6837,10 @@ states.construct_forts = {
 			game.list.push(s) // don't finish it in the same action phase
 		}
 		game.count --
+	},
+	pass() {
+		delete game.list
+		end_action_phase()
 	},
 	next() {
 		delete game.list
@@ -9454,10 +9473,8 @@ function gen_action(action, argument) {
 	}
 }
 
-function gen_action_next(prompt) {
-	if (!view.actions)
-		view.actions = {}
-	view.actions.next = prompt || 1
+function gen_action_next() {
+	gen_action('next')
 }
 
 function gen_action_pass() {
