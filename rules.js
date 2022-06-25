@@ -7745,20 +7745,18 @@ function count_unbesieged_northern_provincials() {
 	return n
 }
 
-function count_reduced_unbesieged_southern_provincials() {
-	let n = 0
+function can_restore_southern_provincial_regiments() {
 	for (let p = first_southern_provincial; p <= last_southern_provincial; ++p)
-		if (is_piece_on_map(p) && is_piece_unbesieged(p) && is_unit_reduced(p))
-			++n
-	return n
+		if (can_restore_unit(p))
+			return true
+	return false
 }
 
-function count_reduced_unbesieged_northern_provincials() {
-	let n = 0
+function can_restore_northern_provincial_regiments() {
 	for (let p = first_northern_provincial; p <= last_northern_provincial; ++p)
-		if (is_piece_on_map(p) && is_piece_unbesieged(p) && is_unit_reduced(p))
-			++n
-	return n
+		if (can_restore_unit(p))
+			return true
+	return false
 }
 
 events.stingy_provincial_assembly = {
@@ -7928,14 +7926,6 @@ function can_raise_northern_provincial_regiments() {
 	let num = count_northern_provincials()
 	let max = northern_provincial_limit[game.pa]
 	return num < max
-}
-
-function can_restore_southern_provincial_regiments() {
-	return count_reduced_unbesieged_southern_provincials() > 0
-}
-
-function can_restore_northern_provincial_regiments() {
-	return count_reduced_unbesieged_northern_provincials() > 0
 }
 
 events.raise_provincial_regiments = {
@@ -8130,11 +8120,10 @@ function is_colonial_recruit(p) {
 
 events.colonial_recruits = {
 	can_play() {
-		let n = 0
 		for (let p = first_friendly_unit; p <= last_friendly_unit; ++p)
-			if (is_colonial_recruit(p) && is_piece_unbesieged(p) && is_unit_reduced(p))
-				++n
-		return n > 0
+			if (can_restore_unit(p))
+				return true
+		return false
 	},
 	play() {
 		let roll = roll_die()
@@ -8173,10 +8162,10 @@ states.colonial_recruits = {
 	},
 }
 
-function has_unbesieged_reduced_regular_or_light_infantry_units() {
+function can_restore_regular_or_light_infantry_units() {
 	for (let p = first_friendly_unit; p <= last_friendly_unit; ++p)
 		if (is_regular(p) || is_light_infantry(p))
-			if (is_piece_unbesieged(p) && is_unit_reduced(p))
+			if (can_restore_unit(p))
 				return true
 	return false
 }
@@ -8189,7 +8178,7 @@ events.troop_transports_and_local_enlistments = {
 			if (is_british_controlled_space(QUEBEC))
 				return false
 		}
-		return has_unbesieged_reduced_regular_or_light_infantry_units()
+		return can_restore_regular_or_light_infantry_units()
 	},
 	play() {
 		game.state = 'restore_regular_or_light_infantry_units'
@@ -8210,7 +8199,7 @@ events.victories_in_germany_release_troops_and_finances_for_new_world = {
 			if (is_british_controlled_space(QUEBEC))
 				return false
 		}
-		return has_unbesieged_reduced_regular_or_light_infantry_units()
+		return can_restore_regular_or_light_infantry_units()
 	},
 	play() {
 		game.state = 'restore_regular_or_light_infantry_units'
