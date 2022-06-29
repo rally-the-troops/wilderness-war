@@ -7249,8 +7249,8 @@ events.mohawks = {
 		let s = piece_space(JOHNSON)
 		if (within_two_of_canajoharie.includes(s))
 			if (is_piece_unbesieged(JOHNSON))
-				return true
-		return can_place_or_restore_indians(first_mohawk, last_mohawk)
+				return can_place_or_restore_indians(first_mohawk, last_mohawk)
+		return false
 	},
 	play() {
 		if (can_place_indians(first_mohawk, last_mohawk)) {
