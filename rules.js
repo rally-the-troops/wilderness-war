@@ -3075,6 +3075,18 @@ function stop_land_move() {
 		game.move.used = 9
 }
 
+function would_be_infiltration_move(who, from, to) {
+	if (is_lone_auxiliary(who)) {
+		if (has_enemy_stockade(to) && can_infiltrate(from, to))
+			return true
+		if (has_unbesieged_enemy_fort_or_fortress(to) && can_infiltrate(from, to))
+			return true
+		if (has_unbesieged_enemy_units(to) && can_infiltrate(from, to))
+			return true
+	}
+	return false
+}
+
 function apply_move(to) {
 	let who = moving_piece()
 	let from = moving_piece_space()
@@ -3236,6 +3248,8 @@ states.move = {
 		if (game.move.infiltrated) {
 			if (!has_unbesieged_enemy_fort_or_fortress(from))
 				gen_action('stop')
+			else if (game.move.used === 9)
+				gen_action('end_move')
 		} else {
 			gen_action('end_move')
 		}
@@ -3270,16 +3284,18 @@ states.move = {
 	space(to) {
 		push_undo()
 
-		apply_move(to)
+		let from = moving_piece_space()
 
 		if (is_enemy_card_available(LAKE_SCHOONER)) {
-			let from = moving_piece_came_from()
 			if (has_enemy_fortifications(to) && is_lake_connection(from, to)) {
 				set_active_enemy()
+				game.move.lake_schooner = to
 				game.state = 'lake_schooner'
 				return goto_retroactive_foul_weather()
 			}
 		}
+
+		apply_move(to)
 
 		goto_intercept()
 	},
@@ -3437,43 +3453,52 @@ states.foul_weather = {
 
 states.lake_schooner = {
 	inactive() {
-		inactive_prompt("lake schooner", moving_piece(), moving_piece_came_from())
+		inactive_prompt("lake schooner", moving_piece(), game.move.lake_schooner)
 	},
 	prompt() {
-		let p = moving_piece()
-		let to = moving_piece_space()
-		let from = moving_piece_came_from()
-		view.who = p
-		view.where = from
+		let who = moving_piece()
+		let from = moving_piece_space()
+		let to = game.move.lake_schooner
+		view.who = who
+		view.where = to
 		if (player.hand.includes(LAKE_SCHOONER)) {
-			view.prompt = `${piece_name(p)} moved from ${space_name(from)} to ${space_name(to)}. You may play "Lake Schooner".`
+			view.prompt = `${piece_name(who)} is about to move from ${space_name(from)} to ${space_name(to)}. You may play "Lake Schooner".`
 			gen_action('play_event', LAKE_SCHOONER)
 		} else {
-			view.prompt = `${piece_name(p)} moved from ${space_name(from)} to ${space_name(to)}. You don't have "Lake Schooner".`
+			view.prompt = `${piece_name(who)} is about to move from ${space_name(from)} to ${space_name(to)}. You don't have "Lake Schooner".`
 		}
 		gen_action_pass()
 	},
 	play_event(c) {
 		play_card(c)
 		let who = moving_piece()
-		let from = moving_piece_came_from()
+		let from = moving_piece_space()
+		let to = game.move.lake_schooner
+		delete game.move.lake_schooner
+
 		set_active_enemy()
-		stop_move()
-		move_piece_to(who, from)
+
 		log(`${piece_name(who)} stopped at ${space_name(from)}.`)
 
-		// 6.63 eliminate if forced back into enemy-occupied space
-		if (has_unbesieged_enemy_units(from) || has_unbesieged_enemy_fortifications(from)) {
-			for_each_friendly_piece_in_space(from, p => {
-				if (is_piece_unbesieged(p))
-					eliminate_piece(p)
-			})
+		if (would_be_infiltration_move(who, from, to)) {
+			// 6.63 eliminate if forced back into enemy-occupied space during infiltration
+			if (has_unbesieged_enemy_units(from) || has_unbesieged_enemy_fortifications(from)) {
+				for_each_friendly_piece_in_space(from, p => {
+					if (is_piece_unbesieged(p))
+						eliminate_piece(p)
+				})
+			}
 		}
 
+		stop_move()
 		resume_move()
 	},
 	pass() {
+		let to = game.move.lake_schooner
+		delete game.move.lake_schooner
+
 		set_active_enemy()
+		apply_move(to)
 		goto_intercept()
 	}
 }
