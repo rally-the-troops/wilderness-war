@@ -9368,9 +9368,6 @@ exports.setup = function (seed, scenario, options) {
 		log: [],
 	})
 
-	if (false)
-		delete game.summary
-
 	switch (scenario) {
 	default:
 		// fallthrough
@@ -9670,9 +9667,7 @@ exports.view = function(state, current) {
 	} else {
 		states[game.state].prompt()
 		if (game.active === game.phasing) {
-			if (game.state !== 'demolish_fort' &&
-			    game.state !== 'demolish_stockade' &&
-			    game.state !== 'demolish_fieldworks')
+			if (game.state !== 'demolish_fort' && game.state !== 'demolish_stockade' && game.state !== 'demolish_fieldworks')
 				gen_action_demolish()
 		}
 		gen_action_undo()
