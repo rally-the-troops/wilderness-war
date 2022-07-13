@@ -2812,17 +2812,21 @@ states.siege_or_move = {
 		gen_action('move')
 	},
 	siege() {
+		push_undo()
 		goto_siege(moving_piece_space())
 	},
 	assault() {
+		push_undo()
 		goto_assault(moving_piece_space())
 	},
 	play_event(c) {
+		push_undo()
 		game.siege_where = moving_piece_space()
 		play_card(c)
 		goto_surrender()
 	},
 	move() {
+		push_undo()
 		resume_move()
 	},
 }
@@ -3286,9 +3290,11 @@ states.move = {
 		game.state = 'drop_off'
 	},
 	siege() {
+		push_undo()
 		goto_siege(moving_piece_space())
 	},
 	assault() {
+		push_undo()
 		goto_assault(moving_piece_space())
 	},
 	stop() {
