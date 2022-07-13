@@ -3691,6 +3691,16 @@ function gen_intercept() {
 }
 
 function goto_intercept() {
+	// Abandoned lone leader at formerly besieged fortification with enemy units...
+	let from = moving_piece_came_from()
+	if (has_unbesieged_friendly_leader(from) && !has_unbesieged_friendly_units(from)) {
+		if (has_unbesieged_enemy_units(from)) {
+			game.state = 'retreat_lone_leader'
+			game.retreat = { from: from, reason: 'abandon' }
+			return
+		}
+	}
+
 	if (can_be_intercepted()) {
 		game.move.intercepting = 0
 		set_active_enemy()
@@ -5343,7 +5353,7 @@ function can_defender_retreat_from_to(p, from, to) {
 	if (has_unbesieged_enemy_fortifications(to))
 		return false
 	if (game.move && moving_piece_came_from() === to)
-		if (!game.retreat || game.retreat.reason !== 'friendly_move')
+		if (!game.retreat || game.retreat.reason !== 'friendly_move' || game.retreat.reason !== 'abandon')
 			return false
 	if (force_has_drilled_troops(p)) {
 		if (is_cultivated(to) || has_friendly_fortifications(to))
@@ -5636,6 +5646,10 @@ function resume_retreat_lone_leader(from) {
 		case 'friendly_move':
 			delete game.retreat
 			resume_move()
+			break
+		case 'abandon':
+			delete game.retreat
+			goto_intercept()
 			break
 		}
 	}
