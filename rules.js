@@ -6951,6 +6951,7 @@ function goto_massacre(reason) {
 	set_active_enemy()
 	game.state = 'massacre_1'
 	game.massacre = reason
+	return goto_retroactive_foul_weather()
 }
 
 function end_massacre() {
